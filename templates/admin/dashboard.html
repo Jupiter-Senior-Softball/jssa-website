@@ -32,7 +32,7 @@
 
 <div class="adminbar">
   <span class="meta-tag">Signed in</span>
-  <a href="{{ url_for('admin_logout') }}">Sign out</a>
+  <span><a href="{{ url_for('admin_blackboard') }}">Manage Blackboard &rarr;</a> &nbsp;·&nbsp; <a href="{{ url_for('admin_logout') }}">Sign out</a></span>
 </div>
 
 {% if not configured %}
