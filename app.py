@@ -51,7 +51,12 @@ def home():
         teams_posted = sheets.game_day_teams() is not None
     except Exception:
         teams_posted = False
-    return render_template("index.html", notice=notice, teams_posted=teams_posted)
+    try:
+        blackboard = sheets.blackboard_posts()
+    except Exception:
+        blackboard = []
+    return render_template("index.html", notice=notice,
+                           teams_posted=teams_posted, blackboard=blackboard)
 
 
 @app.route("/teams")
@@ -168,6 +173,75 @@ def admin_delete(nid):
     except Exception:
         pass
     return redirect(url_for("admin_dashboard"))
+
+
+
+# ----------------------------------------------------------------------------
+# Blackboard admin
+# ----------------------------------------------------------------------------
+@app.route("/admin/blackboard")
+@login_required
+def admin_blackboard():
+    configured = sheets.is_configured()
+    posts = []
+    error = None
+    if configured:
+        try:
+            posts = sheets.list_bb_posts()
+        except Exception as e:
+            error = str(e)
+    editing = None
+    edit_id = request.args.get("edit")
+    if edit_id:
+        for p in posts:
+            if str(p.get("id")) == str(edit_id):
+                editing = p
+                break
+    return render_template("admin/blackboard.html",
+                           configured=configured, posts=posts,
+                           error=error, editing=editing)
+
+
+@app.route("/admin/blackboard/add", methods=["POST"])
+@login_required
+def admin_bb_add():
+    try:
+        sheets.add_bb_post(request.form)
+    except Exception:
+        pass
+    return redirect(url_for("admin_blackboard"))
+
+
+@app.route("/admin/blackboard/<bid>/update", methods=["POST"])
+@login_required
+def admin_bb_update(bid):
+    try:
+        sheets.update_bb_post(bid, request.form)
+    except Exception:
+        pass
+    return redirect(url_for("admin_blackboard"))
+
+
+@app.route("/admin/blackboard/<bid>/toggle", methods=["POST"])
+@login_required
+def admin_bb_toggle(bid):
+    active = request.form.get("active") == "1"
+    try:
+        sheets.set_bb_active(bid, active)
+    except Exception:
+        pass
+    return redirect(url_for("admin_blackboard"))
+
+
+@app.route("/admin/blackboard/<bid>/delete", methods=["POST"])
+@login_required
+def admin_bb_delete(bid):
+    try:
+        sheets.delete_bb_post(bid)
+    except Exception:
+        pass
+    return redirect(url_for("admin_blackboard"))
+
 
 
 if __name__ == "__main__":
