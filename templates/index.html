@@ -73,6 +73,7 @@
   .hero .eyebrow{display:inline-flex;align-items:center;gap:9px;font-family:var(--display);font-weight:700;font-size:.8rem;letter-spacing:.12em;text-transform:uppercase;color:#9fc0ff}
   .hero .eyebrow::before{content:"";width:22px;height:2px;background:#9fc0ff;border-radius:2px}
   .hero h1{font-size:clamp(1.9rem,4vw,2.6rem);font-weight:900;color:#fff;margin:12px 0 0;letter-spacing:-.03em}
+  .hero h1 .welcome{display:block;font-size:.4em;font-weight:700;letter-spacing:.01em;color:#cfe0ff;margin-bottom:3px;text-transform:none}
   .hero p.lede{font-size:1.18rem;color:#cbd6ee;margin-top:12px;max-width:62ch}
   .hero p.lede strong{color:#fff;font-weight:700}
   .hero .deadline{margin-top:16px;color:#9fc0ff;font-size:1rem}
@@ -82,7 +83,7 @@
   .divflag span{font-family:var(--display);font-weight:800;font-size:.8rem;letter-spacing:.1em;padding:6px 16px;border-radius:8px;color:#fff}
   .divflag .r{background:var(--red)}.divflag .w{background:#fff;color:var(--navy)}.divflag .b{background:var(--blue)}
 
-  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin:0 auto}
   .stats .s{background:var(--surface);padding:18px 18px;text-align:center}
   .stats .s .k{font-family:var(--display);font-weight:700;font-size:.74rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
   .stats .s .v{font-family:var(--display);font-weight:800;font-size:1.18rem;color:var(--navy);margin-top:5px;line-height:1.18}
@@ -322,7 +323,7 @@
 <section class="hero">
   <div class="wrap">
     <span class="eyebrow">Jupiter, Florida · Players 55 &amp; Over</span>
-    <h1>Jupiter Senior Softball</h1>
+    <h1><span class="welcome">Welcome to the home of</span>Jupiter Senior Softball</h1>
     <p class="lede">Pickup games <strong>Monday, Wednesday &amp; Friday</strong> at Jupiter Community Park &mdash; first pitch <strong>10:30 AM</strong>.</p>
     <div class="cta-row">
       <a class="btn btn-red" href="https://script.google.com/macros/s/AKfycbzLLz9E-qjJwXbgAkaGjhH0PT_3oa13uzrl9T5dT1omGCL6Ocw1lYELg8xFBM7zuapN7g/exec">Sign up to play &rarr;</a>
@@ -333,12 +334,12 @@
 </section>
 
 <!-- ============ STATS ============ -->
-<div class="stats">
+<div class="wrap"><div class="stats">
   <div class="s"><div class="k">Game Days</div><div class="v">Mon · Wed · Fri</div></div>
   <div class="s"><div class="k">First Pitch</div><div class="v">10:30 AM</div></div>
   <div class="s"><div class="k">Where</div><div class="v">Jupiter Community Park</div></div>
   <div class="s"><div class="k">Who Can Play</div><div class="v">Ages 55 &amp; Up</div></div>
-</div>
+</div></div>
 
 <!-- ============ GET IN THE GAME ============ -->
 <section class="block" id="getin">
@@ -352,7 +353,7 @@
         <div class="sub">Get on tomorrow's team</div>
         <div class="go">Sign up now →</div>
       </a>
-      <a class="card" href="https://docs.google.com/spreadsheets/d/1oHgGae0aXVVsr7t9hmDmoLxZWO5p9rLFPebSsXoFfAA/edit?gid=883277822">
+      <a class="card" href="https://docs.google.com/spreadsheets/d/1oHgGae0aXVVsr7t9hmDmoLxZWO5p9rLFPebSsXoFfAA/preview">
         <div class="ttl">Game Schedule</div>
         <div class="sub">See the lineup</div>
         <div class="go">View teams →</div>
@@ -517,6 +518,9 @@
     <div class="sec-eyebrow">Who Runs the League</div>
     <h2 class="sec-title">Board of directors</h2>
     <div class="people">
+{% if board %}{% for m in board %}
+      <div class="person{% if m.division %} {{ m.division }}{% endif %}"><span class="av">{{ m.initials }}</span><div><div class="nm">{{ m.name }}</div><div class="role">{{ m.role }}</div></div></div>
+{% endfor %}{% else %}
       <div class="person"><span class="av">RS</span><div><div class="nm">Richie Sewell</div><div class="role">Commissioner</div></div></div>
       <div class="person"><span class="av">JC</span><div><div class="nm">John Cariero</div><div class="role">Vice Commissioner</div></div></div>
       <div class="person"><span class="av">SK</span><div><div class="nm">Steven Klein</div><div class="role">Executive Director</div></div></div>
@@ -529,6 +533,7 @@
       <div class="person blue"><span class="av">RB</span><div><div class="nm">Ron Bialosky</div><div class="role">Director · Blue</div></div></div>
       <div class="person blue"><span class="av">JM</span><div><div class="nm">Jeff McCrave</div><div class="role">Director · Blue</div></div></div>
       <div class="person blue"><span class="av">MR</span><div><div class="nm">Miriam Ruffolo</div><div class="role">Director · Blue</div></div></div>
+{% endif %}
     </div>
   </div>
 </section>
@@ -570,7 +575,7 @@
           <li><a href="https://enroll.zellepay.com/">Pay With Zelle <span class="arr">→</span></a></li>
           <li><a href="https://docs.google.com/document/d/12PcGOT9z9jUdBk8W6gf6seHdj1oSmaKFduM-XZhFKDU/edit">85 + 5 Membership Explained <span class="arr">→</span></a></li>
           <li><a href="/in-memoriam">In Memoriam <span class="arr">→</span></a></li>
-          <li><a href="https://drive.google.com/drive/folders/1zVqt81K8wr2isRvcJpdgLnrBMCKOa7_L">Board Members Portal <span class="arr">→</span></a></li>
+          <li><a href="/admin">Board Members Portal <span class="arr">→</span></a></li>
         </ul>
       </div>
     </div>
@@ -633,7 +638,7 @@
     {n:"Carmine's Restorante",t:"Restaurant \u00b7 Jupiter",u:"http://carminescfp.com/",d:"carminescfp.com",l:""},
     {n:"Bradley Molineux",t:"LPL Securities & Advisory Services",u:"",d:"",l:"",p:"772-221-3100"}
   ];
-  function logoCandidates(s){var c=[];if(s.fid){c.push('https://lh3.googleusercontent.com/d/'+s.fid+'=w512');c.push('https://drive.google.com/thumbnail?id='+s.fid+'&sz=w512');}if(s.l)c.push(s.l);return c;}
+  function logoCandidates(s){var c=[];if(s.l)c.push(s.l);if(s.fid){c.push('https://lh3.googleusercontent.com/d/'+s.fid+'=w512');c.push('https://drive.google.com/thumbnail?id='+s.fid+'&sz=w512');}return c;}
   function initials(n){var w=n.split(/\s+/).filter(function(x){return /[A-Za-z0-9]/.test(x);});var s='';for(var k=0;k<w.length&&s.length<2;k++){s+=w[k].replace(/[^A-Za-z0-9]/g,'').charAt(0);}return (s||n.charAt(0)).toUpperCase();}
   function monoEl(n){var m=document.createElement('div');m.className='s-mono';m.textContent=initials(n);return m;}
   function wireLogo(img,fb,list){
