@@ -25,6 +25,7 @@ Environment variables (set in Render):
 import os
 import hmac
 import functools
+import re
 
 from flask import (
     Flask, render_template, jsonify, abort,
@@ -55,8 +56,13 @@ def home():
         blackboard = sheets.blackboard_posts()
     except Exception:
         blackboard = []
+    try:
+        photos = sheets.highlight_photo_ids()
+    except Exception:
+        photos = []
     return render_template("index.html", notice=notice,
-                           teams_posted=teams_posted, blackboard=blackboard)
+                           teams_posted=teams_posted, blackboard=blackboard,
+                           photos=photos)
 
 
 @app.route("/teams")
@@ -71,6 +77,25 @@ def teams():
 @app.route("/healthz")
 def healthz():
     return jsonify(status="ok")
+
+
+_PHOTO_ID_RE = re.compile(r"^[A-Za-z0-9_-]{10,}$")
+
+
+@app.route("/highlights/photo/<file_id>")
+def highlights_photo(file_id):
+    if not _PHOTO_ID_RE.match(file_id):
+        abort(404)
+    try:
+        data, ctype = sheets.fetch_photo_bytes(file_id)
+    except Exception:
+        data, ctype = None, None
+    if not data:
+        abort(404)
+    from flask import Response
+    resp = Response(data, mimetype=ctype or "image/jpeg")
+    resp.headers["Cache-Control"] = "public, max-age=3600"
+    return resp
 
 
 # Interior content pages (rebuilt natively from the league's Google Docs).
@@ -89,7 +114,18 @@ def page(slug):
     title = PAGES.get(slug)
     if title is None:
         abort(404)
-    return render_template(f"pages/{slug}.html", page_title=title)
+    ctx = {"page_title": title}
+    if slug == "in-memoriam":
+        try:
+            ctx["entries"] = sheets.in_memoriam_entries()
+        except Exception:
+            ctx["entries"] = []
+    elif slug == "hall-of-fame":
+        try:
+            ctx["inductees"] = sheets.hof_entries()
+        except Exception:
+            ctx["inductees"] = []
+    return render_template(f"pages/{slug}.html", **ctx)
 
 
 # ----------------------------------------------------------------------------
@@ -242,6 +278,138 @@ def admin_bb_delete(bid):
         pass
     return redirect(url_for("admin_blackboard"))
 
+
+
+# ----------------------------------------------------------------------------
+# In Memoriam admin
+# ----------------------------------------------------------------------------
+@app.route("/admin/memoriam")
+@login_required
+def admin_memoriam():
+    configured = sheets.is_configured()
+    entries, error = [], None
+    if configured:
+        try:
+            entries = sheets.list_mem_entries()
+        except Exception as e:
+            error = str(e)
+    editing = None
+    edit_id = request.args.get("edit")
+    if edit_id:
+        for e in entries:
+            if str(e.get("id")) == str(edit_id):
+                editing = e
+                break
+    return render_template("admin/manage-memoriam.html",
+                           configured=configured, entries=entries,
+                           error=error, editing=editing)
+
+
+@app.route("/admin/memoriam/add", methods=["POST"])
+@login_required
+def admin_mem_add():
+    try:
+        sheets.add_mem_entry(request.form)
+    except Exception:
+        pass
+    return redirect(url_for("admin_memoriam"))
+
+
+@app.route("/admin/memoriam/<eid>/update", methods=["POST"])
+@login_required
+def admin_mem_update(eid):
+    try:
+        sheets.update_mem_entry(eid, request.form)
+    except Exception:
+        pass
+    return redirect(url_for("admin_memoriam"))
+
+
+@app.route("/admin/memoriam/<eid>/toggle", methods=["POST"])
+@login_required
+def admin_mem_toggle(eid):
+    active = request.form.get("active") == "1"
+    try:
+        sheets.set_mem_active(eid, active)
+    except Exception:
+        pass
+    return redirect(url_for("admin_memoriam"))
+
+
+@app.route("/admin/memoriam/<eid>/delete", methods=["POST"])
+@login_required
+def admin_mem_delete(eid):
+    try:
+        sheets.delete_mem_entry(eid)
+    except Exception:
+        pass
+    return redirect(url_for("admin_memoriam"))
+
+
+# ----------------------------------------------------------------------------
+# Hall of Fame admin
+# ----------------------------------------------------------------------------
+@app.route("/admin/hof")
+@login_required
+def admin_hof():
+    configured = sheets.is_configured()
+    entries, error = [], None
+    if configured:
+        try:
+            entries = sheets.list_hof_entries()
+        except Exception as e:
+            error = str(e)
+    editing = None
+    edit_id = request.args.get("edit")
+    if edit_id:
+        for e in entries:
+            if str(e.get("id")) == str(edit_id):
+                editing = e
+                break
+    return render_template("admin/manage-hof.html",
+                           configured=configured, entries=entries,
+                           error=error, editing=editing)
+
+
+@app.route("/admin/hof/add", methods=["POST"])
+@login_required
+def admin_hof_add():
+    try:
+        sheets.add_hof_entry(request.form)
+    except Exception:
+        pass
+    return redirect(url_for("admin_hof"))
+
+
+@app.route("/admin/hof/<eid>/update", methods=["POST"])
+@login_required
+def admin_hof_update(eid):
+    try:
+        sheets.update_hof_entry(eid, request.form)
+    except Exception:
+        pass
+    return redirect(url_for("admin_hof"))
+
+
+@app.route("/admin/hof/<eid>/toggle", methods=["POST"])
+@login_required
+def admin_hof_toggle(eid):
+    active = request.form.get("active") == "1"
+    try:
+        sheets.set_hof_active(eid, active)
+    except Exception:
+        pass
+    return redirect(url_for("admin_hof"))
+
+
+@app.route("/admin/hof/<eid>/delete", methods=["POST"])
+@login_required
+def admin_hof_delete(eid):
+    try:
+        sheets.delete_hof_entry(eid)
+    except Exception:
+        pass
+    return redirect(url_for("admin_hof"))
 
 
 if __name__ == "__main__":
