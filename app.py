@@ -47,7 +47,20 @@ def home():
         notice = sheets.active_notice()
     except Exception:
         notice = None
-    return render_template("index.html", notice=notice)
+    try:
+        teams_posted = sheets.game_day_teams() is not None
+    except Exception:
+        teams_posted = False
+    return render_template("index.html", notice=notice, teams_posted=teams_posted)
+
+
+@app.route("/teams")
+def teams():
+    try:
+        data = sheets.game_day_teams()
+    except Exception:
+        data = None
+    return render_template("teams.html", teams=data)
 
 
 @app.route("/healthz")
