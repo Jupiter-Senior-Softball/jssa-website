@@ -3,6 +3,7 @@
 {% block sub %}<p class="sub">Our members by division. Pickup teams are drawn from these rosters each game day.</p>{% endblock %}
 {% block body %}
 <style>
+  html{font-size:112.5%}  /* larger, easier-to-read text site-wide */
   .rosters{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:6px}
   @media(max-width:860px){.rosters{grid-template-columns:1fr;max-width:520px;margin-left:auto;margin-right:auto}}
   .divcard{border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#fff;display:flex;flex-direction:column}
