@@ -1127,3 +1127,163 @@ def division_rosters():
         return result
     except Exception:
         return _roster_cache["data"] or {"RED": [], "WHITE": [], "BLUE": []}
+
+
+# ----------------------------------------------------------------------------
+# Sponsors — admin-managed, seeded with the current sponsor list
+# ----------------------------------------------------------------------------
+# On first use the tab is created and filled with the sponsors currently on the
+# homepage, so the site looks identical on day one. The homepage reads this tab;
+# if it's empty/the API hiccups, the homepage falls back to its built-in list.
+
+SPONSOR_TAB = "Sponsors"
+SPONSOR_HEADERS = ["id", "name", "tagline", "website", "logo", "phone", "order", "active"]
+_sponsor_cache = {"data": None, "ts": 0.0}
+
+_SPONSOR_SEED = [
+    ("American Sr Health Services", "Health, Life & Long Term Insurance \u00b7 Medicare Supplements", "http://www.healthyseniorstc.com/", "/static/logos/american-sr-health.png", ""),
+    ("Panera Bread", "Try our new Mix & Match Value Menu today", "https://www.panerabread.com/", "/static/logos/panera.png", ""),
+    ("Stephen K. Denny A/C & Pool Heating", "Striving to exceed our customer's expectations", "http://www.stephenkdenny.com/", "/static/logos/stephen-denny.png", ""),
+    ("The Golf Club of Jupiter", "Nestled in the heart of Jupiter", "https://golfclubofjupiter.com/", "/static/logos/golf-club.png", ""),
+    ("Royal Cafe", "Best breakfast in Jupiter!", "http://royalcafejupiter.com/", "/static/logos/royal-cafe.png", ""),
+    ("Team 1 Sports \u2014 Alan Tanner", "Softball & baseball equipment", "https://teammikenworth.com/", "/static/logos/team1-sports.png", ""),
+    ("Uncle Mick's Bar & Grill", "Best bar and grill in Jupiter!", "http://www.unclemicks.com/", "/static/logos/uncle-micks.png", ""),
+    ("1000 North", "South Florida's premier waterfront restaurant", "http://1000north.com/", "/static/logos/1000-north.png", ""),
+    ("Cindy A. Sojka, P.A.", "Personal injury attorneys", "http://cindysojkalaw.com/", "/static/logos/cindy-sojka.png", ""),
+    ("Mike Parenti Comedy Show", "Coming soon!", "https://mikeparenti.com/", "/static/logos/mike-parenti.png", ""),
+    ("Food Shack", "A Jupiter favorite", "http://www.littlemoirsjupiter.com/", "/static/logos/food-shack.png", ""),
+    ("South East Rods & Customs", "Share our passion for cars", "http://serodsandcustoms.com/", "/static/logos/se-rods.png", ""),
+    ("Village Scoop Shack", "Ice cream & cereal bar", "https://www.villagescoopshack.com/", "/static/logos/village-scoop-shack.png", ""),
+    ("Benaim Eye Aesthetics", "Eye doctor", "http://www.benaimeye.com/", "", ""),
+    ("Shuster Eye Center", "Eye doctor", "http://www.shustereyecenter.com/", "", ""),
+    ("Hibiscus Streatery", "Little Moir's Jupiter", "http://www.littlemoirsjupiter.com/hibiscus-streatery", "", ""),
+    ("Debra Stollman, Realtor", "Donohue Real Estate", "http://www.donohuerealestate.com/", "", ""),
+    ("Horizon Care Services", "North Palm Beach", "http://www.horizoncareservices.com/", "", ""),
+    ("Treasure Coast Carpet", "Tequesta, FL", "http://treasurecoastcarpet.com/", "", ""),
+    ("Carmine's Restorante", "Restaurant \u00b7 Jupiter", "http://carminescfp.com/", "", ""),
+    ("Bradley Molineux", "LPL Securities & Advisory Services", "", "", "772-221-3100"),
+]
+
+
+def _sponsor_worksheet():
+    import gspread
+    from google.oauth2.service_account import Credentials
+    info = json.loads(_SA_JSON)
+    scopes = ["https://www.googleapis.com/auth/spreadsheets"]
+    creds = Credentials.from_service_account_info(info, scopes=scopes)
+    gc = gspread.authorize(creds)
+    sh = gc.open_by_key(SHEET_ID)
+    try:
+        ws = sh.worksheet(SPONSOR_TAB)
+    except gspread.WorksheetNotFound:
+        ws = sh.add_worksheet(title=SPONSOR_TAB, rows=200, cols=len(SPONSOR_HEADERS))
+        ws.update([SPONSOR_HEADERS], "A1")
+        seed = [[uuid.uuid4().hex[:8], n, t, u, l, p, i, "TRUE"]
+                for i, (n, t, u, l, p) in enumerate(_SPONSOR_SEED, start=1)]
+        if seed:
+            ws.append_rows(seed, value_input_option="USER_ENTERED")
+    return ws
+
+
+def _sponsor_invalidate():
+    with _lock:
+        _sponsor_cache["ts"] = 0.0
+
+
+def sponsors():
+    """Active sponsors, ordered. Shaped for the homepage script (n,t,u,l,p).
+    [] if not set up -> homepage falls back to its built-in list."""
+    now = time.time()
+    with _lock:
+        if _sponsor_cache["data"] is not None and now - _sponsor_cache["ts"] < _CACHE_TTL:
+            return _sponsor_cache["data"]
+    try:
+        out = []
+        if is_configured():
+            ws = _sponsor_worksheet()
+            for r in ws.get_all_records(expected_headers=SPONSOR_HEADERS):
+                if not _is_true(r.get("active")):
+                    continue
+                name = str(r.get("name") or "").strip()
+                if not name:
+                    continue
+                out.append({
+                    "n": name,
+                    "t": str(r.get("tagline") or "").strip(),
+                    "u": str(r.get("website") or "").strip(),
+                    "l": _img_url(str(r.get("logo") or "")),
+                    "p": str(r.get("phone") or "").strip(),
+                    "order": _to_int(r.get("order")),
+                })
+            out.sort(key=lambda s: s["order"])
+        with _lock:
+            _sponsor_cache["data"] = out
+            _sponsor_cache["ts"] = now
+        return out
+    except Exception:
+        return _sponsor_cache["data"] or []
+
+
+def list_sponsors():
+    if not is_configured():
+        return []
+    ws = _sponsor_worksheet()
+    out = [{k: rec.get(k, "") for k in SPONSOR_HEADERS}
+           for rec in ws.get_all_records(expected_headers=SPONSOR_HEADERS)]
+    out.sort(key=lambda r: _to_int(r.get("order")))
+    return out
+
+
+def add_sponsor(fields):
+    ws = _sponsor_worksheet()
+    records = ws.get_all_records(expected_headers=SPONSOR_HEADERS)
+    order = fields.get("order")
+    order = _to_int(order) if str(order or "").strip() else _next_order(records)
+    ws.append_row([
+        uuid.uuid4().hex[:8],
+        (fields.get("name") or "").strip(),
+        (fields.get("tagline") or "").strip(),
+        (fields.get("website") or "").strip(),
+        (fields.get("logo") or "").strip(),
+        (fields.get("phone") or "").strip(),
+        order, "TRUE",
+    ], value_input_option="USER_ENTERED")
+    _sponsor_invalidate()
+
+
+def update_sponsor(sponsor_id, fields):
+    ws = _sponsor_worksheet()
+    for i, rec in enumerate(ws.get_all_records(expected_headers=SPONSOR_HEADERS)):
+        if str(rec.get("id")) == str(sponsor_id):
+            vals = {
+                "name": (fields.get("name") or "").strip(),
+                "tagline": (fields.get("tagline") or "").strip(),
+                "website": (fields.get("website") or "").strip(),
+                "logo": (fields.get("logo") or "").strip(),
+                "phone": (fields.get("phone") or "").strip(),
+            }
+            if str(fields.get("order") or "").strip():
+                vals["order"] = _to_int(fields.get("order"))
+            for k, v in vals.items():
+                ws.update_cell(i + 2, SPONSOR_HEADERS.index(k) + 1, v)
+            break
+    _sponsor_invalidate()
+
+
+def set_sponsor_active(sponsor_id, active):
+    ws = _sponsor_worksheet()
+    col = SPONSOR_HEADERS.index("active") + 1
+    for i, rec in enumerate(ws.get_all_records(expected_headers=SPONSOR_HEADERS)):
+        if str(rec.get("id")) == str(sponsor_id):
+            ws.update_cell(i + 2, col, "TRUE" if active else "FALSE")
+            break
+    _sponsor_invalidate()
+
+
+def delete_sponsor(sponsor_id):
+    ws = _sponsor_worksheet()
+    for i, rec in enumerate(ws.get_all_records(expected_headers=SPONSOR_HEADERS)):
+        if str(rec.get("id")) == str(sponsor_id):
+            ws.delete_rows(i + 2)
+            break
+    _sponsor_invalidate()
