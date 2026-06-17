@@ -31,19 +31,21 @@
   .adminbar a{font-weight:600}
   .form-h{font-size:1.5rem;margin:6px 0 4px}
   .form-sub{color:var(--muted);margin:0 0 18px;font-size:1.02rem}
-  .bb-cta{display:flex;align-items:center;justify-content:center;width:100%;min-height:58px;font-size:1.12rem;margin:4px 0 30px;box-shadow:0 6px 18px rgba(22,35,63,.28)}
+  .manage-head{font-family:var(--display);font-weight:700;color:var(--navy);font-size:1.05rem;margin:34px 0 12px;padding-top:22px;border-top:1px solid var(--line)}
+  .manage-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  @media(max-width:680px){.manage-grid{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:420px){.manage-grid{grid-template-columns:1fr}}
+  .mtile{display:flex;align-items:center;justify-content:center;text-align:center;gap:8px;min-height:62px;padding:10px 12px;
+         font-family:var(--display);font-weight:600;font-size:1rem;color:var(--navy);background:#fff;border:1px solid var(--line);
+         border-radius:12px;text-decoration:none;transition:border-color .15s,box-shadow .15s,transform .05s}
+  .mtile:hover{border-color:var(--blue);box-shadow:0 4px 14px rgba(22,35,63,.12)}
+  .mtile .ic{font-size:1.25rem;line-height:1}
 </style>
 
 <div class="adminbar">
   <span class="meta-tag">Signed in</span>
   <a href="{{ url_for('admin_logout') }}">Sign out</a>
 </div>
-
-<a class="btn btn-navy bb-cta" href="{{ url_for('admin_blackboard') }}">&#128203;&nbsp; Manage Blackboard posts &rarr;</a>
-<a class="btn btn-navy bb-cta" href="{{ url_for('admin_memoriam') }}">&#128367;&nbsp; Manage In Memoriam &rarr;</a>
-<a class="btn btn-navy bb-cta" href="{{ url_for('admin_hof') }}">&#127942;&nbsp; Manage Hall of Fame &rarr;</a>
-<a class="btn btn-navy bb-cta" href="{{ url_for('admin_board') }}">&#128101;&nbsp; Manage Board of Directors &rarr;</a>
-<a class="btn btn-navy bb-cta" href="{{ url_for('admin_sponsors') }}">&#129309;&nbsp; Manage Sponsors &rarr;</a>
 
 {% if not configured %}
   <div class="note">
@@ -73,6 +75,15 @@
     </div>
     <button class="btn btn-navy" type="submit">Post update</button>
   </form>
+
+  <div class="manage-head">Manage site content</div>
+  <div class="manage-grid">
+    <a class="mtile" href="{{ url_for('admin_blackboard') }}"><span class="ic">&#128203;</span> Blackboard posts</a>
+    <a class="mtile" href="{{ url_for('admin_memoriam') }}"><span class="ic">&#128367;</span> In Memoriam</a>
+    <a class="mtile" href="{{ url_for('admin_hof') }}"><span class="ic">&#127942;</span> Hall of Fame</a>
+    <a class="mtile" href="{{ url_for('admin_board') }}"><span class="ic">&#128101;</span> Board of Directors</a>
+    <a class="mtile" href="{{ url_for('admin_sponsors') }}"><span class="ic">&#129309;</span> Sponsors</a>
+  </div>
 
   <h2 style="margin-top:40px">Posted updates</h2>
   {% if error %}
