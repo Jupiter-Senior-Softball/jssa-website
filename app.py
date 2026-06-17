@@ -78,6 +78,16 @@ def teams():
     return render_template("teams.html", teams=data)
 
 
+@app.route("/players")
+def players():
+    try:
+        rosters = sheets.division_rosters()
+    except Exception:
+        rosters = {"RED": [], "WHITE": [], "BLUE": []}
+    return render_template("pages/players.html",
+                           page_title="Players by Division", rosters=rosters)
+
+
 @app.route("/healthz")
 def healthz():
     return jsonify(status="ok")
