@@ -1044,3 +1044,86 @@ def delete_board_member(member_id):
             ws.delete_rows(i + 2)
             break
     _board_invalidate()
+
+
+# ----------------------------------------------------------------------------
+# Division rosters — the league's master member list, grouped by division
+# ----------------------------------------------------------------------------
+# Lives on the same schedule spreadsheet as the game-day teams. We locate the
+# roster header row ("First Name / Last Name / Division / Position") on any tab,
+# read names + positions, and group by RED/WHITE/BLUE. Email addresses are in
+# that sheet but are NEVER read or returned here. Cached; fails safe to {}.
+
+_roster_cache = {"data": None, "ts": 0.0}
+_ROSTER_TTL = 300  # seconds
+
+
+def _norm_div(v):
+    s = (v or "").strip().upper()
+    if s.startswith("R"):
+        return "RED"
+    if s.startswith("W"):
+        return "WHITE"
+    if s.startswith("B"):
+        return "BLUE"
+    return ""
+
+
+def division_rosters():
+    """{'RED':[{name,pos}], 'WHITE':[...], 'BLUE':[...]} from the master roster.
+    Emails are intentionally ignored. Cached; last good value kept on error."""
+    now = time.time()
+    with _lock:
+        if _roster_cache["data"] is not None and now - _roster_cache["ts"] < _ROSTER_TTL:
+            return _roster_cache["data"]
+    try:
+        result = {"RED": [], "WHITE": [], "BLUE": []}
+        if teams_is_configured():
+            import gspread
+            from google.oauth2.service_account import Credentials
+            info = json.loads(_SA_JSON)
+            scopes = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
+            creds = Credentials.from_service_account_info(info, scopes=scopes)
+            gc = gspread.authorize(creds)
+            sh = gc.open_by_key(TEAMS_SHEET_ID)
+
+            rows = hdr_idx = cols = None
+            for ws in sh.worksheets():
+                vals = ws.get_all_values()
+                for i, r in enumerate(vals):
+                    low = [_clean(c).lower() for c in r]
+                    if "first name" in low and "last name" in low and "division" in low:
+                        hdr_idx = i
+                        cols = {name: ci for ci, name in enumerate(low)}
+                        rows = vals
+                        break
+                if rows is not None:
+                    break
+
+            if rows is not None:
+                fi = cols.get("first name")
+                li = cols.get("last name")
+                di = cols.get("division")
+                pi = cols.get("position", cols.get("preferred positions"))
+                seen = set()
+                for r in rows[hdr_idx + 1:]:
+                    first = _clean(r[fi]) if fi is not None and len(r) > fi else ""
+                    last = _clean(r[li]) if li is not None and len(r) > li else ""
+                    div = _norm_div(r[di]) if di is not None and len(r) > di else ""
+                    pos = _clean(r[pi]) if pi is not None and len(r) > pi else ""
+                    name = (first + " " + last).strip()
+                    if not name or not div:
+                        continue
+                    key = name.lower()
+                    if key in seen:          # roster can repeat across tabs
+                        continue
+                    seen.add(key)
+                    result[div].append({"name": name, "pos": pos})
+                for d in result:
+                    result[d].sort(key=lambda e: e["name"].split()[-1].lower())
+        with _lock:
+            _roster_cache["data"] = result
+            _roster_cache["ts"] = now
+        return result
+    except Exception:
+        return _roster_cache["data"] or {"RED": [], "WHITE": [], "BLUE": []}
