@@ -28,12 +28,17 @@
   .inline{display:inline}
   .adminbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
   .adminbar a{font-weight:600}
+  .bb-cta{display:flex;align-items:center;justify-content:center;width:100%;min-height:58px;font-size:1.12rem;margin:4px 0 30px;box-shadow:0 6px 18px rgba(22,35,63,.28)}
 </style>
 
 <div class="adminbar">
   <span class="meta-tag">Signed in</span>
-  <span><a href="{{ url_for('admin_blackboard') }}">Manage Blackboard &rarr;</a> &nbsp;·&nbsp; <a href="{{ url_for('admin_logout') }}">Sign out</a></span>
+  <a href="{{ url_for('admin_logout') }}">Sign out</a>
 </div>
+
+<a class="btn btn-navy bb-cta" href="{{ url_for('admin_blackboard') }}">&#128203;&nbsp; Manage Blackboard posts &rarr;</a>
+<a class="btn btn-navy bb-cta" href="{{ url_for('admin_memoriam') }}">&#128367;&nbsp; Manage In Memoriam &rarr;</a>
+<a class="btn btn-navy bb-cta" href="{{ url_for('admin_hof') }}">&#127942;&nbsp; Manage Hall of Fame &rarr;</a>
 
 {% if not configured %}
   <div class="note">
