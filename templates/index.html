@@ -49,8 +49,10 @@
     background:repeating-linear-gradient(45deg,#ffd34d 0 14px,#16233f 14px 28px);opacity:.9}
   .topbanner.is-weather .icon{background:rgba(255,255,255,.22);animation:wpulse 1.6s infinite}
   @keyframes wpulse{0%,100%{box-shadow:inset 0 0 0 1px rgba(255,255,255,.25),0 0 0 0 rgba(255,255,255,.4)}50%{box-shadow:inset 0 0 0 1px rgba(255,255,255,.25),0 0 0 10px rgba(255,255,255,0)}}
-  /* Calm — announcement */
+  /* Calm — announcement: lighter, friendlier sentence (not a bold headline) */
   .topbanner.is-note{background:linear-gradient(100deg,#1c3a86 0%,#2b5bd0 100%)}
+  .topbanner.is-note .btext{font-family:var(--body);font-weight:500;font-size:1.18rem;letter-spacing:0;line-height:1.4}
+  .topbanner.is-note .btext a{font-weight:600}
   /* Teams posted */
   .topbanner.is-teams{background:linear-gradient(100deg,#0f5132 0%,#1f9d57 100%)}
   /* Predictions nudge */
@@ -417,7 +419,7 @@
     } else {
       cls = 'is-note';
       inner = '<div class="bwrap"><span class="icon">📣</span>'+
-        '<span class="btext"><span class="tag">Announcement</span>'+msgHtml+'</span>'+closeBtn+'</div>';
+        '<span class="btext">'+msgHtml+'</span>'+closeBtn+'</div>';
     }
   } else {
     // No admin-posted announcement: hide the banner entirely.
