@@ -30,7 +30,7 @@ SHEET_ID = os.environ.get("SHEET_ID", "").strip()
 _SA_JSON = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", "").strip()
 
 NOTICES_TAB = "WebsiteNotices"
-HEADERS = ["id", "type", "message", "active", "created_by", "created_at", "url"]
+HEADERS = ["id", "type", "message", "active", "created_by", "created_at", "url", "link_text"]
 
 _CACHE_TTL = 300  # seconds (5 min — reduces API quota pressure)
 _cache = {"notice": None, "ts": 0.0}
@@ -111,6 +111,7 @@ def active_notice():
                     "type": str(chosen.get("type") or "announcement"),
                     "message": str(chosen.get("message") or ""),
                     "url": str(chosen.get("url") or "").strip(),
+                    "link_text": str(chosen.get("link_text") or "").strip(),
                 }
         with _lock:
             _cache["notice"] = notice
@@ -126,7 +127,7 @@ def _invalidate():
         _cache["ts"] = 0.0
 
 
-def add_notice(ntype, message, created_by, url=""):
+def add_notice(ntype, message, created_by, url="", link_text=""):
     ntype = "weather" if ntype == "weather" else "announcement"
     row = [
         uuid.uuid4().hex[:8],
@@ -136,6 +137,7 @@ def add_notice(ntype, message, created_by, url=""):
         created_by or "Admin",
         datetime.datetime.utcnow().isoformat(timespec="seconds") + "Z",
         url.strip() if url else "",
+        link_text.strip() if link_text else "",
     ]
     ws = _worksheet()
     ws.append_row(row, value_input_option="USER_ENTERED")

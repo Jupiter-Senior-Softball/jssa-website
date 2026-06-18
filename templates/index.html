@@ -405,7 +405,11 @@
   var closeBtn = '<button class="close" aria-label="Dismiss">&times;</button>';
   if (n && n.message){
     var msgHtml = esc(n.message);
-    if (n.url) msgHtml = '<a href="'+esc(n.url)+'" style="color:inherit;text-decoration:underline;text-underline-offset:3px" target="_blank" rel="noopener">'+msgHtml+'</a>';
+    if (n.url && n.link_text) {
+      msgHtml += ' <a href="'+esc(n.url)+'" style="color:inherit;text-decoration:underline;text-underline-offset:3px;white-space:nowrap" target="_blank" rel="noopener">'+esc(n.link_text)+'</a>';
+    } else if (n.url) {
+      msgHtml = '<a href="'+esc(n.url)+'" style="color:inherit;text-decoration:underline;text-underline-offset:3px" target="_blank" rel="noopener">'+msgHtml+'</a>';
+    }
     if (n.type === 'weather'){
       cls = 'is-weather';
       inner = '<span class="stripe"></span><div class="bwrap"><span class="icon">⚠️</span>'+
