@@ -189,6 +189,13 @@ TEAMS_SHEET_ID = os.environ.get(
 ).strip()
 TEAMS_TAB = os.environ.get("TEAMS_TAB", "Game_Day_Teams").strip()
 
+# The master member list (Players by Division) lives in its own spreadsheet,
+# separate from the game-day schedule sheet above. Defaults to the league's
+# master roster sheet; override with ROSTER_SHEET_ID in Render if it ever moves.
+ROSTER_SHEET_ID = os.environ.get(
+    "ROSTER_SHEET_ID", "1YHKk8GLM9kqzSoWFxuUtFCH-B6crZ7SP5m4vogJVBwg"
+).strip()
+
 _teams_cache = {"data": None, "ts": 0.0}
 _TEAMS_TTL = 120  # seconds
 
@@ -1108,14 +1115,14 @@ def division_rosters():
             return _roster_cache["data"]
     try:
         result = {"RED": [], "WHITE": [], "BLUE": []}
-        if teams_is_configured():
+        if ROSTER_SHEET_ID and _SA_JSON:
             import gspread
             from google.oauth2.service_account import Credentials
             info = json.loads(_SA_JSON)
             scopes = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
             creds = Credentials.from_service_account_info(info, scopes=scopes)
             gc = gspread.authorize(creds)
-            sh = gc.open_by_key(TEAMS_SHEET_ID)
+            sh = gc.open_by_key(ROSTER_SHEET_ID)
 
             rows = hdr_idx = cols = None
             for ws in sh.worksheets():
@@ -1135,6 +1142,7 @@ def division_rosters():
                 li = cols.get("last name")
                 di = cols.get("division")
                 pi = cols.get("position", cols.get("preferred positions"))
+                ai = cols.get("active")
                 seen = set()
                 for r in rows[hdr_idx + 1:]:
                     first = _clean(r[fi]) if fi is not None and len(r) > fi else ""
@@ -1143,6 +1151,9 @@ def division_rosters():
                     pos = _clean(r[pi]) if pi is not None and len(r) > pi else ""
                     name = (first + " " + last).strip()
                     if not name or not div:
+                        continue
+                    # Skip anyone not marked Active (when the column exists).
+                    if ai is not None and len(r) > ai and not _is_true(r[ai]):
                         continue
                     key = name.lower()
                     if key in seen:          # roster can repeat across tabs
