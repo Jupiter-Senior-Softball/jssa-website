@@ -32,7 +32,7 @@ _SA_JSON = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", "").strip()
 NOTICES_TAB = "WebsiteNotices"
 HEADERS = ["id", "type", "message", "active", "created_by", "created_at", "url"]
 
-_CACHE_TTL = 30  # seconds
+_CACHE_TTL = 300  # seconds (5 min — reduces API quota pressure)
 _cache = {"notice": None, "ts": 0.0}
 _lock = threading.Lock()
 
@@ -197,7 +197,7 @@ ROSTER_SHEET_ID = os.environ.get(
 ).strip()
 
 _teams_cache = {"data": None, "ts": 0.0}
-_TEAMS_TTL = 120  # seconds
+_TEAMS_TTL = 300  # seconds
 
 
 def teams_is_configured():
@@ -603,7 +603,7 @@ def delete_bb_post(post_id):
 
 PHOTOS_FOLDER_ID = os.environ.get("PHOTOS_FOLDER_ID", "").strip()
 _DRIVE_SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
-_PHOTOS_TTL = 120
+_PHOTOS_TTL = 300
 _photos_cache = {"ids": None, "ts": 0.0}
 
 
@@ -1182,7 +1182,7 @@ CONTROL_SHEET_ID = os.environ.get(
 ).strip()
 
 _season_cache = {"data": None, "ts": 0.0}
-_SEASON_TTL = 120  # seconds
+_SEASON_TTL = 300  # seconds
 
 
 def _control_sheet(readonly=True):
