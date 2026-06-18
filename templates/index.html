@@ -392,16 +392,12 @@
       inner = '<div class="bwrap"><span class="icon">📣</span>'+
         '<span class="btext"><span class="tag">Announcement</span>'+msgHtml+'</span>'+closeBtn+'</div>';
     }
-  } else if (teams){
-    cls = 'is-teams';
-    inner = '<div class="bwrap"><span class="icon">⚾</span>'+
-      '<span class="btext"><span class="tag">Today</span>Teams are posted — see who\'s playing and the matchups.</span>'+
-      '<a class="blink" href="/teams">View today\'s teams →</a>'+closeBtn+'</div>';
   } else {
-    cls = 'is-predict';
-    inner = '<div class="bwrap"><span class="icon">🏆</span>'+
-      '<span class="btext"><span class="tag">Prediction Contest</span>Think you can spot the stronger team before first pitch?</span>'+
-      '<a class="blink" href="#predict">See the contest →</a>'+closeBtn+'</div>';
+    // No admin-posted announcement: hide the banner entirely.
+    // (The automatic "Teams posted" and "Prediction Contest" banners are kept
+    //  in git history and can be re-enabled if ever wanted.)
+    el.remove();
+    return;
   }
   el.className = 'topbanner ' + cls;
   el.setAttribute('role','alert');
