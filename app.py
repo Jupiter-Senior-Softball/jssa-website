@@ -294,6 +294,16 @@ def admin_predictions_save():
     return redirect(url_for("admin_predictions", saved=("1" if ok else "0")))
 
 
+@app.route("/admin/directory")
+@login_required
+def admin_directory():
+    try:
+        directory = sheets.player_directory()
+    except Exception:
+        directory = {"headers": [], "players": []}
+    return render_template("admin/directory.html", directory=directory)
+
+
 @app.route("/admin/notices/add", methods=["POST"])
 @login_required
 def admin_add():
