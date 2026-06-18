@@ -97,8 +97,8 @@ def players():
 # then they show a friendly "season runs October-March" placeholder so the page
 # never looks broken or empty. Tuple is (page title, short eyebrow label).
 LEAGUE_SECTIONS = {
-    "teams":     ("League Teams",     "Organized League"),
-    "rosters":   ("League Rosters",   "Organized League"),
+    "teams":     ("Teams by Division", "Organized League"),
+    "rosters":   ("Team Rosters",      "Organized League"),
     "schedules": ("League Schedule",  "Organized League"),
     "results":   ("Game Results",     "Organized League"),
     "standings": ("League Standings", "Organized League"),
@@ -124,11 +124,11 @@ def league_section(section):
         "schedules": bool(season["schedule"]),
         "results":   bool(season["results"]),
         "standings": any(season["standings"].values()),
-        "teams":     any(season["standings"].values()),
+        "teams":     any(season["rosters"].values()),
     }.get(section, False)
     template = "pages/league-section.html"
     section_template = {
-        "teams":     "pages/league-rosters.html",
+        "teams":     "pages/league-teams.html",
         "rosters":   "pages/league-rosters.html",
         "schedules": "pages/league-schedule.html",
         "results":   "pages/league-results.html",
