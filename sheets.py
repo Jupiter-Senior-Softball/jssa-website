@@ -1196,15 +1196,31 @@ def _control_sheet(readonly=True):
     return gc.open_by_key(CONTROL_SHEET_ID)
 
 
-def _scan_tab(sh, required):
-    """Find the first worksheet whose header row contains every name in
-    `required`. Returns (worksheet, all_values, header_index, {name: col})."""
-    for ws in sh.worksheets():
-        vals = ws.get_all_values()
+def _control_tabs(sh):
+    """Read EVERY tab's values in a single batch API call, returning
+    [(title, all_values), ...]. One request instead of one-per-tab keeps us
+    well under Google's read-per-minute quota even though the control sheet has
+    many tabs."""
+    meta = sh.fetch_sheet_metadata()
+    titles = [s["properties"]["title"] for s in meta.get("sheets", [])]
+    if not titles:
+        return []
+    ranges = ["'%s'" % t.replace("'", "''") for t in titles]
+    resp = sh.values_batch_get(ranges)
+    out = []
+    for title, vr in zip(titles, resp.get("valueRanges", [])):
+        out.append((title, vr.get("values", [])))
+    return out
+
+
+def _match_tab(tabs, required):
+    """Find the first (title, values) whose header row contains every name in
+    `required`. Returns (title, values, header_index, {name: col})."""
+    for title, vals in tabs:
         for i, r in enumerate(vals):
             low = [_clean(c).lower() for c in r]
             if all(req in low for req in required):
-                return ws, vals, i, {name: ci for ci, name in enumerate(low)}
+                return title, vals, i, {name: ci for ci, name in enumerate(low)}
     return None, None, None, None
 
 
@@ -1241,9 +1257,10 @@ def league_season():
                 "rosters": {"RED": [], "WHITE": [], "BLUE": []}}
         if CONTROL_SHEET_ID and _SA_JSON:
             sh = _control_sheet(readonly=True)
+            tabs = _control_tabs(sh)          # one batch read for all tabs
 
             # --- Standings ---
-            _, rows, hi, cols = _scan_tab(sh, ["team", "wins", "losses"])
+            _, rows, hi, cols = _match_tab(tabs, ["team", "wins", "losses"])
             if rows is not None:
                 for r in rows[hi + 1:]:
                     g = _row_reader(cols)(r)
@@ -1261,7 +1278,7 @@ def league_season():
                     })
 
             # --- Schedule ---
-            _, rows, hi, cols = _scan_tab(sh, ["home team", "away team", "status"])
+            _, rows, hi, cols = _match_tab(tabs, ["home team", "away team", "status"])
             if rows is not None:
                 for r in rows[hi + 1:]:
                     g = _row_reader(cols)(r)
@@ -1278,7 +1295,7 @@ def league_season():
                     })
 
             # --- Results ---
-            _, rows, hi, cols = _scan_tab(sh, ["result"])
+            _, rows, hi, cols = _match_tab(tabs, ["result"])
             if rows is not None and ("home team" in cols and "away team" in cols):
                 for r in rows[hi + 1:]:
                     g = _row_reader(cols)(r)
@@ -1297,8 +1314,8 @@ def league_season():
                     })
 
             # --- Rosters (Players tab: Team Name + player names) ---
-            _, rows, hi, cols = _scan_tab(
-                sh, ["team name", "player first name", "player last name"])
+            _, rows, hi, cols = _match_tab(
+                tabs, ["team name", "player first name", "player last name"])
             if rows is not None:
                 bucket = {}  # (div, team) -> [names]
                 order = []
@@ -1336,7 +1353,8 @@ def schedule_games_for_scoring():
         if not (CONTROL_SHEET_ID and _SA_JSON):
             return []
         sh = _control_sheet(readonly=True)
-        ws, rows, hi, cols = _scan_tab(sh, ["home team", "away team", "status"])
+        tabs = _control_tabs(sh)
+        _, rows, hi, cols = _match_tab(tabs, ["home team", "away team", "status"])
         if rows is None:
             return []
         out = []
@@ -1369,9 +1387,11 @@ def set_game_score(row, score_home, score_away, status="Final"):
             return False
         import gspread
         sh = _control_sheet(readonly=False)
-        ws, rows, hi, cols = _scan_tab(sh, ["home team", "away team", "status"])
-        if ws is None:
+        tabs = _control_tabs(sh)
+        title, rows, hi, cols = _match_tab(tabs, ["home team", "away team", "status"])
+        if title is None:
             return False
+        ws = sh.worksheet(title)
         sh_i = cols.get("score home")
         sa_i = cols.get("score away")
         st_i = cols.get("status")
