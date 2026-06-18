@@ -269,6 +269,31 @@ def admin_scores_save():
     return redirect(url_for("admin_scores", saved=("1" if ok else "0")))
 
 
+@app.route("/admin/predictions")
+@login_required
+def admin_predictions():
+    try:
+        games = sheets.prediction_games_for_scoring()
+    except Exception:
+        games = []
+    return render_template("admin/predictions.html", games=games,
+                           saved=request.args.get("saved"))
+
+
+@app.route("/admin/predictions/save", methods=["POST"])
+@login_required
+def admin_predictions_save():
+    row = request.form.get("row", "").strip()
+    winner = request.form.get("winner", "").strip().upper()[:1]
+    ok = False
+    if row.isdigit() and winner in ("H", "V"):
+        try:
+            ok = sheets.set_prediction_winner(int(row), winner)
+        except Exception:
+            ok = False
+    return redirect(url_for("admin_predictions", saved=("1" if ok else "0")))
+
+
 @app.route("/admin/notices/add", methods=["POST"])
 @login_required
 def admin_add():

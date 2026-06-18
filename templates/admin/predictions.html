@@ -1,0 +1,79 @@
+{% extends "page_base.html" %}
+{% block eyebrow %}Admin{% endblock %}
+{% block sub %}<p class="sub">Tap the winner of each game. That writes the result straight into the Prediction Games tab — the picks, scoreboard and leaderboard then update themselves. You never have to open the sheet.</p>{% endblock %}
+{% block body %}
+<style>
+  html{font-size:112.5%}
+  .adminbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+  .adminbar a{font-weight:600}
+  .saved{background:#e8f6ee;border:1px solid #bfe3cd;color:#1a7f4b;border-radius:12px;padding:14px 18px;margin-bottom:18px;font-weight:600}
+  .failed{background:var(--red-tint);border:1px solid #f0c9cb;color:#b3151b;border-radius:12px;padding:14px 18px;margin-bottom:18px;font-weight:600}
+  .pgame{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
+  .pgwhen{color:var(--muted);font-size:.92rem;margin-bottom:12px;font-weight:600}
+  .pgwhen .donetag{display:inline-block;font-family:var(--display);font-weight:700;font-size:.72rem;
+    letter-spacing:.05em;text-transform:uppercase;padding:4px 10px;border-radius:999px;
+    background:#e8f6ee;color:#1a7f4b;margin-left:8px}
+  .pgrow{display:flex;gap:14px;flex-wrap:wrap}
+  .pgside{flex:1;min-width:230px}
+  .pgside button{width:100%;min-height:64px;border:2px solid var(--line);background:#f7f9fc;
+    border-radius:12px;cursor:pointer;font-family:var(--display);font-weight:800;color:var(--navy);
+    font-size:1.12rem;padding:12px 16px;display:flex;flex-direction:column;align-items:center;gap:3px;
+    transition:border-color .12s,background .12s,transform .1s}
+  .pgside button:hover{transform:translateY(-2px);border-color:var(--blue)}
+  .pgside button .role{font-family:var(--body);font-weight:600;font-size:.82rem;color:var(--muted);
+    text-transform:uppercase;letter-spacing:.04em}
+  .pgside button .tally{font-family:var(--body);font-weight:600;font-size:.85rem;color:var(--blue)}
+  .pgside button.won{background:#e8f6ee;border-color:#1a7f4b;color:#136b3d}
+  .pgside button.won .role{color:#1a7f4b}
+  .pgside button.won::after{content:" ✓ Winner";font-family:var(--body);font-weight:700;font-size:.8rem;color:#1a7f4b}
+  @media(max-width:560px){.pgside{min-width:100%}}
+</style>
+
+<div class="adminbar">
+  <a href="{{ url_for('admin_dashboard') }}">← Back to dashboard</a>
+  <a href="{{ url_for('admin_logout') }}">Sign out</a>
+</div>
+
+{% if saved == '1' %}<div class="saved">✓ Winner recorded. The picks, scoreboard and leaderboard will update within a couple of minutes.</div>{% endif %}
+{% if saved == '0' %}<div class="failed">Couldn't save that result. Please try again.</div>{% endif %}
+
+{% if not games %}
+  <p style="color:var(--muted)">No prediction games found yet. Once games are listed in the Prediction Games tab, they'll appear here ready to score.</p>
+{% else %}
+  {% for g in games %}
+  <div class="pgame">
+    <div class="pgwhen">{{ g.date }}{% if g.field %} · {{ g.field }}{% endif %}
+      {% if g.winner == 'H' %}<span class="donetag">Winner: {{ g.home }} (Home)</span>
+      {% elif g.winner == 'V' %}<span class="donetag">Winner: {{ g.away }} (Visitor)</span>{% endif %}
+      {% if g.picks_total %}<span style="margin-left:8px">· {{ g.picks_total }} pick{{ '' if g.picks_total == 1 else 's' }} in</span>{% endif %}
+    </div>
+    <div class="pgrow">
+      <div class="pgside">
+        <form method="post" action="{{ url_for('admin_predictions_save') }}">
+          <input type="hidden" name="row" value="{{ g.row }}">
+          <input type="hidden" name="winner" value="H">
+          <button type="submit" class="{{ 'won' if g.winner == 'H' }}">
+            <span class="role">🏠 Home</span>
+            {{ g.home or '—' }}
+            {% if g.picks_total %}<span class="tally">{{ g.picks_home }} picked them</span>{% endif %}
+          </button>
+        </form>
+      </div>
+      <div class="pgside">
+        <form method="post" action="{{ url_for('admin_predictions_save') }}">
+          <input type="hidden" name="row" value="{{ g.row }}">
+          <input type="hidden" name="winner" value="V">
+          <button type="submit" class="{{ 'won' if g.winner == 'V' }}">
+            <span class="role">✈️ Visitor</span>
+            {{ g.away or '—' }}
+            {% if g.picks_total %}<span class="tally">{{ g.picks_away }} picked them</span>{% endif %}
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+{% endif %}
+{% endblock %}
+{% block footer_btns %}<a class="btn btn-navy" href="{{ url_for('admin_dashboard') }}">← Back to dashboard</a>{% endblock %}
+{% block extra_btns %}{% endblock %}

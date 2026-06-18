@@ -1416,6 +1416,117 @@ def set_game_score(row, score_home, score_away, status="Final"):
 
 
 # ----------------------------------------------------------------------------
+# Prediction Contest — report game winners from the admin panel.
+# ----------------------------------------------------------------------------
+# The contest lives entirely in the Control Sheet and is driven by formulas:
+#   * "Prediction Games" tab  — one row per game. Columns include Game Date,
+#     Field, Home Captain, Visitor Captain, Status, Winner (H/V), Scored.
+#     Tom normally types H or V into the Winner column by hand each day.
+#   * "Prediction Picks" tab  — one row per person per game, with their
+#     Predicted Winner (H/V). When a game's Winner is filled in, the sheet's
+#     own formulas flow it into the Picks tab (Actual Winner / Correct /
+#     Points) and on into the matrix + leaderboard.
+# So the only manual step we replace is writing H/V into the Games tab's
+# Winner column. set_prediction_winner() does exactly that and nothing else,
+# leaving every formula to do the rest. We also read the Picks tab to show a
+# quick "X picked Home / Y picked Visitor" tally as Tom scores.
+
+def _pred_pick_tallies(tabs):
+    """{(game_date, field): {'H': count, 'V': count, 'total': n}} from the
+    Prediction Picks tab, so the admin page can show how the league voted."""
+    _, rows, hi, cols = _match_tab(tabs, ["predicted winner", "game date", "field"])
+    tallies = {}
+    if rows is None:
+        return tallies
+    for r in rows[hi + 1:]:
+        g = _row_reader(cols)(r)
+        date = g("game date")
+        field = g("field")
+        pick = g("predicted winner").upper()[:1]
+        if not date or not field:
+            continue
+        key = (date, field)
+        t = tallies.setdefault(key, {"H": 0, "V": 0, "total": 0})
+        if pick in ("H", "V"):
+            t[pick] += 1
+            t["total"] += 1
+    return tallies
+
+
+def prediction_games_for_scoring():
+    """List of prediction-contest games for the admin 'report winners' page,
+    each tagged with its sheet row number so the winner can be written straight
+    back to the right row:
+        [{row, date, field, home, away, winner, scored,
+          picks_home, picks_away, picks_total}]
+    'home'/'away' are the captain names; 'winner' is '' / 'H' / 'V'."""
+    try:
+        if not (CONTROL_SHEET_ID and _SA_JSON):
+            return []
+        sh = _control_sheet(readonly=True)
+        tabs = _control_tabs(sh)
+        title, rows, hi, cols = _match_tab(
+            tabs, ["home captain", "visitor captain", "winner"])
+        if rows is None:
+            return []
+        tallies = _pred_pick_tallies(tabs)
+        out = []
+        for idx in range(hi + 1, len(rows)):
+            r = rows[idx]
+            g = _row_reader(cols)(r)
+            home = g("home captain")
+            away = g("visitor captain")
+            if not (home or away):
+                continue
+            date = g("game date")
+            field = g("field")
+            t = tallies.get((date, field), {"H": 0, "V": 0, "total": 0})
+            out.append({
+                "row": idx + 1,  # gspread rows are 1-based
+                "date": date,
+                "field": field,
+                "home": home,
+                "away": away,
+                "status": g("status"),
+                "winner": g("winner").upper()[:1],
+                "scored": _is_true(g("scored")),
+                "picks_home": t["H"],
+                "picks_away": t["V"],
+                "picks_total": t["total"],
+            })
+        return out
+    except Exception:
+        return []
+
+
+def set_prediction_winner(row, winner):
+    """Write the winning side ('H' or 'V') into the Prediction Games tab's
+    'Winner' column for one game row. The sheet's own formulas then score the
+    Picks tab, the matrix and the leaderboard. Returns True on success."""
+    winner = str(winner or "").strip().upper()[:1]
+    if winner not in ("H", "V"):
+        return False
+    try:
+        if not (CONTROL_SHEET_ID and _SA_JSON):
+            return False
+        import gspread
+        sh = _control_sheet(readonly=False)
+        tabs = _control_tabs(sh)
+        title, rows, hi, cols = _match_tab(
+            tabs, ["home captain", "visitor captain", "winner"])
+        if title is None:
+            return False
+        wi = cols.get("winner")
+        if wi is None:
+            return False
+        ws = sh.worksheet(title)
+        ws.update_cell(row, wi + 1, winner)
+        return True
+    except Exception:
+        return False
+
+
+# ----------------------------------------------------------------------------
 # Sponsors — admin-managed, seeded with the current sponsor list
 # ----------------------------------------------------------------------------
 # On first use the tab is created and filled with the sponsors currently on the
