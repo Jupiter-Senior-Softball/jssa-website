@@ -1649,6 +1649,65 @@ def set_prediction_winner(row, winner):
         return False
 
 
+# Live odds for the homepage — how the league is currently picking the next
+# game day's games. Reads the same Prediction Games / Picks data the admin
+# scoring page uses, keeps only games not yet scored, and turns the Home/
+# Visitor pick counts into percentages. Cached briefly so it feels "live"
+# without hammering the Sheets API on every page view.
+_pred_odds_cache = {"data": None, "ts": 0.0}
+_PRED_ODDS_TTL = 120  # 2 minutes
+
+
+def prediction_odds():
+    """Open (not-yet-scored) prediction games for the next game day, with live
+    vote percentages: [{date, field, home, away, picks_home, picks_away,
+    total, home_pct, away_pct}]. Returns [] if nothing is open or set up."""
+    now = time.time()
+    with _lock:
+        c = _pred_odds_cache
+        if c["data"] is not None and now - c["ts"] < _PRED_ODDS_TTL:
+            return c["data"]
+    out = []
+    try:
+        open_games = []
+        for gm in prediction_games_for_scoring():
+            # "Live" = the result isn't in yet (not scored, no winner recorded).
+            if gm.get("scored") or gm.get("winner"):
+                continue
+            if not (gm.get("home") or gm.get("away")):
+                continue
+            open_games.append(gm)
+        # Keep only the latest game day among the open games, so a stray
+        # un-scored older game can't clutter the panel.
+        if open_games:
+            latest = max((g.get("date") or "") for g in open_games)
+            for gm in open_games:
+                if (gm.get("date") or "") != latest:
+                    continue
+                total = gm.get("picks_total") or 0
+                h = gm.get("picks_home") or 0
+                v = gm.get("picks_away") or 0
+                hp = round(h * 100 / total) if total else None
+                vp = (100 - hp) if hp is not None else None
+                out.append({
+                    "date": gm.get("date"),
+                    "field": gm.get("field"),
+                    "home": gm.get("home"),
+                    "away": gm.get("away"),
+                    "picks_home": h,
+                    "picks_away": v,
+                    "total": total,
+                    "home_pct": hp,
+                    "away_pct": vp,
+                })
+    except Exception:
+        out = []
+    with _lock:
+        _pred_odds_cache["data"] = out
+        _pred_odds_cache["ts"] = now
+    return out
+
+
 # ----------------------------------------------------------------------------
 # Sponsors — admin-managed, seeded with the current sponsor list
 # ----------------------------------------------------------------------------

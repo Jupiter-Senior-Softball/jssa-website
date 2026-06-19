@@ -158,6 +158,22 @@
   .predict{background:var(--navy);color:#fff}
   .predict .sec-eyebrow{color:#9fc0ff}
   .predict .sec-title{color:#fff}.predict .sec-sub{color:#cbd6ee}
+  /* Live odds panel */
+  .odds{margin-top:30px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:16px;padding:22px 22px 18px}
+  .odds-head{font-family:var(--display);font-weight:800;color:#fff;font-size:1.18rem;margin:0 0 4px;display:flex;align-items:center;gap:9px}
+  .odds-sub{color:#9fc0ff;font-size:.95rem;margin:0 0 18px}
+  .ogame{padding:16px 0;border-top:1px solid rgba(255,255,255,.1)}
+  .ogame:first-of-type{border-top:none;padding-top:4px}
+  .ofield{display:flex;justify-content:space-between;align-items:baseline;font-family:var(--display);font-weight:700;color:#cfe0ff;font-size:1.02rem;margin-bottom:11px}
+  .ofield .on{color:#9fc0ff;font-weight:600;font-size:.86rem}
+  .obar{position:relative;height:38px;border-radius:9px;overflow:hidden;background:rgba(255,255,255,.1);margin-bottom:9px}
+  .obar .ofill{position:absolute;inset:0 auto 0 0;height:100%;border-radius:9px;transition:width .4s ease}
+  .obar.home .ofill{background:linear-gradient(90deg,#2b5bd0,#5a86e8)}
+  .obar.away .ofill{background:linear-gradient(90deg,#d8262b,#ec6266)}
+  .obar .olabel{position:relative;z-index:2;display:flex;align-items:center;justify-content:space-between;height:100%;padding:0 14px;font-family:var(--display);font-weight:700;color:#fff;font-size:1.05rem;text-shadow:0 1px 2px rgba(0,0,0,.25)}
+  .obar:last-child{margin-bottom:0}
+  .onopicks{color:#cbd6ee;font-size:.98rem;padding:4px 0 2px}
+  .odds-note{color:#9fc0ff;font-size:.9rem;margin:16px 0 0;text-align:center}
   .lb{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:var(--radius);overflow:hidden}
   .lb .lbhead{display:flex;align-items:center;justify-content:space-between;padding:16px 22px;border-bottom:1px solid rgba(255,255,255,.12)}
   .lb .lbhead h3{color:#fff;font-size:1.15rem}
@@ -449,6 +465,30 @@
       <a class="btn btn-red" href="https://script.google.com/macros/s/AKfycbwqXbN6B6WNa7Dye3NJcUWzmNrMETCZWjW2F8JrjmhKb7F3idebOxiBeRm1Fpzpx1ij/exec?view=predictions_test" target="_blank" rel="noopener">🏆 Enter the Prediction Game →</a>
       <a class="btn" style="background:#2b5bd0;color:#fff" href="https://script.google.com/macros/s/AKfycbwqXbN6B6WNa7Dye3NJcUWzmNrMETCZWjW2F8JrjmhKb7F3idebOxiBeRm1Fpzpx1ij/exec?view=prediction_leaderboard" target="_blank" rel="noopener">📊 View the Leaderboard →</a>
     </div>
+
+    {% if pred_odds %}
+    <div class="odds">
+      <div class="odds-head">🔮 Live odds — how the league is picking</div>
+      <p class="odds-sub">Updating as members lock in their picks. The bars move right up until game time.</p>
+      {% for g in pred_odds %}
+      <div class="ogame">
+        <div class="ofield">
+          <span>{{ g.field }}</span>
+          {% if g.total %}<span class="on">{{ g.total }} pick{{ '' if g.total == 1 else 's' }} in</span>{% endif %}
+        </div>
+        {% if g.total %}
+          <div class="obar home"><div class="ofill" style="width:{{ g.home_pct }}%"></div>
+            <div class="olabel"><span>{{ g.home or 'Home' }}</span><span>{{ g.home_pct }}%</span></div></div>
+          <div class="obar away"><div class="ofill" style="width:{{ g.away_pct }}%"></div>
+            <div class="olabel"><span>{{ g.away or 'Visitor' }}</span><span>{{ g.away_pct }}%</span></div></div>
+        {% else %}
+          <div class="onopicks">No picks in yet — be the first to call it!</div>
+        {% endif %}
+      </div>
+      {% endfor %}
+      <p class="odds-note">These are the crowd's picks, not a guarantee — make your own call above!</p>
+    </div>
+    {% endif %}
   </div>
 </section>
 
