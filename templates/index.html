@@ -45,9 +45,11 @@
   .topbanner .close:hover{opacity:1}
   /* Urgent — weather / cancellation */
   .topbanner.is-weather{background:#f5c800;color:#16233f}
+  .topbanner.is-weather .btext{font-weight:800}
+  .topbanner.is-weather .btext .tag{opacity:1}
   .topbanner.is-weather .stripe{position:absolute;inset:0 0 auto 0;height:5px;
     background:repeating-linear-gradient(45deg,#ffd34d 0 14px,#16233f 14px 28px);opacity:.9}
-  .topbanner.is-weather .icon{background:rgba(22,35,63,.12);animation:wpulse 1.6s infinite}
+  .topbanner.is-weather .icon{background:#16233f;animation:wpulse 1.6s infinite}
   .topbanner.is-weather .close{color:#16233f;opacity:.7}
   .topbanner.is-weather .blink{color:#16233f;border-color:rgba(22,35,63,.3)}
   .topbanner.is-weather .blink:hover{background:rgba(22,35,63,.1)}
@@ -374,7 +376,7 @@
     }
     if (n.type === 'weather'){
       cls = 'is-weather';
-      inner = '<span class="stripe"></span><div class="bwrap"><span class="icon">⚠️</span>'+
+      inner = '<span class="stripe"></span><div class="bwrap"><span class="icon">🌧️</span>'+
         '<span class="btext"><span class="tag">Game-Day Update</span>'+msgHtml+'</span>'+closeBtn+'</div>';
     } else {
       cls = 'is-note';
