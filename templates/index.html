@@ -500,9 +500,9 @@
         </div>
         {% if g.total %}
           <div class="obar home"><div class="ofill" style="width:{{ g.home_pct }}%"></div>
-            <div class="olabel"><span>{{ g.home or 'Home' }}</span><span>{{ g.home_pct }}%</span></div></div>
+            <div class="olabel"><span>H – {{ g.home or 'Home' }}</span><span>{{ g.home_pct }}%</span></div></div>
           <div class="obar away"><div class="ofill" style="width:{{ g.away_pct }}%"></div>
-            <div class="olabel"><span>{{ g.away or 'Visitor' }}</span><span>{{ g.away_pct }}%</span></div></div>
+            <div class="olabel"><span>V – {{ g.away or 'Visitor' }}</span><span>{{ g.away_pct }}%</span></div></div>
         {% else %}
           <div class="onopicks">No picks in yet — be the first to call it!</div>
         {% endif %}
