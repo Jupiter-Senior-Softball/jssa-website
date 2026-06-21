@@ -380,7 +380,8 @@
       // teams_posted comes from the same jssa-data island used by the top banner.
       var data = {teams_posted:false};
       try { data = JSON.parse(document.getElementById('jssa-data').textContent); } catch(e){}
-      if (data.teams_posted) document.getElementById('rosterBtn').style.display = '';
+      // roster button temporarily disabled while teams link is being fixed
+      // if (data.teams_posted) document.getElementById('rosterBtn').style.display = '';
     })();
     </script>
 
@@ -463,11 +464,11 @@
         <span class="qb-txt">Pickup Game Schedule</span>
         <span class="qb-go">See the dates →</span>
       </a>
-      <a class="qb-btn" href="/teams">
+      <div class="qb-btn" style="cursor:default;opacity:.6">
         <span class="qb-ic">📋</span>
         <span class="qb-txt">Pickup Game Rosters</span>
-        <span class="qb-go">See who's playing →</span>
-      </a>
+        <span class="qb-go">Coming soon →</span>
+      </div>
     </div>
   </div>
 </section>
