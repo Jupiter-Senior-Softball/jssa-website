@@ -361,15 +361,21 @@ def _parse_teams_block(rows):
 
     total = sum(len(f["home"]) + len(f["visitor"]) for f in fields)
 
-    # If the game date is in the past, treat the sheet as unpublished.
-    # This handles the "hidden after noon" case — the API ignores tab visibility,
-    # so we use the date in the sheet header as the signal instead.
+    # Hide stale rosters. The Google Sheets API ignores tab visibility, so we use
+    # the date in the sheet header as the signal. Rules:
+    #   • Game date in the past → always hide.
+    #   • Game date is today and it is past noon Eastern → hide (games are over).
     try:
         game_date = datetime.datetime.strptime(date_str, "%A, %B %d, %Y").date()
-        if game_date < datetime.date.today():
+        eastern = datetime.timezone(datetime.timedelta(hours=-4))  # EDT (UTC-4 May-Nov)
+        now_et = datetime.datetime.now(tz=eastern)
+        today = now_et.date()
+        if game_date < today:
+            return None
+        if game_date == today and now_et.hour >= 12:
             return None
     except ValueError:
-        pass  # Unparseable date — let it through and show whatever's there.
+        pass  # Unparseable date — show whatever's there.
 
     return {
         "date": date_str,
