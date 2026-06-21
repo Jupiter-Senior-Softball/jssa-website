@@ -177,9 +177,13 @@
     <? } ?>
   </div>
 
-  <!-- Season Standings -->
-  <? if (lbRows.length > 0) { ?>
+  <!-- Season Standings — qualified players only -->
+  <?
+  var qualifiedRows = lbRows.filter(function(r){ return String(r[7]).toUpperCase() === 'YES'; });
+  ?>
+  <? if (qualifiedRows.length > 0) { ?>
   <div class="sec-head">🥇 Season Standings</div>
+  <p style="color:#9fc0ff;font-size:.88rem;margin:-8px 0 16px">* Must have at least 4 picks to qualify for the monthly standings.</p>
   <table class="lbtable">
     <thead>
       <tr>
@@ -192,9 +196,8 @@
       </tr>
     </thead>
     <tbody>
-      <? for (var i = 0; i < lbRows.length; i++) {
-        var p = lbRows[i];
-        // columns: [0]=Rank [1]=Player Name [2]=Predictions [3]=Correct [4]=Incorrect [5]=Points [6]=Accuracy% [7]=Qualified
+      <? for (var i = 0; i < qualifiedRows.length; i++) {
+        var p = qualifiedRows[i];
         var medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
       ?>
       <tr>
