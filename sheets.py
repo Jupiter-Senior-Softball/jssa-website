@@ -199,7 +199,7 @@ ROSTER_SHEET_ID = os.environ.get(
 ).strip()
 
 _teams_cache = {"data": None, "ts": 0.0}
-_TEAMS_TTL = 300  # seconds
+_TEAMS_TTL = 120  # seconds — 2 min so a fresh publish shows up quickly
 
 
 def teams_is_configured():
@@ -393,7 +393,7 @@ def game_day_teams():
     """
     now = time.time()
     with _lock:
-        if _teams_cache["data"] is not None and now - _teams_cache["ts"] < _TEAMS_TTL:
+        if _teams_cache["ts"] > 0 and now - _teams_cache["ts"] < _TEAMS_TTL:
             return _teams_cache["data"]
 
     data = None
