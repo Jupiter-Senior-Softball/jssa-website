@@ -154,23 +154,33 @@
 
   /* Team card */
   .team {
-    background: rgba(255,255,255,.04);
-    border: 1px solid rgba(255,255,255,.1);
     border-radius: 16px;
     overflow: hidden;
   }
-  .team .cap {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 14px 18px;
+  /* Home = gold */
+  .team.home {
+    background: rgba(245,197,24,.06);
+    border: 1px solid rgba(245,197,24,.3);
   }
-  .team.home .cap { background: var(--navy2); border-bottom: 2px solid var(--blue); }
-  .team.visitor .cap { background: rgba(216,38,43,.25); border-bottom: 2px solid var(--red); }
-  .team .cap b { font-family: var(--display); font-weight: 800; font-size: 1rem; color: #fff; }
-  .team.home .cap b { color: #93c5fd; }
-  .team.visitor .cap b { color: #fca5a5; }
-  .team .cap .n { font-family: var(--display); font-weight: 600; font-size: .82rem; color: rgba(255,255,255,.5); }
+  .team.home .cap {
+    background: linear-gradient(135deg, #b8860b 0%, #d4a017 50%, #f5c518 100%);
+    border-bottom: 2px solid #f5c518;
+    display: flex; align-items: center; justify-content: space-between; padding: 14px 18px;
+  }
+  .team.home .cap b { font-family: var(--display); font-weight: 900; font-size: 1rem; color: #16233f; }
+  .team.home .cap .n { font-family: var(--display); font-weight: 600; font-size: .82rem; color: rgba(22,35,63,.65); }
+  /* Visitor = royal blue */
+  .team.visitor {
+    background: rgba(43,91,208,.07);
+    border: 1px solid rgba(43,91,208,.35);
+  }
+  .team.visitor .cap {
+    background: linear-gradient(135deg, #1a3fa0 0%, #2b5bd0 100%);
+    border-bottom: 2px solid #2b5bd0;
+    display: flex; align-items: center; justify-content: space-between; padding: 14px 18px;
+  }
+  .team.visitor .cap b { font-family: var(--display); font-weight: 900; font-size: 1rem; color: #fff; }
+  .team.visitor .cap .n { font-family: var(--display); font-weight: 600; font-size: .82rem; color: rgba(255,255,255,.6); }
 
   .team ul { list-style: none; }
   .team li {
@@ -178,20 +188,28 @@
     align-items: center;
     gap: 10px;
     padding: 11px 18px;
-    border-top: 1px solid rgba(255,255,255,.06);
     transition: background .12s;
   }
-  .team li:hover { background: rgba(255,255,255,.04); }
-  .team li.cpt { background: rgba(245,197,24,.06); }
-  .team li.cpt:hover { background: rgba(245,197,24,.1); }
+  .team.home li { border-top: 1px solid rgba(245,197,24,.15); }
+  .team.visitor li { border-top: 1px solid rgba(43,91,208,.15); }
+  .team.home li:hover { background: rgba(245,197,24,.07); }
+  .team.visitor li:hover { background: rgba(43,91,208,.08); }
+  /* Captain row highlight */
+  .team.home li.cpt { background: rgba(245,197,24,.12); }
+  .team.home li.cpt:hover { background: rgba(245,197,24,.18); }
+  .team.visitor li.cpt { background: rgba(43,91,208,.14); }
+  .team.visitor li.cpt:hover { background: rgba(43,91,208,.22); }
 
-  .star { color: var(--gold); font-size: .9rem; flex-shrink: 0; }
+  .team.home .star { color: #b8860b; font-size: .9rem; flex-shrink: 0; }
+  .team.visitor .star { color: var(--gold); font-size: .9rem; flex-shrink: 0; }
   .nm { font-family: var(--display); font-weight: 600; font-size: 1rem; color: #eaf1ff; flex: 1; }
+  .team.home .nm { color: #fff8e0; }
   .cpt-tag {
     font-size: .68rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
-    color: var(--gold); background: rgba(245,197,24,.15);
     padding: 2px 7px; border-radius: 999px; margin-left: 6px;
   }
+  .team.home .cpt-tag { color: #7a5500; background: rgba(245,197,24,.35); }
+  .team.visitor .cpt-tag { color: var(--gold); background: rgba(245,197,24,.15); }
   .pos {
     font-family: var(--display); font-weight: 600; font-size: .72rem;
     letter-spacing: .05em; text-transform: uppercase; color: #4a6080;
