@@ -361,6 +361,16 @@ def _parse_teams_block(rows):
 
     total = sum(len(f["home"]) + len(f["visitor"]) for f in fields)
 
+    # If the game date is in the past, treat the sheet as unpublished.
+    # This handles the "hidden after noon" case — the API ignores tab visibility,
+    # so we use the date in the sheet header as the signal instead.
+    try:
+        game_date = datetime.datetime.strptime(date_str, "%A, %B %d, %Y").date()
+        if game_date < datetime.date.today():
+            return None
+    except ValueError:
+        pass  # Unparseable date — let it through and show whatever's there.
+
     return {
         "date": date_str,
         "park": park_str,
