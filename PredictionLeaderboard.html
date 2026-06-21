@@ -20,17 +20,14 @@
   a{color:#9fc0ff;text-decoration:none}
   a:hover{color:#fff}
 
-  /* ── Header ── */
   .hdr{background:linear-gradient(135deg,#0d1a33 0%,#1a2d55 100%);border-bottom:1px solid rgba(255,255,255,.1);padding:28px 24px 24px}
   .hdr-inner{max-width:900px;margin:0 auto}
   .hdr .eyebrow{font-family:var(--display);font-weight:700;font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;color:#9fc0ff;margin-bottom:8px}
   .hdr h1{font-family:var(--display);font-weight:900;font-size:clamp(1.6rem,4vw,2.4rem);color:#fff;line-height:1.1}
   .hdr .sub{color:#9fc0ff;font-size:1rem;margin-top:8px}
 
-  /* ── Wrap ── */
   .wrap{max-width:900px;margin:0 auto;padding:0 20px}
 
-  /* ── Stat cards ── */
   .statgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:28px 0}
   @media(max-width:540px){.statgrid{grid-template-columns:1fr}}
   .statcard{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:22px 24px}
@@ -40,11 +37,7 @@
   .statcard.gold{border-color:rgba(245,197,24,.35);background:rgba(245,197,24,.07)}
   .statcard.gold .label{color:var(--gold)}
   .statcard.gold .name{color:var(--gold)}
-  .statcard.blue .name{font-size:2.2rem;color:#60a5fa}
-  .statcard.blue .label{color:#93c5fd}
-  .statcard.wide{grid-column:1/-1}
 
-  /* ── Accuracy row ── */
   .accrow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:28px}
   @media(max-width:600px){.accrow{grid-template-columns:1fr}}
   .acccard{background:rgba(43,91,208,.15);border:1px solid rgba(43,91,208,.3);border-radius:14px;padding:18px 20px;text-align:center}
@@ -52,11 +45,9 @@
   .acccard .alabel{font-family:var(--display);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:#93c5fd;margin-top:6px}
   .acccard .adesc{color:#9fc0ff;font-size:.82rem;margin-top:5px;line-height:1.4}
 
-  /* ── Section heading ── */
   .sec-head{font-family:var(--display);font-weight:800;font-size:1.1rem;color:#fff;margin:32px 0 14px;display:flex;align-items:center;gap:10px}
   .sec-head::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.1)}
 
-  /* ── Insights grid ── */
   .igrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:28px}
   @media(max-width:540px){.igrid{grid-template-columns:1fr}}
   .icard{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:18px 20px;border-left:4px solid var(--blue)}
@@ -64,7 +55,6 @@
   .icard .ival{font-family:var(--display);font-weight:800;font-size:1.15rem;color:#fff;margin-bottom:4px}
   .icard .idesc{color:#9fc0ff;font-size:.88rem}
 
-  /* ── Leaderboard table ── */
   .lbtable{width:100%;border-collapse:collapse;margin-bottom:28px}
   .lbtable thead tr{border-bottom:1px solid rgba(255,255,255,.15)}
   .lbtable th{font-family:var(--display);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:#9fc0ff;padding:10px 12px;text-align:left}
@@ -75,13 +65,9 @@
   .lbtable .rank.top{color:var(--gold)}
   .lbtable .pname{font-family:var(--display);font-weight:700;color:#fff}
   .lbtable .pts{font-family:var(--display);font-weight:800;color:#60a5fa}
-  .medal{display:inline-block;margin-right:6px}
 
-  /* ── Footer ── */
   .foot{text-align:center;color:#4a5878;font-size:.88rem;margin-top:40px;padding-top:24px;border-top:1px solid rgba(255,255,255,.07)}
   .foot a{color:#9fc0ff}
-
-  <?= getLeaderboardStyles() ?>
 </style>
 </head>
 <body>
@@ -98,20 +84,24 @@
 
   <?
   var data = getPredictionDashboardForWebsite();
-  var champion = data.todayChampion || {};
-  var monthlyLeader = data.monthlyLeader || {};
+  var champion = data.dailyChampion || null;
+  var monthlyLeader = data.monthlyLeader || null;
+  var dailyLeague = data.dailyLeague || null;
+  var monthlyLeague = data.monthlyLeague || null;
+  var yearlyLeague = data.yearlyLeague || null;
   var metrics = data.metrics || {};
-  var insights = data.insights || {};
   var leaderboard = data.leaderboard || [];
+  // leaderboard[0] is the header row; data rows start at index 1
+  var lbRows = leaderboard.length > 1 ? leaderboard.slice(1) : [];
   ?>
 
-  <!-- ── Top stat cards ── -->
+  <!-- Top stat cards -->
   <div class="statgrid" style="margin-top:28px">
-    <? if (champion.name) { ?>
+    <? if (champion && champion.name) { ?>
     <div class="statcard gold">
       <div class="label">⚡ Today's Champion</div>
       <div class="name"><?= champion.name ?></div>
-      <div class="detail"><?= champion.correct ?> of <?= champion.total ?> correct &middot; <?= champion.accuracy ?></div>
+      <div class="detail"><?= champion.correct ?> of <?= champion.predictions ?> correct &middot; <?= champion.accuracy ?></div>
     </div>
     <? } else { ?>
     <div class="statcard">
@@ -120,77 +110,75 @@
     </div>
     <? } ?>
 
-    <? if (monthlyLeader.name) { ?>
+    <? if (monthlyLeader && monthlyLeader.name) { ?>
     <div class="statcard gold">
       <div class="label">📅 Current Monthly Leader</div>
       <div class="name"><?= monthlyLeader.name ?></div>
-      <div class="detail"><?= monthlyLeader.correct ?> correct of <?= monthlyLeader.total ?> &middot; <?= monthlyLeader.accuracy ?></div>
+      <div class="detail"><?= monthlyLeader.correct ?> correct of <?= monthlyLeader.predictions ?> &middot; <?= monthlyLeader.accuracy ?></div>
     </div>
     <? } ?>
   </div>
 
-  <!-- ── Accuracy cards ── -->
+  <!-- Accuracy cards -->
   <div class="accrow">
-    <? if (metrics.todayAccuracy) { ?>
+    <? if (dailyLeague && dailyLeague.accuracy) { ?>
     <div class="acccard">
-      <div class="pct"><?= metrics.todayAccuracy ?></div>
+      <div class="pct"><?= dailyLeague.accuracy ?></div>
       <div class="alabel">Today's League Accuracy</div>
-      <div class="adesc"><?= metrics.todayCorrect ?> correct out of <?= metrics.todayTotal ?> picks today</div>
+      <div class="adesc"><?= dailyLeague.correct ?> correct out of <?= dailyLeague.predictions ?> picks today</div>
     </div>
     <? } ?>
-    <? if (metrics.monthlyAccuracy) { ?>
+    <? if (monthlyLeague && monthlyLeague.accuracy) { ?>
     <div class="acccard">
-      <div class="pct"><?= metrics.monthlyAccuracy ?></div>
+      <div class="pct"><?= monthlyLeague.accuracy ?></div>
       <div class="alabel">Monthly Accuracy</div>
-      <div class="adesc"><?= metrics.monthlyCorrect ?> correct out of <?= metrics.monthlyTotal ?> picks this month</div>
+      <div class="adesc"><?= monthlyLeague.correct ?> correct out of <?= monthlyLeague.predictions ?> picks this month</div>
     </div>
     <? } ?>
-    <? if (metrics.yearlyAccuracy) { ?>
+    <? if (yearlyLeague && yearlyLeague.accuracy) { ?>
     <div class="acccard">
-      <div class="pct"><?= metrics.yearlyAccuracy ?></div>
+      <div class="pct"><?= yearlyLeague.accuracy ?></div>
       <div class="alabel">Season Accuracy</div>
-      <div class="adesc"><?= metrics.yearlyCorrect ?> correct out of <?= metrics.yearlyTotal ?> picks this year</div>
+      <div class="adesc"><?= yearlyLeague.correct ?> correct out of <?= yearlyLeague.predictions ?> picks this year</div>
     </div>
     <? } ?>
   </div>
 
-  <!-- ── Prediction Insights ── -->
-  <? if (insights && Object.keys(insights).length > 0) { ?>
+  <!-- Prediction Insights -->
   <div class="sec-head">📈 Prediction Insights</div>
   <div class="igrid">
-    <? if (insights.mostTrustedCaptain) { ?>
+    <? if (metrics['Most Trusted Captain']) { ?>
     <div class="icard">
       <div class="ititle">Most Trusted Captain</div>
-      <div class="ival"><?= insights.mostTrustedCaptain.name ?></div>
-      <div class="idesc"><?= insights.mostTrustedCaptain.detail ?></div>
+      <div class="ival"><?= metrics['Most Trusted Captain'].value ?></div>
+      <div class="idesc"><?= metrics['Most Trusted Captain'].notes ?></div>
     </div>
     <? } ?>
-    <? if (insights.mostUnderratedCaptain) { ?>
+    <? if (metrics['Most Underrated Captain']) { ?>
     <div class="icard">
       <div class="ititle">Most Underrated Captain</div>
-      <div class="ival"><?= insights.mostUnderratedCaptain.name ?></div>
-      <div class="idesc"><?= insights.mostUnderratedCaptain.detail ?></div>
+      <div class="ival"><?= metrics['Most Underrated Captain'].value ?></div>
+      <div class="idesc"><?= metrics['Most Underrated Captain'].notes ?></div>
     </div>
     <? } ?>
-    <? if (insights.closestGame) { ?>
+    <? if (metrics['Closest Predicted Game']) { ?>
     <div class="icard">
       <div class="ititle">Closest Predicted Game</div>
-      <div class="ival" style="font-size:1rem"><?= insights.closestGame.name ?></div>
-      <div class="idesc"><?= insights.closestGame.detail ?></div>
+      <div class="ival" style="font-size:1rem"><?= metrics['Closest Predicted Game'].value ?></div>
+      <div class="idesc"><?= metrics['Closest Predicted Game'].notes ?></div>
     </div>
     <? } ?>
-    <? if (insights.mostLopsidedGame) { ?>
+    <? if (metrics['Most Lopsided Predicted Game']) { ?>
     <div class="icard">
       <div class="ititle">Most Lopsided Predicted Game</div>
-      <div class="ival" style="font-size:1rem"><?= insights.mostLopsidedGame.name ?></div>
-      <div class="idesc"><?= insights.mostLopsidedGame.detail ?></div>
+      <div class="ival" style="font-size:1rem"><?= metrics['Most Lopsided Predicted Game'].value ?></div>
+      <div class="idesc"><?= metrics['Most Lopsided Predicted Game'].notes ?></div>
     </div>
     <? } ?>
   </div>
-  <? } ?>
 
-  <!-- ── Full Leaderboard ── -->
-  <? if (leaderboard.length > 0) { ?>
+  <!-- Season Standings -->
+  <? if (lbRows.length > 0) { ?>
   <div class="sec-head">🥇 Season Standings</div>
   <table class="lbtable">
     <thead>
@@ -204,17 +192,18 @@
       </tr>
     </thead>
     <tbody>
-      <? for (var i = 0; i < leaderboard.length; i++) {
-        var p = leaderboard[i];
+      <? for (var i = 0; i < lbRows.length; i++) {
+        var p = lbRows[i];
+        // columns: [0]=Rank [1]=Player Name [2]=Predictions [3]=Correct [4]=Incorrect [5]=Points [6]=Accuracy% [7]=Qualified
         var medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
       ?>
       <tr>
         <td class="rank <?= i < 3 ? 'top' : '' ?>"><?= medal || (i+1) ?></td>
-        <td class="pname"><?= p.name ?></td>
-        <td class="num"><?= p.predictions ?></td>
-        <td class="num"><?= p.correct ?></td>
-        <td class="num pts"><?= p.points ?></td>
-        <td class="num"><?= p.accuracy ?></td>
+        <td class="pname"><?= p[1] ?></td>
+        <td class="num"><?= p[2] ?></td>
+        <td class="num"><?= p[3] ?></td>
+        <td class="num pts"><?= p[5] ?></td>
+        <td class="num"><?= p[6] ?></td>
       </tr>
       <? } ?>
     </tbody>
