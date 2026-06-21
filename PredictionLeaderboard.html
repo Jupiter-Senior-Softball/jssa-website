@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JSSA Prediction Contest Leaderboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#16233f;--navy2:#1e2f52;--blue:#2b5bd0;--red:#d8262b;
+    --gold:#f5c518;--green:#22c55e;
+    --display:'Archivo',system-ui,sans-serif;
+    --body:'Inter',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{font-size:112.5%;-webkit-font-smoothing:antialiased}
+  body{font-family:var(--body);background:var(--navy);color:#eaf1ff;min-height:100vh;padding:0 0 60px}
+  a{color:#9fc0ff;text-decoration:none}
+  a:hover{color:#fff}
+
+  /* ── Header ── */
+  .hdr{background:linear-gradient(135deg,#0d1a33 0%,#1a2d55 100%);border-bottom:1px solid rgba(255,255,255,.1);padding:28px 24px 24px}
+  .hdr-inner{max-width:900px;margin:0 auto}
+  .hdr .eyebrow{font-family:var(--display);font-weight:700;font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;color:#9fc0ff;margin-bottom:8px}
+  .hdr h1{font-family:var(--display);font-weight:900;font-size:clamp(1.6rem,4vw,2.4rem);color:#fff;line-height:1.1}
+  .hdr .sub{color:#9fc0ff;font-size:1rem;margin-top:8px}
+
+  /* ── Wrap ── */
+  .wrap{max-width:900px;margin:0 auto;padding:0 20px}
+
+  /* ── Stat cards ── */
+  .statgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:28px 0}
+  @media(max-width:540px){.statgrid{grid-template-columns:1fr}}
+  .statcard{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:22px 24px}
+  .statcard .label{font-family:var(--display);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:#9fc0ff;margin-bottom:10px}
+  .statcard .name{font-family:var(--display);font-weight:900;font-size:1.7rem;color:#fff;line-height:1.15}
+  .statcard .detail{color:#9fc0ff;font-size:.92rem;margin-top:6px}
+  .statcard.gold{border-color:rgba(245,197,24,.35);background:rgba(245,197,24,.07)}
+  .statcard.gold .label{color:var(--gold)}
+  .statcard.gold .name{color:var(--gold)}
+  .statcard.blue .name{font-size:2.2rem;color:#60a5fa}
+  .statcard.blue .label{color:#93c5fd}
+  .statcard.wide{grid-column:1/-1}
+
+  /* ── Accuracy row ── */
+  .accrow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:28px}
+  @media(max-width:600px){.accrow{grid-template-columns:1fr}}
+  .acccard{background:rgba(43,91,208,.15);border:1px solid rgba(43,91,208,.3);border-radius:14px;padding:18px 20px;text-align:center}
+  .acccard .pct{font-family:var(--display);font-weight:900;font-size:2rem;color:#60a5fa}
+  .acccard .alabel{font-family:var(--display);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:#93c5fd;margin-top:6px}
+  .acccard .adesc{color:#9fc0ff;font-size:.82rem;margin-top:5px;line-height:1.4}
+
+  /* ── Section heading ── */
+  .sec-head{font-family:var(--display);font-weight:800;font-size:1.1rem;color:#fff;margin:32px 0 14px;display:flex;align-items:center;gap:10px}
+  .sec-head::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.1)}
+
+  /* ── Insights grid ── */
+  .igrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:28px}
+  @media(max-width:540px){.igrid{grid-template-columns:1fr}}
+  .icard{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:18px 20px;border-left:4px solid var(--blue)}
+  .icard .ititle{font-family:var(--display);font-weight:700;font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:#9fc0ff;margin-bottom:8px}
+  .icard .ival{font-family:var(--display);font-weight:800;font-size:1.15rem;color:#fff;margin-bottom:4px}
+  .icard .idesc{color:#9fc0ff;font-size:.88rem}
+
+  /* ── Leaderboard table ── */
+  .lbtable{width:100%;border-collapse:collapse;margin-bottom:28px}
+  .lbtable thead tr{border-bottom:1px solid rgba(255,255,255,.15)}
+  .lbtable th{font-family:var(--display);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:#9fc0ff;padding:10px 12px;text-align:left}
+  .lbtable th.num,.lbtable td.num{text-align:right}
+  .lbtable td{padding:14px 12px;border-bottom:1px solid rgba(255,255,255,.07);color:#eaf1ff;font-size:1rem}
+  .lbtable tbody tr:hover{background:rgba(255,255,255,.04)}
+  .lbtable .rank{font-family:var(--display);font-weight:800;color:#9fc0ff;width:36px}
+  .lbtable .rank.top{color:var(--gold)}
+  .lbtable .pname{font-family:var(--display);font-weight:700;color:#fff}
+  .lbtable .pts{font-family:var(--display);font-weight:800;color:#60a5fa}
+  .medal{display:inline-block;margin-right:6px}
+
+  /* ── Footer ── */
+  .foot{text-align:center;color:#4a5878;font-size:.88rem;margin-top:40px;padding-top:24px;border-top:1px solid rgba(255,255,255,.07)}
+  .foot a{color:#9fc0ff}
+
+  <?= getLeaderboardStyles() ?>
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hdr-inner">
+    <div class="eyebrow">Jupiter Senior Softball Association</div>
+    <h1>🏆 Prediction Contest Leaderboard</h1>
+    <p class="sub">Daily results, monthly standings, and season insights from the JSSA Prediction Contest.</p>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <?
+  var data = getPredictionLeaderboardData();
+  var champion = data.todayChampion || {};
+  var monthlyLeader = data.monthlyLeader || {};
+  var metrics = data.metrics || {};
+  var insights = data.insights || {};
+  var leaderboard = data.leaderboard || [];
+  ?>
+
+  <!-- ── Top stat cards ── -->
+  <div class="statgrid" style="margin-top:28px">
+    <? if (champion.name) { ?>
+    <div class="statcard gold">
+      <div class="label">⚡ Today's Champion</div>
+      <div class="name"><?= champion.name ?></div>
+      <div class="detail"><?= champion.correct ?> of <?= champion.total ?> correct &middot; <?= champion.accuracy ?></div>
+    </div>
+    <? } else { ?>
+    <div class="statcard">
+      <div class="label">⚡ Today's Champion</div>
+      <div class="name" style="color:#4a5878;font-size:1.1rem">No results yet today</div>
+    </div>
+    <? } ?>
+
+    <? if (monthlyLeader.name) { ?>
+    <div class="statcard gold">
+      <div class="label">📅 Current Monthly Leader</div>
+      <div class="name"><?= monthlyLeader.name ?></div>
+      <div class="detail"><?= monthlyLeader.correct ?> correct of <?= monthlyLeader.total ?> &middot; <?= monthlyLeader.accuracy ?></div>
+    </div>
+    <? } ?>
+  </div>
+
+  <!-- ── Accuracy cards ── -->
+  <div class="accrow">
+    <? if (metrics.todayAccuracy) { ?>
+    <div class="acccard">
+      <div class="pct"><?= metrics.todayAccuracy ?></div>
+      <div class="alabel">Today's League Accuracy</div>
+      <div class="adesc"><?= metrics.todayCorrect ?> correct out of <?= metrics.todayTotal ?> picks today</div>
+    </div>
+    <? } ?>
+    <? if (metrics.monthlyAccuracy) { ?>
+    <div class="acccard">
+      <div class="pct"><?= metrics.monthlyAccuracy ?></div>
+      <div class="alabel">Monthly Accuracy</div>
+      <div class="adesc"><?= metrics.monthlyCorrect ?> correct out of <?= metrics.monthlyTotal ?> picks this month</div>
+    </div>
+    <? } ?>
+    <? if (metrics.yearlyAccuracy) { ?>
+    <div class="acccard">
+      <div class="pct"><?= metrics.yearlyAccuracy ?></div>
+      <div class="alabel">Season Accuracy</div>
+      <div class="adesc"><?= metrics.yearlyCorrect ?> correct out of <?= metrics.yearlyTotal ?> picks this year</div>
+    </div>
+    <? } ?>
+  </div>
+
+  <!-- ── Prediction Insights ── -->
+  <? if (insights && Object.keys(insights).length > 0) { ?>
+  <div class="sec-head">📈 Prediction Insights</div>
+  <div class="igrid">
+    <? if (insights.mostTrustedCaptain) { ?>
+    <div class="icard">
+      <div class="ititle">Most Trusted Captain</div>
+      <div class="ival"><?= insights.mostTrustedCaptain.name ?></div>
+      <div class="idesc"><?= insights.mostTrustedCaptain.detail ?></div>
+    </div>
+    <? } ?>
+    <? if (insights.mostUnderratedCaptain) { ?>
+    <div class="icard">
+      <div class="ititle">Most Underrated Captain</div>
+      <div class="ival"><?= insights.mostUnderratedCaptain.name ?></div>
+      <div class="idesc"><?= insights.mostUnderratedCaptain.detail ?></div>
+    </div>
+    <? } ?>
+    <? if (insights.closestGame) { ?>
+    <div class="icard">
+      <div class="ititle">Closest Predicted Game</div>
+      <div class="ival" style="font-size:1rem"><?= insights.closestGame.name ?></div>
+      <div class="idesc"><?= insights.closestGame.detail ?></div>
+    </div>
+    <? } ?>
+    <? if (insights.mostLopsidedGame) { ?>
+    <div class="icard">
+      <div class="ititle">Most Lopsided Predicted Game</div>
+      <div class="ival" style="font-size:1rem"><?= insights.mostLopsidedGame.name ?></div>
+      <div class="idesc"><?= insights.mostLopsidedGame.detail ?></div>
+    </div>
+    <? } ?>
+  </div>
+  <? } ?>
+
+  <!-- ── Full Leaderboard ── -->
+  <? if (leaderboard.length > 0) { ?>
+  <div class="sec-head">🥇 Season Standings</div>
+  <table class="lbtable">
+    <thead>
+      <tr>
+        <th class="rank">#</th>
+        <th>Player</th>
+        <th class="num">Picks</th>
+        <th class="num">Correct</th>
+        <th class="num">Points</th>
+        <th class="num">Accuracy</th>
+      </tr>
+    </thead>
+    <tbody>
+      <? for (var i = 0; i < leaderboard.length; i++) {
+        var p = leaderboard[i];
+        var medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
+      ?>
+      <tr>
+        <td class="rank <?= i < 3 ? 'top' : '' ?>"><?= medal || (i+1) ?></td>
+        <td class="pname"><?= p.name ?></td>
+        <td class="num"><?= p.predictions ?></td>
+        <td class="num"><?= p.correct ?></td>
+        <td class="num pts"><?= p.points ?></td>
+        <td class="num"><?= p.accuracy ?></td>
+      </tr>
+      <? } ?>
+    </tbody>
+  </table>
+  <? } ?>
+
+  <div class="foot">
+    Jupiter Senior Softball Association &middot; Prediction Contest &middot;
+    <a href="<?= ScriptApp.getService().getUrl() ?>">Back to site</a>
+  </div>
+
+</div>
+</body>
+</html>
