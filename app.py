@@ -50,8 +50,17 @@ def home():
         notice = sheets.active_notice()
     except Exception:
         notice = None
+    # The red "Game Day Rosters Are Posted" button. A manual switch on the
+    # Website Controls tab can force it ON or OFF; otherwise (AUTO) it follows
+    # the published-rosters + noon-timer logic in game_day_teams().
     try:
-        teams_posted = sheets.game_day_teams() is not None
+        mode = sheets.roster_button_mode()  # 'ON' / 'OFF' / 'AUTO'
+        if mode == "OFF":
+            teams_posted = False
+        elif mode == "ON":
+            teams_posted = True
+        else:
+            teams_posted = sheets.game_day_teams() is not None
     except Exception:
         teams_posted = False
     try:

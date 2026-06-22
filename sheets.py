@@ -206,7 +206,9 @@ def teams_is_configured():
     return bool(TEAMS_SHEET_ID and _SA_JSON)
 
 
-def _teams_worksheet():
+def _open_teams_spreadsheet():
+    """Open the public Game Day spreadsheet (read-only). Shared by the roster
+    reader and the Website Controls reader below."""
     import gspread
     from google.oauth2.service_account import Credentials
 
@@ -215,7 +217,11 @@ def _teams_worksheet():
     scopes = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
     creds = Credentials.from_service_account_info(info, scopes=scopes)
     gc = gspread.authorize(creds)
-    sh = gc.open_by_key(TEAMS_SHEET_ID)
+    return gc.open_by_key(TEAMS_SHEET_ID)
+
+
+def _teams_worksheet():
+    sh = _open_teams_spreadsheet()
     try:
         return sh.worksheet(TEAMS_TAB)
     except Exception:
@@ -409,6 +415,53 @@ def game_day_teams():
     except Exception:
         # On any hiccup, return the last good value (may be None).
         return _teams_cache["data"]
+
+
+# ----------------------------------------------------------------------------
+# Website Controls — small manual switches Tom flips in the Google Sheet
+# ----------------------------------------------------------------------------
+# These live on a "Website Controls" tab in the public Game Day sheet, laid out
+# as plain "Setting | Value" rows. Right now there's one switch: the homepage
+# "Game Day Rosters Are Posted" button. Missing tab or blank value falls back to
+# AUTO, so the site behaves exactly as before until the tab is added.
+
+WEBSITE_CONTROLS_TAB = os.environ.get(
+    "WEBSITE_CONTROLS_TAB", "Website Controls").strip()
+_controls_cache = {"data": None, "ts": 0.0}
+_CONTROLS_TTL = 60  # seconds — picks up a flipped switch fast, easy on the API
+
+
+def _website_controls():
+    """{setting (lowercased): value} read from the Website Controls tab, or {}
+    if the tab is missing / the API hiccups."""
+    now = time.time()
+    with _lock:
+        c = _controls_cache
+        if c["data"] is not None and now - c["ts"] < _CONTROLS_TTL:
+            return c["data"]
+    out = {}
+    try:
+        if teams_is_configured():
+            ws = _open_teams_spreadsheet().worksheet(WEBSITE_CONTROLS_TAB)
+            for row in ws.get_all_values():
+                if len(row) >= 2 and str(row[0]).strip():
+                    out[str(row[0]).strip().lower()] = str(row[1]).strip()
+    except Exception:
+        out = {}
+    with _lock:
+        _controls_cache["data"] = out
+        _controls_cache["ts"] = now
+    return out
+
+
+def roster_button_mode():
+    """How the homepage 'Game Day Rosters Are Posted' button should behave:
+        'ON'   — always show
+        'OFF'  — always hide
+        'AUTO' — follow the published-rosters + noon-timer logic (default)
+    Set by the 'Game Day Button' row on the Website Controls tab."""
+    val = _website_controls().get("game day button", "").strip().upper()
+    return val if val in ("ON", "OFF") else "AUTO"
 
 
 # ----------------------------------------------------------------------------
