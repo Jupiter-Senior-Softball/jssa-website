@@ -2108,6 +2108,26 @@ def prediction_leaderboard(limit=10):
     return out[:limit] if limit else out
 
 
+def prediction_league_accuracy():
+    """League accuracy as the share of *individual* member picks that were
+    correct — the same definition the leaderboard's 'Season accuracy' uses, so
+    the homepage and the leaderboard always show the same number. Summed across
+    every player on the Prediction Leaderboard tab (correct / predictions).
+    Returns {'pct': '55.1%', 'correct': 87, 'total': 158} or None."""
+    try:
+        total = 0
+        correct = 0
+        for r in prediction_leaderboard(0):  # 0 = all players, not just the top N
+            total += _to_int(r.get("predictions"))
+            correct += _to_int(r.get("correct"))
+        if total <= 0:
+            return None
+        return {"correct": correct, "total": total,
+                "pct": "%.1f%%" % (correct * 100.0 / total)}
+    except Exception:
+        return None
+
+
 # Prediction analytics for the homepage — the season insight numbers the
 # Control Sheet already computes on its "Prediction Analytics" tab (a simple
 # Metric / Value / Notes list: total games, league accuracy, most-trusted
