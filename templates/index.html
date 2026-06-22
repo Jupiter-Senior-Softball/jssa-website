@@ -196,6 +196,7 @@
   .icard{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:14px;padding:16px 18px}
   .icard .ival{font-family:var(--display);font-weight:800;color:#fff;font-size:1.7rem;line-height:1.1}
   .icard .ilab{color:#9fc0ff;font-size:.92rem;margin-top:5px;font-weight:600}
+  .icard .isub{color:#7e93c2;font-size:.78rem;margin-top:4px;font-weight:600}
   .icard.wide .ival{font-size:1.18rem}
   .lb{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:var(--radius);overflow:hidden}
   .lb .lbhead{display:flex;align-items:center;justify-content:space-between;padding:16px 22px;border-bottom:1px solid rgba(255,255,255,.12)}
@@ -512,7 +513,9 @@
         {% if pred_stats.get('total predictions') %}
         <div class="icard"><div class="ival">{{ pred_stats['total predictions'].value }}</div><div class="ilab">Total picks made</div></div>
         {% endif %}
-        {% if pred_stats.get('league prediction accuracy %') %}
+        {% if league_acc %}
+        <div class="icard"><div class="ival">{{ league_acc.pct }}</div><div class="ilab">League accuracy</div><div class="isub">{{ league_acc.correct }} of {{ league_acc.total }} picks correct</div></div>
+        {% elif pred_stats.get('league prediction accuracy %') %}
         <div class="icard"><div class="ival">{{ pred_stats['league prediction accuracy %'].value }}</div><div class="ilab">League accuracy</div></div>
         {% endif %}
         {% if pred_stats.get('upset rate %') %}

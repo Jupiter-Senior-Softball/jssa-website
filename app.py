@@ -91,6 +91,12 @@ def home():
         pred_stats = sheets.prediction_analytics()
     except Exception:
         pred_stats = {}
+    # League accuracy = % of all member picks correct — same number the
+    # leaderboard shows, so the homepage and leaderboard always agree.
+    try:
+        league_acc = sheets.prediction_league_accuracy()
+    except Exception:
+        league_acc = None
     # Count this homepage visit and read the running total to show in the footer.
     try:
         sheets.record_home_view()
@@ -101,7 +107,7 @@ def home():
                            teams_posted=teams_posted, blackboard=blackboard,
                            photos=photos, board=board, sponsors=sponsor_list,
                            pred_odds=pred_odds, pred_board=pred_board,
-                           pred_stats=pred_stats, views=views)
+                           pred_stats=pred_stats, league_acc=league_acc, views=views)
 
 
 @app.route("/teams")
