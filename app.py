@@ -172,6 +172,16 @@ def league_debug():
         }
     except Exception as e:
         out["parsed_error"] = "%s: %s" % (type(e).__name__, e)
+    try:
+        sheets._profiles_cache["ts"] = 0.0   # force a fresh read
+        profs = sheets.player_profiles()
+        out["profiles"] = {
+            "count": len(profs),
+            "slugs": sorted(profs.keys()),
+            "with_photo": sorted(s for s, p in profs.items() if p.get("photo_id")),
+        }
+    except Exception as e:
+        out["profiles_error"] = "%s: %s" % (type(e).__name__, e)
     return jsonify(out)
 
 
