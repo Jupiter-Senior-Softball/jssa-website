@@ -1981,6 +1981,51 @@ def _is_name_col(h):
     return ("name" in h) and ("team" not in h)
 
 
+def _is_yes(v):
+    """True if a sheet cell looks like an affirmative mark."""
+    return _clean(v).lower() in ("yes", "y", "true", "x", "✓", "✔", "1")
+
+
+def _sync_photo_flags(title, rows, hi, cols, profiles):
+    """If the Players tab has a 'Photo' column, write 'Yes' next to every player
+    who has uploaded a photo, so Tom can see at a glance who has and hasn't. It is:
+      * add-only  — never clears a cell, so a transient read can't wipe the column;
+      * only-on-change — writes just the cells that are missing the mark, so it is
+        almost always a no-op (no API write at all);
+      * fail-safe — any error is swallowed and never affects a page.
+    Called only when the season cache rebuilds (at most once every few minutes)."""
+    try:
+        if title is None or not cols:
+            return
+        pcol = next((ci for nm, ci in cols.items() if "photo" in nm), None)
+        fi, li = cols.get("player first name"), cols.get("player last name")
+        if pcol is None or fi is None or li is None:
+            return
+        have = {s for s, p in (profiles or {}).items()
+                if p.get("photo_url") or p.get("photo_id")}
+        if not have:
+            return
+        targets = []
+        for idx in range(hi + 1, len(rows)):
+            r = rows[idx]
+            first = _clean(r[fi]) if len(r) > fi else ""
+            last = _clean(r[li]) if len(r) > li else ""
+            name = (first + " " + last).strip()
+            cur = _clean(r[pcol]) if len(r) > pcol else ""
+            if name and _slug(name) in have and not _is_yes(cur):
+                targets.append((idx + 1, pcol + 1))
+        if not targets:
+            return
+        import gspread
+        sh = _control_sheet(readonly=False)
+        ws = sh.worksheet(title)
+        ws.batch_update([
+            {"range": gspread.utils.rowcol_to_a1(rn, cn), "values": [["Yes"]]}
+            for rn, cn in targets])
+    except Exception:
+        pass
+
+
 def _parse_profiles(tabs):
     """Merge the questionnaire + photo form tabs into {slug: profile}, matched to
     the roster by name. Handles BOTH form styles: the simple typed forms
@@ -2175,6 +2220,7 @@ def player_cards():
                     "first": parts[0] if parts else nm,
                     "last": parts[-1] if parts else nm,
                     "team": t.get("team", ""), "division": div,
+                    "position": p.get("position", ""),
                     "photo_url": profiles.get(slug, {}).get("photo_url", ""),
                 }
     return out
@@ -2261,10 +2307,10 @@ def league_season():
             # --- Rosters (Players tab: Team Name + player names; an optional
             #     "Manager" column marks one player per team as the manager —
             #     put any mark, e.g. "Yes", in that player's Manager cell) ---
-            _, rows, hi, cols = _match_tab(
+            ptitle, rows, hi, cols = _match_tab(
                 tabs, ["team name", "player first name", "player last name"])
             if rows is not None:
-                bucket = {}  # (div, team) -> {"players": [names], "manager": ""}
+                bucket = {}  # (div, team) -> {"players":[{name,position}], "manager":""}
                 order = []
                 for r in rows[hi + 1:]:
                     g = _row_reader(cols)(r)
@@ -2277,19 +2323,24 @@ def league_season():
                     if key not in bucket:
                         bucket[key] = {"players": [], "manager": ""}
                         order.append(key)
-                    bucket[key]["players"].append(name)
+                    bucket[key]["players"].append(
+                        {"name": name, "position": g("position", "pos")})
                     if g("manager") and not bucket[key]["manager"]:
                         bucket[key]["manager"] = name
                 for (div, team) in order:
                     b = bucket[(div, team)]
-                    names = sorted(b["players"],
-                                   key=lambda n: n.split()[-1].lower())
-                    players = [{"name": nm, "slug": _slug(nm),
-                                "has_profile": _slug(nm) in profiles}
-                               for nm in names]
+                    plist = sorted(b["players"],
+                                   key=lambda p: p["name"].split()[-1].lower())
+                    players = [{"name": p["name"], "slug": _slug(p["name"]),
+                                "position": p["position"],
+                                "has_profile": _slug(p["name"]) in profiles}
+                               for p in plist]
                     data["rosters"][div].append({
                         "team": team, "players": players,
                         "manager": b["manager"], "count": len(players)})
+                # Mark in the Players tab who has uploaded a photo (only if a
+                # "Photo" column exists). Add-only, only-on-change, fail-safe.
+                _sync_photo_flags(ptitle, rows, hi, cols, profiles)
 
         # Auto-standings: derive the table from the schedule's final scores so
         # there's no separate Standings tab to maintain. Every team in the
