@@ -2077,7 +2077,11 @@ def _parse_profiles(tabs):
             out[slug] = entry
             if pid:
                 entry["photo_id"] = pid
-                entry["photo_url"] = "/league/player/photo/" + pid
+                # Load straight from Drive (browser fetches it), like the
+                # Blackboard watermark — works as long as the upload folder is
+                # shared "Anyone with the link". Simpler than the service-account
+                # route and needs no awkward folder-share-with-the-SA step.
+                entry["photo_url"] = "https://lh3.googleusercontent.com/d/%s=w800" % pid
     return out
 
 
