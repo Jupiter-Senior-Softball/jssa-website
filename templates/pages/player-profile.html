@@ -5,67 +5,50 @@
   /* Stand the card on its own — neutralize the page wrapper. */
   .page-head{display:none}
   .article{background:none;border:0;box-shadow:none;padding:0}
-  .doc-btns{justify-content:center;margin-top:16px}
+  .doc-btns{justify-content:center;margin-top:18px}
 
-  .bbcard{display:flex;width:100%;max-width:720px;margin:0 auto;background:#fdf7e6;
-    border:5px solid var(--acc,#16233f);border-radius:18px;overflow:hidden;
-    box-shadow:0 14px 38px rgba(22,35,63,.28)}
-  .bbcard.RED{--acc:#d8262b} .bbcard.WHITE{--acc:#54607a} .bbcard.BLUE{--acc:#2b5bd0}
+  .tc{--top:#16233f;--bot:#16233f;--star:#f5c518;
+    width:100%;max-width:360px;margin:0 auto;background:#fff;border-radius:16px;padding:10px;
+    box-shadow:0 16px 44px rgba(22,35,63,.32)}
+  .tc.RED{--top:#d8262b} .tc.WHITE{--top:#54607a} .tc.BLUE{--top:#2b5bd0}
+  .tc-inner{border:2px solid #e7dcc0;border-radius:10px;overflow:hidden;display:flex;flex-direction:column}
 
-  /* Left: the photo fills the whole side. */
-  .bb-photo-col{flex:0 0 44%;background:var(--acc,#16233f);position:relative;min-height:320px}
-  .bb-photo-col img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
-  .bb-photo-col .bb-noimg{position:absolute;inset:0;display:grid;place-items:center;color:#fff;
-    font-family:var(--display);font-weight:900;font-size:4.6rem}
+  /* Team banner (outlined varsity letters) */
+  .tc-team{background:var(--top);text-align:center;padding:11px 8px}
+  .tc-team span{font-family:var(--display);font-weight:900;line-height:1;text-transform:uppercase;
+    font-size:clamp(1.35rem,7vw,2.1rem);letter-spacing:.01em;color:#fff;
+    -webkit-text-stroke:2px #16233f;paint-order:stroke fill;text-shadow:2px 2px 0 rgba(22,35,63,.4)}
 
-  /* Right: name banner + stat grid. */
-  .bb-right{flex:1;display:flex;flex-direction:column;min-width:0}
-  .bb-top{background:var(--acc,#16233f);color:#fff;padding:14px 18px;display:flex;
-    align-items:center;justify-content:space-between;gap:8px}
-  .bb-name{font-family:var(--display);font-weight:900;font-size:1.6rem;line-height:1.04;color:#fff}
-  .bb-sub{font-family:var(--display);font-weight:700;font-size:.74rem;opacity:.93;
-    text-transform:uppercase;letter-spacing:.05em;margin-top:3px}
-  .bb-badge{flex:0 0 auto;font-size:1.6rem;opacity:.92}
-  .bb-stats{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:2px;background:var(--acc,#16233f);
-    align-content:start}
-  .bb-stat{background:#fdf7e6;padding:9px 14px;min-width:0}
-  .bb-q{font-family:var(--display);font-weight:800;color:var(--acc,#16233f);font-size:.62rem;
-    letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:1px}
-  .bb-a{color:#332913;font-weight:600;font-size:.98rem;line-height:1.22;word-wrap:break-word}
-  .bb-foot{background:var(--acc,#16233f);color:#fff;padding:8px 16px;text-align:center;
-    font-family:var(--display);font-weight:800;font-size:.66rem;letter-spacing:.1em;text-transform:uppercase}
+  /* Photo */
+  .tc-photo{position:relative;aspect-ratio:1/1;background:#22335a}
+  .tc-photo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .tc-noimg{position:absolute;inset:0;display:grid;place-items:center;color:#fff;
+    font-family:var(--display);font-weight:900;font-size:4.6rem;
+    background:linear-gradient(160deg,var(--top),#16233f)}
+  .tc-star{position:absolute;right:10px;bottom:10px;width:80px;height:80px;background:var(--star);
+    clip-path:polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);
+    display:grid;place-items:center;text-align:center;line-height:1;
+    filter:drop-shadow(0 2px 3px rgba(0,0,0,.4))}
+  .tc-star b{font-family:var(--display);font-weight:900;color:#16233f;font-size:1.15rem}
+  .tc-star small{display:block;font-weight:800;color:#16233f;font-size:.46rem;letter-spacing:.05em;margin-top:1px}
 
-  @media(max-width:560px){
-    .bbcard{flex-direction:column;max-width:430px}
-    .bb-photo-col{flex-basis:auto;height:280px}
-  }
+  /* Name banner */
+  .tc-name{background:var(--bot);text-align:center;padding:10px 8px}
+  .tc-name span{font-family:var(--display);font-weight:900;text-transform:uppercase;color:var(--star);
+    font-size:clamp(1.05rem,5vw,1.5rem);letter-spacing:.02em}
 </style>
-<div class="bbcard {{ player.division }}">
-  <div class="bb-photo-col">
-    {% if player.photo_url %}
-      <img src="{{ player.photo_url }}" alt="{{ player.name }}">
-    {% else %}
-      <div class="bb-noimg">{{ (player.first[:1] ~ player.last[:1])|upper }}</div>
-    {% endif %}
-  </div>
-  <div class="bb-right">
-    <div class="bb-top">
-      <div>
-        <div class="bb-name">{{ player.name }}</div>
-        <div class="bb-sub">{{ player.team }}{% if player.team and player.division %} &middot; {% endif %}{% if player.division %}{{ player.division }} Division{% endif %}</div>
-      </div>
-      <div class="bb-badge">&#9918;</div>
+<div class="tc {{ player.division }}">
+  <div class="tc-inner">
+    <div class="tc-team"><span>{{ player.team or 'JSSA' }}</span></div>
+    <div class="tc-photo">
+      {% if player.photo_url %}
+        <img src="{{ player.photo_url }}" alt="{{ player.name }}">
+      {% else %}
+        <div class="tc-noimg">{{ (player.first[:1] ~ player.last[:1])|upper }}</div>
+      {% endif %}
+      {% if player.division %}<div class="tc-star"><b>{{ player.division[:1] }}</b><small>{{ player.division }}</small></div>{% endif %}
     </div>
-    {% if player.qa %}
-    <div class="bb-stats">
-      {% for q, a in player.qa %}
-      <div class="bb-stat"><span class="bb-q">{{ q }}</span><span class="bb-a">{{ a }}</span></div>
-      {% endfor %}
-    </div>
-    {% else %}
-    <div class="bb-stat" style="flex:1"><span class="bb-a">Profile coming soon.</span></div>
-    {% endif %}
-    <div class="bb-foot">Jupiter Senior Softball &middot; Player Card</div>
+    <div class="tc-name"><span>{{ player.name }}</span></div>
   </div>
 </div>
 {% endblock %}

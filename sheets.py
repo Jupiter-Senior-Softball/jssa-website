@@ -2147,6 +2147,35 @@ def fetch_profile_photo_bytes(file_id):
         return None, None
 
 
+def player_cards():
+    """Card data for EVERY roster player, built from the roster (name + team +
+    division) with their uploaded photo merged in if they submitted one. So every
+    rostered player has a baseball-card page, photo optional.
+        {slug: {slug, name, first, last, team, division, photo_url}}"""
+    try:
+        season = league_season()
+        profiles = player_profiles()
+    except Exception:
+        return {}
+    out = {}
+    for div, teams in season.get("rosters", {}).items():
+        for t in teams:
+            for p in t.get("players", []):
+                nm = p.get("name", "")
+                slug = p.get("slug") or _slug(nm)
+                if not slug:
+                    continue
+                parts = nm.split()
+                out[slug] = {
+                    "slug": slug, "name": nm,
+                    "first": parts[0] if parts else nm,
+                    "last": parts[-1] if parts else nm,
+                    "team": t.get("team", ""), "division": div,
+                    "photo_url": profiles.get(slug, {}).get("photo_url", ""),
+                }
+    return out
+
+
 def league_season():
     """Everything the public league pages need, read from the Control Sheet:
         {'standings': {RED/WHITE/BLUE: [team,...]},
