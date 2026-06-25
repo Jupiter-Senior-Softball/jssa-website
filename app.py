@@ -213,10 +213,9 @@ def league_debug():
 @app.route("/league/player/<slug>")
 def player_profile(slug):
     try:
-        profiles = sheets.player_profiles()
+        player = sheets.player_cards().get(slug)
     except Exception:
-        profiles = {}
-    player = profiles.get(slug)
+        player = None
     if not player:
         abort(404)
     return render_template("pages/player-profile.html",
