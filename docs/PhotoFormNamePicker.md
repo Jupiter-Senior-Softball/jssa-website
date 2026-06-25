@@ -127,10 +127,21 @@ function readRoster() {
     seen[key] = true;
     byDiv[div].push(name);
   }
+  // Sort each division by LAST name (first name breaks ties).
   DIVISIONS.forEach(function (d) {
-    byDiv[d].sort(function (a, b) { return a.toLowerCase() < b.toLowerCase() ? -1 : 1; });
+    byDiv[d].sort(function (a, b) {
+      var la = lastName(a), lb = lastName(b);
+      if (la !== lb) return la < lb ? -1 : 1;
+      return a.toLowerCase() < b.toLowerCase() ? -1 : 1;
+    });
   });
   return byDiv;
+}
+
+/** The last word of a full name, lowercased (used to sort by last name). */
+function lastName(full) {
+  var p = String(full || '').trim().split(/\s+/);
+  return p[p.length - 1].toLowerCase();
 }
 
 /** Rebuild the form's name picker. Returns counts per division. */
