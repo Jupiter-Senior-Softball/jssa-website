@@ -152,8 +152,13 @@ def pickup():
         game = sheets.pickup_next_game()
     except Exception:
         game = None
+    try:
+        card_slugs = set(sheets.player_cards())
+    except Exception:
+        card_slugs = set()
     return render_template("pages/pickup.html",
-                           page_title="Next Pickup Game", game=game)
+                           page_title="Next Pickup Game", game=game,
+                           card_slugs=card_slugs)
 
 
 @app.route("/teams")
@@ -165,7 +170,11 @@ def teams():
         data = None if sheets.roster_button_mode() == "OFF" else sheets.game_day_teams()
     except Exception:
         data = None
-    return render_template("teams.html", teams=data)
+    try:
+        card_slugs = set(sheets.player_cards())
+    except Exception:
+        card_slugs = set()
+    return render_template("teams.html", teams=data, card_slugs=card_slugs)
 
 
 @app.route("/teams/debug")
@@ -340,7 +349,7 @@ def teams_preview():
             },
         ],
     }
-    return render_template("teams.html", teams=data)
+    return render_template("teams.html", teams=data, card_slugs=set())
 
 
 @app.route("/players")
@@ -349,8 +358,13 @@ def players():
         rosters = sheets.division_rosters()
     except Exception:
         rosters = {"RED": [], "WHITE": [], "BLUE": []}
+    try:
+        card_slugs = set(sheets.player_cards())
+    except Exception:
+        card_slugs = set()
     return render_template("pages/players.html",
-                           page_title="Players by Division", rosters=rosters)
+                           page_title="Players by Division", rosters=rosters,
+                           card_slugs=card_slugs)
 
 
 # Organized-league sections (fall/winter season, ~mid-Oct through March).

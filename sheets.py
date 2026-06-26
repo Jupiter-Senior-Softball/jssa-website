@@ -359,6 +359,7 @@ def _parse_teams_block(rows):
                 side, is_captain = parsed
                 entry = {
                     "name": name,
+                    "slug": _slug(name),
                     "pos": positions,
                     "captain": is_captain,
                 }
@@ -649,7 +650,7 @@ def _parse_schedule_grid(rows, ref):
         pos = _clean(r[pos_i]) if pos_i is not None and len(r) > pos_i else ""
         total += 1
         if div in buckets:
-            buckets[div].append({"name": name, "first": first,
+            buckets[div].append({"name": name, "slug": _slug(name), "first": first,
                                  "last": last, "pos": pos})
     for d in buckets:
         buckets[d].sort(key=lambda e: (e["last"].lower(), e["first"].lower()))
@@ -1697,7 +1698,7 @@ def division_rosters():
                     if key in seen:          # roster can repeat across tabs
                         continue
                     seen.add(key)
-                    result[div].append({"name": name, "pos": pos})
+                    result[div].append({"name": name, "slug": _slug(name), "pos": pos})
                 for d in result:
                     result[d].sort(key=lambda e: e["name"].split()[-1].lower())
         with _lock:
