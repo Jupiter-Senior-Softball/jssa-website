@@ -540,6 +540,12 @@
 
     {% if pred_stats %}
     <div class="insights">
+      {% if champion and champion.name %}
+      <div class="cotm">
+        <div class="cotm-title">Congratulations to our {{ champion.month or 'Champion' }}, {{ champion.name }}!</div>
+        {% if champion.note %}<div class="cotm-msg">{{ champion.note }}</div>{% endif %}
+      </div>
+      {% endif %}
       <div class="insights-head">📈 Season insights</div>
       <div class="igrid">
         {% if pred_stats.get('total games scored') %}
@@ -655,12 +661,6 @@
 <!-- ============ HIGHLIGHTS ============ -->
 <section class="block highlights" id="highlights">
   <div class="wrap">
-    {% if champion and champion.name %}
-    <div class="cotm">
-      <div class="cotm-title"><span class="mo">{{ champion.month or 'Champion' }}:</span> {{ champion.name }}</div>
-      {% if champion.note %}<div class="cotm-msg">{{ champion.note }}</div>{% endif %}
-    </div>
-    {% endif %}
     <div class="sec-eyebrow">Photos &middot; This Week</div>
     <h2 class="sec-title">Highlights from around the league</h2>
     <p class="sec-sub">The most recent photos uploaded by JSSA members &mdash; this updates on its own as new photos come in.</p>
