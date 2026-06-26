@@ -46,9 +46,9 @@
   {% if champion and champion.name %}
   <h2 class="form-h">🏆 Current champion</h2>
   <p class="form-sub">This is showing on the homepage right now. Edit the fields below and save to update it, or remove it entirely.</p>
-  <div class="preview">
-    <div class="pname">🏆 {{ champion.month or 'Champion' }}: {{ champion.name }}</div>
-    {% if champion.note %}<div class="pprize" style="margin-top:8px">{{ champion.note }}</div>{% endif %}
+  <div class="preview" style="background:linear-gradient(135deg,#2b5bd0,#1f47ad);border-color:#1f47ad">
+    <div class="pname" style="color:#fff">Congratulations to our {{ champion.month or 'Champion' }}, {{ champion.name }}!</div>
+    {% if champion.note %}<div class="pprize" style="margin-top:8px;color:#eaf1ff">{{ champion.note }}</div>{% endif %}
   </div>
   <form class="clearform" method="post" action="{{ url_for('admin_champion_clear') }}" onsubmit="return confirm('Remove the champion banner from the homepage?');">
     <button class="btn" type="submit" style="background:#f4f5f8;color:var(--navy)">Remove the banner</button>
@@ -56,12 +56,12 @@
   {% endif %}
 
   <h2 class="form-h" style="margin-top:34px">{{ 'Update the champion' if (champion and champion.name) else 'Crown this month\'s champion' }}</h2>
-  <p class="form-sub">Fill these in and hit save — the gold banner updates on the homepage right away.</p>
+  <p class="form-sub">Fill these in and hit save — the banner updates on the homepage right away.</p>
   <form class="adm" method="post" action="{{ url_for('admin_champion_save') }}">
     <div class="row">
-      <label for="month">Line 1 — the title</label>
-      <input type="text" id="month" name="month" value="{{ champion.month if champion else '' }}" placeholder="e.g. June 2026 Champion">
-      <div class="hint">The big headline before the name. It shows as &ldquo;<em>your title</em>: <em>name</em>&rdquo;.</div>
+      <label for="month">Champion title</label>
+      <input type="text" id="month" name="month" value="{{ champion.month if champion else '' }}" placeholder="e.g. June 2026 champion">
+      <div class="hint">The headline reads: &ldquo;Congratulations to our <em>[title]</em>, <em>[name]</em>!&rdquo; — so put something like &ldquo;June 2026 champion&rdquo; here.</div>
     </div>
     <div class="row">
       <label for="name">Champion's name</label>
