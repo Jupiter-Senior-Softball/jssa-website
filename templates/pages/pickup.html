@@ -43,6 +43,8 @@
   .roster li{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:8px 16px;border-top:1px solid var(--line)}
   .roster li:first-child{border-top:0}
   .roster .pn{font-family:var(--display);font-weight:600;color:var(--navy);font-size:1rem}
+  a.pn{text-decoration:none}
+  a.pn:hover{color:var(--blue);text-decoration:underline}
   .roster .pp{font-size:.8rem;color:var(--muted);white-space:nowrap}
   .ros-empty{padding:14px 16px;color:var(--muted)}
   .ng-note{color:var(--muted);font-size:.95rem;margin:22px 0 0;text-align:center}
@@ -83,7 +85,7 @@
     {% if game.players[key] %}
     <ul class="roster">
       {% for p in game.players[key] %}
-      <li><span class="pn">{{ p.name }}</span>{% if p.pos %}<span class="pp">{{ p.pos }}</span>{% endif %}</li>
+      <li>{% if p.slug and p.slug in card_slugs %}<a class="pn" href="/league/player/{{ p.slug }}">{{ p.name }}</a>{% else %}<span class="pn">{{ p.name }}</span>{% endif %}{% if p.pos %}<span class="pp">{{ p.pos }}</span>{% endif %}</li>
       {% endfor %}
     </ul>
     {% else %}

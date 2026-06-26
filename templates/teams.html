@@ -196,6 +196,8 @@
   .team.visitor .star { color: var(--gold); font-size: .9rem; flex-shrink: 0; }
   .nm { font-family: var(--display); font-weight: 600; font-size: 1rem; color: #eaf1ff; flex: 1; }
   .team.home .nm { color: #fff8e0; }
+  .nm a { color: inherit; text-decoration: none; }
+  .nm a:hover { text-decoration: underline; }
   .cpt-tag {
     font-size: .68rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
     padding: 2px 7px; border-radius: 999px; margin-left: 6px;
@@ -319,7 +321,7 @@
               {% for p in field.home %}
               <li class="{{ 'cpt' if p.captain else '' }}">
                 {% if p.captain %}<span class="star">★</span>{% endif %}
-                <span class="nm">{{ p.name }}{% if p.captain %}<span class="cpt-tag">Captain</span>{% endif %}</span>
+                <span class="nm">{% if p.slug and p.slug in card_slugs %}<a href="/league/player/{{ p.slug }}">{{ p.name }}</a>{% else %}{{ p.name }}{% endif %}{% if p.captain %}<span class="cpt-tag">Captain</span>{% endif %}</span>
                 {% if p.pos %}<span class="pos">{{ p.pos }}</span>{% endif %}
               </li>
               {% endfor %}
@@ -331,7 +333,7 @@
               {% for p in field.visitor %}
               <li class="{{ 'cpt' if p.captain else '' }}">
                 {% if p.captain %}<span class="star">★</span>{% endif %}
-                <span class="nm">{{ p.name }}{% if p.captain %}<span class="cpt-tag">Captain</span>{% endif %}</span>
+                <span class="nm">{% if p.slug and p.slug in card_slugs %}<a href="/league/player/{{ p.slug }}">{{ p.name }}</a>{% else %}{{ p.name }}{% endif %}{% if p.captain %}<span class="cpt-tag">Captain</span>{% endif %}</span>
                 {% if p.pos %}<span class="pos">{{ p.pos }}</span>{% endif %}
               </li>
               {% endfor %}
