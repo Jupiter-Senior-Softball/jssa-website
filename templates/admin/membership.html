@@ -32,7 +32,16 @@
 </div>
 
 {% if not matrix.rows %}
-  <p style="color:var(--muted)">No membership data found. Make sure <code>MATRIX_SHEET_ID</code> is set in Render and the service account has Viewer access to the registration/payment spreadsheet.</p>
+  <div style="background:var(--surface);border:1.5px solid var(--line);border-radius:14px;padding:22px 24px;max-width:640px">
+    <p style="margin-top:0"><strong>Almost there — one sharing step.</strong></p>
+    <p>To show the membership database here, open the registration/payment spreadsheet in Google Sheets, click <strong>Share</strong>, and add this address as a <strong>Viewer</strong>:</p>
+    {% if sa_email %}
+      <p style="font-size:1.05rem"><code style="background:var(--blue-tint);padding:6px 10px;border-radius:8px;user-select:all">{{ sa_email }}</code></p>
+    {% else %}
+      <p style="color:var(--muted)">(The service-account address isn't configured yet — check with whoever set up the site's Google connection.)</p>
+    {% endif %}
+    <p style="color:var(--muted);margin-bottom:0">Once it's shared, this page fills in automatically within a couple of minutes. No Render or other settings needed.</p>
+  </div>
 {% else %}
 
 <div class="dirbar">

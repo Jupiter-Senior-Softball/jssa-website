@@ -685,7 +685,12 @@ def admin_membership():
         matrix = sheets.membership_matrix()
     except Exception:
         matrix = {"headers": [], "rows": [], "count": 0}
-    return render_template("admin/membership.html", matrix=matrix)
+    try:
+        sa_email = sheets.service_account_email()
+    except Exception:
+        sa_email = ""
+    return render_template("admin/membership.html", matrix=matrix,
+                           sa_email=sa_email)
 
 
 @app.route("/admin/communications")

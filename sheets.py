@@ -1801,11 +1801,14 @@ def player_directory():
 # spreadsheet on its "Membership Matrix" tab. We read it READ-ONLY so the board
 # can view and copy it from the website without ever touching the master sheet.
 #
-# Set these in Render:
-#   MATRIX_SHEET_ID — id of the registration/payment spreadsheet
-#   MATRIX_TAB      — tab name (defaults to "Membership Matrix")
-# and share that spreadsheet with the service account (Viewer is enough).
-MATRIX_SHEET_ID = os.environ.get("MATRIX_SHEET_ID", "").strip()
+# The spreadsheet ID is NOT a secret (it's just the code from the sheet's URL;
+# access is controlled by sharing). So, exactly like TEAMS_SHEET_ID and
+# ROSTER_SHEET_ID above, it can simply be hardcoded as the default below — no
+# Render/env setup required. An env var can still override it if ever wanted.
+# The only manual step is sharing that spreadsheet with the service account
+# (Viewer is enough); its address is service_account_email().
+MATRIX_SHEET_ID = os.environ.get(
+    "MATRIX_SHEET_ID", "").strip()  # <-- paste the registration sheet id here
 MATRIX_TAB = os.environ.get("MATRIX_TAB", "Membership Matrix").strip()
 
 _matrix_cache = {"data": None, "ts": 0.0}
