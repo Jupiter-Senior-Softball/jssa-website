@@ -130,6 +130,36 @@ so they don't refresh. Scoring **from the website admin** runs the full chain an
 everything. Permanent fix: add `updatePredictionMetrics();` to `handlePredictionGamesEdit_`
 right after `updatePredictionChampions();`.
 
+## Troubleshooting: "Website Control (Unverified)" permission popup
+
+**Symptom:** clicking the **Leaderboard** button (or any `…/exec` link — ballot,
+info, champions) shows a Google consent screen titled **"Website Control
+(Unverified) — needs your permission to access your data on Google"** instead of
+loading the page. Most visitors hit Cancel and never see the leaderboard.
+
+**Cause:** the web-app deployment's **"Execute as"** got flipped from **Me** to
+**"User accessing the web app."** With that setting Google makes *every* visitor
+sign in and personally authorize the script, and because the script isn't a
+Google-verified app they get the alarming red "Unverified" warning. This is a
+**deployment setting inside Apps Script**, not anything in this repo — there is
+nothing to change in the code.
+
+**Fix (≈2 min, done in Google, not in code):**
+1. Open the **Website Control** Google Sheet → **Extensions → Apps Script**.
+2. Top-right **Deploy → Manage deployments**.
+3. Edit (✏️) the active deployment and set:
+   - **Execute as:** **Me** (Tom's account)
+   - **Who has access:** **Anyone**
+4. In the **Version** dropdown pick **New version**, then **Deploy**.
+
+⚠️ Use **New version** on the *existing* deployment — never **New deployment**
+(see "Deployment gotcha" below: a new deployment issues a brand-new URL and
+silently breaks the hard-coded links on the homepage and in the pickup-game
+automation).
+
+Verify: reload the Leaderboard button — it should load straight to the standings
+with no permission popup.
+
 ## Deployment gotcha
 
 The web-app URL (`…/macros/s/AKfycb…/exec`) is **hard-coded** in
