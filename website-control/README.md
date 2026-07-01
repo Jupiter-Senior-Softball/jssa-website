@@ -160,6 +160,31 @@ automation).
 Verify: reload the Leaderboard button — it should load straight to the standings
 with no permission popup.
 
+## Bug found & fixed — 2026-07-01
+
+**The "Current Monthly Leader" never rolled over to a new month.**
+On the leaderboard page, the gold **📅 Current Monthly Leader** card was being
+read from the **all-time** `Prediction Leaderboard` tab (`updatePredictionLeaderboard`
+sums *every* scored pick and never filters by month). So it was really the
+*season* leader mislabeled as monthly. At the start of July it kept showing
+June's leader, because June's full month of picks still dominated the all-time
+totals.
+
+Fixed in `getPredictionDashboardForWebsite()` (see `PredictionEngine.gs`): the
+monthly leader is now computed **only from the current (latest) month's** scored
+picks — the same `latestMonthKey` the monthly-accuracy card already uses. It
+prefers players who've met the monthly minimum (`Minimum Monthly Predictions`
+from the Prediction Control tab); if nobody has yet — e.g. the first game day of
+a new month — it falls back to the current front-runner so the card still shows
+*this* month's leader instead of last month's.
+
+Note: the big **"Season Standings"** table lower on the page is intentionally
+cumulative for the whole season and is unchanged — only the monthly-leader card
+was wrong.
+
+To apply: paste the updated `getPredictionDashboardForWebsite()` into the Apps
+Script editor and deploy a **New version** of the **existing** deployment.
+
 ## Deployment gotcha
 
 The web-app URL (`…/macros/s/AKfycb…/exec`) is **hard-coded** in
@@ -175,8 +200,17 @@ The ballot / leaderboard pages tell members "**4 picks** to qualify," but the
 
 ## Capturing the actual source
 
-The `.gs` and `.html` files still live only in the Apps Script editor. To get a faithful,
-updatable copy into this folder (recommended), use Google's **clasp** CLI once:
+A faithful copy of the main script is now captured here as **`PredictionEngine.gs`**
+(pasted from the Apps Script editor on 2026-07-01, with the monthly-leader fix
+above applied). ⚠️ Editing that file does **not** change the live script — it's a
+reviewable/version-controlled copy. To ship a change, paste the updated function
+into the Apps Script editor and deploy a **New version** of the existing
+deployment. The `.html` view files (`PredictionLeaderboard.html`,
+`PredictionBallot.html`, `PredictionInfo.html`, etc.) are captured at the repo
+root.
+
+To keep the copy in sync automatically (recommended long-term), use Google's
+**clasp** CLI once:
 
 ```
 npm i -g @google/clasp
