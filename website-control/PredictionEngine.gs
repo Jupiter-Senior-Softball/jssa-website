@@ -1329,7 +1329,7 @@ const yearlyLeague = dashboard.yearlyLeague || {};
       "EEEE, MMMM d, yyyy"
     );
 
-    MailApp.sendEmail({
+    queueEmail_({
       to: sendTo,
       subject: "JSSA Prediction Results - " + formattedDate,
       body: plainBody,
