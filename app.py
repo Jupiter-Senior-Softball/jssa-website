@@ -26,8 +26,10 @@ import os
 import hmac
 import functools
 import re
+import json
 import threading
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 
 from flask import (
     Flask, render_template, jsonify, abort,
@@ -695,6 +697,51 @@ def admin_directory():
     except Exception:
         directory = {"headers": [], "players": []}
     return render_template("admin/directory.html", directory=directory)
+
+
+@app.route("/admin/email-usage")
+@login_required
+def admin_email_usage():
+    try:
+        configured = bool(sheets.get_email_usage_urls())
+    except Exception:
+        configured = False
+    return render_template("admin/email-usage.html", configured=configured)
+
+
+def _fetch_email_usage(url):
+    """Fetch one account's Apps Script reporter. Always returns a dict so one
+    unreachable account never breaks the page."""
+    try:
+        with urllib.request.urlopen(url, timeout=15) as r:
+            data = json.loads(r.read().decode("utf-8"))
+        if isinstance(data, dict):
+            return data
+        return {"ok": False, "error": "unexpected response"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+@app.route("/admin/email-usage.json")
+@login_required
+def admin_email_usage_json():
+    # The accounts to watch come from the control sheet's "Email Accounts" tab,
+    # so the whole feature is set up from the spreadsheet — no Render access.
+    try:
+        entries = sheets.get_email_usage_urls()
+    except Exception:
+        entries = []
+    if not entries:
+        return jsonify({"ok": True, "configured": False, "accounts": []})
+    urls = [e["url"] for e in entries]
+    # A handful of accounts — fetch them at once so the page stays snappy.
+    with ThreadPoolExecutor(max_workers=max(1, len(urls))) as ex:
+        accounts = list(ex.map(_fetch_email_usage, urls))
+    # Fall back to the sheet's label if a reporter didn't send its own account.
+    for acct, entry in zip(accounts, entries):
+        if isinstance(acct, dict) and not acct.get("account") and entry.get("label"):
+            acct["account"] = entry["label"]
+    return jsonify({"ok": True, "configured": True, "accounts": accounts})
 
 
 @app.route("/admin/notices/add", methods=["POST"])
