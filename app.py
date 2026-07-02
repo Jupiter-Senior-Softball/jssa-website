@@ -697,17 +697,6 @@ def admin_directory():
     return render_template("admin/directory.html", directory=directory)
 
 
-@app.route("/admin/communications")
-@login_required
-def admin_communications():
-    try:
-        audiences = sheets.comm_audiences()
-    except Exception:
-        audiences = {"all": [], "divisions": {"RED": [], "WHITE": [], "BLUE": []},
-                     "board": []}
-    return render_template("admin/communications.html", audiences=audiences)
-
-
 @app.route("/admin/notices/add", methods=["POST"])
 @login_required
 def admin_add():

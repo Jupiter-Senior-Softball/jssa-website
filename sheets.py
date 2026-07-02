@@ -1791,48 +1791,6 @@ def player_directory():
     except Exception:
         return _dir_cache["data"] or blank
 # ----------------------------------------------------------------------------
-
-
-def comm_audiences():
-    """Group members into ready-to-email audiences for the admin Communications
-    tool. Returns:
-      {'all':       [{name, email, phone}],
-       'divisions': {'RED':[...], 'WHITE':[...], 'BLUE':[...]},
-       'board':     [{name, email, phone, role}]}
-    Board members carry no email of their own in the board sheet, so we match
-    them to the member directory by name to fill in their address."""
-    players = player_directory().get("players", [])
-
-    def has_email(p):
-        return bool(p.get("email"))
-
-    def slim(p):
-        return {"name": p["name"], "email": p.get("email", ""),
-                "phone": p.get("phone", "")}
-
-    all_m = [slim(p) for p in players if has_email(p)]
-    divisions = {d: [slim(p) for p in players if p.get("div") == d and has_email(p)]
-                 for d in ("RED", "WHITE", "BLUE")}
-
-    by_name = {}
-    for p in players:
-        if has_email(p):
-            by_name.setdefault(p["name"].strip().lower(), p)
-    board = []
-    try:
-        for m in board_members():
-            match = by_name.get(m["name"].strip().lower())
-            board.append({
-                "name": m["name"],
-                "email": match.get("email", "") if match else "",
-                "phone": match.get("phone", "") if match else "",
-                "role": m.get("role", ""),
-            })
-    except Exception:
-        board = []
-
-    return {"all": all_m, "divisions": divisions, "board": board}
-# ----------------------------------------------------------------------------
 # All of this lives in tabs inside the league's "Website Control Sheet" (the
 # same spreadsheet that runs the prediction contest and catches form
 # submissions). We only READ here; scores are written back separately via
