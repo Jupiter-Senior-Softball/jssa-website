@@ -179,6 +179,28 @@ def teams():
     return render_template("teams.html", teams=data, card_slugs=card_slugs)
 
 
+@app.route("/teams/cards")
+def team_cards():
+    """A 'binder page' view: every team's players shown as baseball cards in a
+    grid, grouped by team. Reuses the same card data as the individual player
+    cards. Preview route — not linked from the nav yet."""
+    try:
+        cards = sheets.player_cards()
+    except Exception:
+        cards = {}
+    order = {"RED": 0, "WHITE": 1, "BLUE": 2}
+    groups = {}
+    for p in cards.values():
+        key = (p.get("division", ""), p.get("team", ""))
+        groups.setdefault(key, []).append(p)
+    teams = []
+    for (div, team), players in groups.items():
+        players.sort(key=lambda x: (x.get("last", "").lower(), x.get("name", "").lower()))
+        teams.append({"division": div, "team": team, "players": players})
+    teams.sort(key=lambda t: (order.get(t["division"], 9), t["team"].lower()))
+    return render_template("pages/team-cards.html", teams=teams)
+
+
 @app.route("/teams/debug")
 def teams_debug():
     """Temporary: shows raw sheet rows so we can diagnose parsing issues."""
