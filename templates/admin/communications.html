@@ -1,0 +1,194 @@
+{% extends "page_base.html" %}
+{% block eyebrow %}Admin{% endblock %}
+{% block sub %}<p class="sub">Email your members in one click. Pick who you want to reach, then either open your email app with everyone already added, or copy the addresses to paste in yourself.</p>{% endblock %}
+{% block body %}
+<style>
+  html{font-size:112.5%}
+  .adminbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+  .adminbar a{font-weight:600}
+  .comm-pick{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:0 0 22px}
+  .comm-pick button{font-family:var(--display);font-weight:700;font-size:1.05rem;cursor:pointer;
+    padding:18px 14px;border-radius:14px;border:2px solid var(--line);background:#fff;color:var(--navy);
+    transition:border-color .15s,box-shadow .15s,transform .05s;line-height:1.25}
+  .comm-pick button .cnt{display:block;font-family:var(--body);font-weight:600;font-size:.9rem;color:var(--muted);margin-top:4px}
+  .comm-pick button:hover{border-color:var(--blue);transform:translateY(-2px)}
+  .comm-pick button.on{border-color:var(--blue);box-shadow:0 6px 18px rgba(43,91,208,.2);background:var(--blue-tint)}
+  .comm-pick button.RED.on{border-color:var(--red);background:var(--red-tint);box-shadow:0 6px 18px rgba(216,38,43,.18)}
+  .comm-pick button.BLUE.on{border-color:var(--blue)}
+  .comm-pick button.WHITE.on{border-color:var(--navy);background:#eef1f7}
+  .comm-panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;
+    box-shadow:var(--shadow);padding:22px 22px 24px;display:none}
+  .comm-panel.show{display:block}
+  .comm-h{font-family:var(--display);font-weight:800;color:var(--navy);font-size:1.3rem;margin:0 0 4px}
+  .comm-sum{color:var(--muted);font-size:1rem;margin:0 0 18px}
+  .subj{margin:0 0 18px}
+  .subj label{display:block;font-family:var(--display);font-weight:600;color:var(--navy);margin:0 0 6px}
+  .subj input{width:100%;font-family:var(--body);font-size:1.05rem;padding:12px 14px;border:1px solid var(--line);border-radius:10px}
+  .comm-btns{display:flex;flex-wrap:wrap;gap:12px;margin:0 0 8px}
+  .cbtn{display:inline-flex;align-items:center;gap:9px;font-family:var(--display);font-weight:700;
+    font-size:1.05rem;padding:15px 22px;border-radius:12px;cursor:pointer;border:0;text-decoration:none}
+  .cbtn.primary{background:var(--blue);color:#fff}
+  .cbtn.copy{background:#fff;color:var(--navy);border:2px solid var(--line)}
+  .cbtn.copy.done{background:#e8f6ee;border-color:#bfe3cd;color:#1a7f4b}
+  .tip{background:#fff8e6;border:1px solid #f3e2b3;color:#7a5b12;border-radius:12px;padding:14px 16px;margin:16px 0 0;font-size:.98rem}
+  .missing{background:var(--red-tint);border:1px solid #f0c9cb;color:#b3151b;border-radius:12px;padding:12px 16px;margin:14px 0 0;font-size:.95rem}
+  .namelist{margin:18px 0 0;border-top:1px solid var(--line);padding-top:14px}
+  .namelist summary{cursor:pointer;font-family:var(--display);font-weight:600;color:var(--blue)}
+  .namelist ul{margin:12px 0 0;padding:0;list-style:none;columns:2;column-gap:26px}
+  @media(max-width:560px){.namelist ul{columns:1}}
+  .namelist li{padding:5px 0;font-size:.98rem;color:var(--navy);break-inside:avoid}
+  .namelist li .em{color:var(--muted);font-size:.88rem}
+  .namelist li.noem .em{color:#b3151b}
+</style>
+
+<div class="adminbar">
+  <a href="{{ url_for('admin_dashboard') }}">← Back to dashboard</a>
+  <a href="{{ url_for('admin_logout') }}">Sign out</a>
+</div>
+
+<script id="comm-data" type="application/json">{{ audiences | tojson }}</script>
+
+<div class="comm-pick" id="commPick">
+  <button type="button" class="RED"   data-key="RED">RED Division<span class="cnt">{{ audiences.divisions.RED|length }} emails</span></button>
+  <button type="button" class="WHITE" data-key="WHITE">WHITE Division<span class="cnt">{{ audiences.divisions.WHITE|length }} emails</span></button>
+  <button type="button" class="BLUE"  data-key="BLUE">BLUE Division<span class="cnt">{{ audiences.divisions.BLUE|length }} emails</span></button>
+</div>
+
+<div class="comm-panel" id="commPanel">
+  <h2 class="comm-h" id="commTitle"></h2>
+  <p class="comm-sum" id="commSum"></p>
+
+  <div class="subj">
+    <label for="commSubject">Subject (optional)</label>
+    <input type="text" id="commSubject" placeholder="e.g. Field closed Monday — wet grounds">
+  </div>
+
+  <div class="comm-btns">
+    <a class="cbtn primary" id="commOpen" href="#">✉️ Open in my email</a>
+    <button class="cbtn copy" id="commCopy" type="button">📋 Copy email addresses</button>
+  </div>
+
+  <div class="tip">
+    <strong>Emails are sent from your own email account</strong> — the one you normally use on this device.
+    The button opens your email program with the division's addresses filled in as <strong>BCC</strong>, so
+    no one sees anyone else's address. Just add your message and send.
+    <br><br>
+    <strong>Big group?</strong> If your email app doesn't open (some limit how many addresses fit in one
+    link), use <strong>&ldquo;Copy email addresses&rdquo;</strong> and paste them into a new email's BCC
+    field yourself.
+  </div>
+
+  <div class="missing" id="commMissing" style="display:none"></div>
+
+  <details class="namelist">
+    <summary id="commCountLabel">Show who's included</summary>
+    <ul id="commNames"></ul>
+  </details>
+</div>
+
+<script>
+(function(){
+  var data = {all:[], divisions:{RED:[],WHITE:[],BLUE:[]}, board:[]};
+  try { data = JSON.parse(document.getElementById('comm-data').textContent); } catch(e){}
+
+  var titles = {RED:'RED Division', WHITE:'WHITE Division', BLUE:'BLUE Division'};
+
+  function listFor(key){
+    if(key==='all')   return data.all || [];
+    if(key==='board') return data.board || [];
+    return (data.divisions && data.divisions[key]) || [];
+  }
+
+  var pick   = document.getElementById('commPick');
+  var panel  = document.getElementById('commPanel');
+  var title  = document.getElementById('commTitle');
+  var sum    = document.getElementById('commSum');
+  var openA  = document.getElementById('commOpen');
+  var copyB  = document.getElementById('commCopy');
+  var subj   = document.getElementById('commSubject');
+  var names  = document.getElementById('commNames');
+  var miss   = document.getElementById('commMissing');
+  var current = [];
+
+  function emailsOf(people){
+    return people.filter(function(p){return p.email;}).map(function(p){return p.email;});
+  }
+
+  function buildMailto(){
+    // Open the admin's OWN default email app. A plain mailto: uses whatever
+    // account they normally send from — not the league account. BCC keeps
+    // everyone's address private.
+    var addrs = emailsOf(current).join(',');
+    var url = 'mailto:?bcc=' + encodeURIComponent(addrs);
+    var s = subj.value.trim();
+    if(s) url += '&subject=' + encodeURIComponent(s);
+    openA.setAttribute('href', url);
+  }
+
+  function render(key){
+    current = listFor(key);
+    var withEmail = current.filter(function(p){return p.email;});
+    title.textContent = titles[key];
+    sum.textContent = withEmail.length + ' email address' + (withEmail.length===1?'':'es') + ' ready.';
+
+    // Names list
+    names.innerHTML = '';
+    current.forEach(function(p){
+      var li = document.createElement('li');
+      if(!p.email) li.className = 'noem';
+      li.innerHTML = '<strong>'+escapeHtml(p.name)+'</strong>'+
+        (p.email ? ' <span class="em">'+escapeHtml(p.email)+'</span>'
+                 : ' <span class="em">— no email on file</span>');
+      names.appendChild(li);
+    });
+
+    // Missing-email warning
+    var noEmail = current.filter(function(p){return !p.email;});
+    if(noEmail.length){
+      miss.style.display='block';
+      miss.innerHTML = '<strong>'+noEmail.length+'</strong> in this group '+
+        (noEmail.length===1?'has':'have')+' no email on file and won\'t be included.';
+    } else {
+      miss.style.display='none';
+    }
+
+    buildMailto();
+    copyB.classList.remove('done');
+    copyB.textContent = '📋 Copy email addresses';
+    panel.classList.add('show');
+  }
+
+  function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+
+  pick.addEventListener('click', function(e){
+    var b = e.target.closest('button'); if(!b) return;
+    Array.prototype.forEach.call(pick.querySelectorAll('button'), function(x){x.classList.remove('on');});
+    b.classList.add('on');
+    render(b.getAttribute('data-key'));
+  });
+
+  subj.addEventListener('input', buildMailto);
+
+  copyB.addEventListener('click', function(){
+    var addrs = emailsOf(current).join(', ');
+    if(!addrs){ return; }
+    function done(){ copyB.classList.add('done'); copyB.textContent = '✓ Copied! Paste into the BCC field'; }
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(addrs).then(done, function(){ fallback(addrs, done); });
+    } else { fallback(addrs, done); }
+  });
+
+  function fallback(text, done){
+    var ta = document.createElement('textarea');
+    ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    try { document.execCommand('copy'); done(); } catch(e){}
+    document.body.removeChild(ta);
+  }
+})();
+</script>
+
+{% endblock %}
+{% block footer_btns %}<a class="btn btn-navy" href="{{ url_for('admin_dashboard') }}">← Back to dashboard</a>{% endblock %}
+{% block extra_btns %}{% endblock %}
