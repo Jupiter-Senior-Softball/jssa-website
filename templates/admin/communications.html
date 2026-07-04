@@ -52,6 +52,7 @@
   <button type="button" class="RED"   data-key="RED">RED Division<span class="cnt">{{ audiences.divisions.RED|length }} emails</span></button>
   <button type="button" class="WHITE" data-key="WHITE">WHITE Division<span class="cnt">{{ audiences.divisions.WHITE|length }} emails</span></button>
   <button type="button" class="BLUE"  data-key="BLUE">BLUE Division<span class="cnt">{{ audiences.divisions.BLUE|length }} emails</span></button>
+  <button type="button" data-key="board">Board of Directors<span class="cnt">{{ audiences.board|length }} people</span></button>
 </div>
 
 <div class="comm-panel" id="commPanel">
@@ -91,7 +92,8 @@
   var data = {all:[], divisions:{RED:[],WHITE:[],BLUE:[]}, board:[]};
   try { data = JSON.parse(document.getElementById('comm-data').textContent); } catch(e){}
 
-  var titles = {RED:'RED Division', WHITE:'WHITE Division', BLUE:'BLUE Division'};
+  var titles = {RED:'RED Division', WHITE:'WHITE Division', BLUE:'BLUE Division',
+                board:'Board of Directors'};
 
   function listFor(key){
     if(key==='all')   return data.all || [];
