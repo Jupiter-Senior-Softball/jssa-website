@@ -181,6 +181,24 @@
   .team.home .team-cards-link:hover{background:rgba(245,197,24,.28)}
   .team.visitor .team-cards-link{background:rgba(43,91,208,.22);color:#bcd0ff;border:1px solid rgba(43,91,208,.5)}
   .team.visitor .team-cards-link:hover{background:rgba(43,91,208,.34)}
+
+  /* "Make your baseball card" call-out */
+  .card-promo{display:flex;gap:20px;align-items:center;flex-wrap:wrap;
+    background:linear-gradient(135deg,rgba(245,197,24,.16),rgba(43,91,208,.18));
+    border:1px solid rgba(245,197,24,.4);border-radius:18px;
+    padding:22px 24px;margin:0 0 36px;box-shadow:0 12px 32px rgba(0,0,0,.28)}
+  .cp-badge{font-size:3rem;line-height:1;flex:0 0 auto;filter:drop-shadow(0 3px 6px rgba(0,0,0,.45))}
+  .cp-body{flex:1 1 320px}
+  .cp-title{font-family:var(--display);font-weight:900;color:#ffe08a;
+    font-size:clamp(1.35rem,3.8vw,1.75rem);text-transform:uppercase;letter-spacing:.01em;
+    margin:0 0 8px;line-height:1.05}
+  .cp-text{color:#e2e9f6;font-size:1.05rem;line-height:1.55;margin:0 0 16px}
+  .cp-text strong{color:#fff}
+  .cp-btn{display:inline-block;background:linear-gradient(120deg,#e9b800,#f5c518);color:#3a2e00;
+    font-family:var(--display);font-weight:900;font-size:1.08rem;text-decoration:none;
+    padding:14px 24px;border-radius:12px;box-shadow:0 6px 18px rgba(245,197,24,.38);
+    transition:transform .1s,box-shadow .1s}
+  .cp-btn:hover{transform:translateY(-2px);box-shadow:0 12px 26px rgba(245,197,24,.55)}
   .team li {
     display: flex;
     align-items: center;
@@ -310,6 +328,19 @@
 <div class="wrap">
 
   {% if teams and teams.fields %}
+
+    <div class="card-promo">
+      <div class="cp-badge">🃏</div>
+      <div class="cp-body">
+        <h3 class="cp-title">Where's YOUR baseball card?</h3>
+        <p class="cp-text">Every player on the rosters below has their very own JSSA trading card &mdash; tap any team's
+          <strong>&ldquo;📸 View Team Photo&rdquo;</strong> to flip through 'em. But if yours still shows a
+          <strong>mystery silhouette</strong> with just your initials&hellip; let's put a face to the legend! ⚾
+          Send in your best shot &mdash; ballcap, shades, game face, even a beach selfie &mdash; and we'll turn it into
+          your <strong>own custom baseball card</strong>. Rookie card status: <strong>unlocked.</strong></p>
+        <a class="cp-btn" href="https://docs.google.com/forms/d/e/1FAIpQLSc_5Wvkxoq3QsFfSDJ6kiTvyWre2xHH3m3AflNqiehA4-q58A/viewform" target="_blank" rel="noopener">📸 Make My Baseball Card →</a>
+      </div>
+    </div>
 
     {% for field in teams.fields %}
       {% set hc = field.home|length %}
