@@ -204,6 +204,49 @@ def team_cards():
     return render_template("pages/team-cards.html", teams=teams, single=bool(want))
 
 
+@app.route("/teams/gameday-cards")
+def gameday_team_cards():
+    """One game-day team (Home or Visitor of a given field) shown as player
+    cards, colored by side and reflecting that day's team — not the league
+    division. Photos come from the player's card; captain/position from the
+    game-day roster."""
+    field_want = (request.args.get("field") or "").strip().lower()
+    side = (request.args.get("side") or "").strip().lower()
+    if side not in ("home", "visitor"):
+        side = "home"
+    try:
+        data = None if sheets.roster_button_mode() == "OFF" else sheets.game_day_teams()
+    except Exception:
+        data = None
+    try:
+        cards = sheets.player_cards()
+    except Exception:
+        cards = {}
+    roster, fieldname = [], ""
+    if data:
+        for f in data.get("fields", []):
+            if f.get("name", "").strip().lower() == field_want:
+                roster = f.get(side) or []
+                fieldname = f.get("name", "")
+                break
+    players = []
+    for e in roster:
+        nm = e.get("name", "")
+        parts = nm.split()
+        card = cards.get(e.get("slug", ""), {})
+        players.append({
+            "name": nm, "slug": e.get("slug", ""),
+            "first": parts[0] if parts else nm,
+            "last": parts[-1] if parts else nm,
+            "pos": e.get("pos", ""), "captain": e.get("captain", False),
+            "photo_url": card.get("photo_url", ""), "has_card": bool(card),
+        })
+    return render_template("pages/gameday-cards.html",
+                           players=players, side=side, fieldname=fieldname,
+                           gday=(data or {}).get("date", ""),
+                           park=(data or {}).get("park", ""))
+
+
 @app.route("/teams/debug")
 def teams_debug():
     """Temporary: shows raw sheet rows so we can diagnose parsing issues."""

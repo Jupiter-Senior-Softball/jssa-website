@@ -175,6 +175,12 @@
   .team.visitor .cap .n { font-family: var(--display); font-weight: 600; font-size: .82rem; color: rgba(255,255,255,.6); }
 
   .team ul { list-style: none; }
+  .team-cards-link{display:block;margin:2px 12px 12px;text-align:center;text-decoration:none;
+    font-family:var(--display);font-weight:800;font-size:.92rem;padding:11px;border-radius:10px}
+  .team.home .team-cards-link{background:rgba(245,197,24,.16);color:#ffe08a;border:1px solid rgba(245,197,24,.4)}
+  .team.home .team-cards-link:hover{background:rgba(245,197,24,.28)}
+  .team.visitor .team-cards-link{background:rgba(43,91,208,.22);color:#bcd0ff;border:1px solid rgba(43,91,208,.5)}
+  .team.visitor .team-cards-link:hover{background:rgba(43,91,208,.34)}
   .team li {
     display: flex;
     align-items: center;
@@ -326,6 +332,7 @@
               </li>
               {% endfor %}
             </ul>
+            <a class="team-cards-link" href="{{ url_for('gameday_team_cards', field=field.name, side='home') }}">🃏 See all Home player cards →</a>
           </div>
           <div class="team visitor">
             <div class="cap"><b>✈️ Visitor</b><span class="n">{{ vc }} players</span></div>
@@ -338,6 +345,7 @@
               </li>
               {% endfor %}
             </ul>
+            <a class="team-cards-link" href="{{ url_for('gameday_team_cards', field=field.name, side='visitor') }}">🃏 See all Visitor player cards →</a>
           </div>
         </div>
       </div>
