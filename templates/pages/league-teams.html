@@ -34,7 +34,7 @@
     <div class="teamgrid">
       {% for t in teams %}
       <div class="tcard {{ div }}">
-        <a class="tname" href="{{ url_for('team_cards', team=t.team) }}">{{ t.team }}<span class="tname-cta">🃏 See player cards →</span></a>
+        <a class="tname" href="{{ url_for('team_cards', team=t.team) }}">{{ t.team }}<span class="tname-cta">📸 View Team Photo</span></a>
         <div class="tcount">{{ t.players|length }} player{{ '' if t.players|length == 1 else 's' }}</div>
         {% if t.manager %}<div class="tmgr"><span class="lbl">Manager</span>{{ t.manager }}</div>{% endif %}
       </div>
