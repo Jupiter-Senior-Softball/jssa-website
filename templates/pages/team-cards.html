@@ -48,7 +48,13 @@
 
   .tc-empty{background:#fff;border:1px solid var(--line);border-radius:14px;padding:30px 26px;
     color:var(--muted);text-align:center;font-size:1.05rem}
+  .tc-back{margin:0 0 20px;font-weight:600}
+  .tc-back a{color:var(--blue)}
 </style>
+
+{% if single %}
+<p class="tc-back"><a href="{{ url_for('team_cards') }}">← All team cards</a> &nbsp;·&nbsp; <a href="/league/rosters">Back to rosters</a></p>
+{% endif %}
 
 {% if teams %}
   {% for t in teams %}
@@ -87,5 +93,5 @@
   <div class="tc-empty">No team cards to show yet — this fills in once the rosters are posted.</div>
 {% endif %}
 {% endblock %}
-{% block footer_btns %}<a class="btn btn-navy" href="/">&larr; Back to home</a>{% endblock %}
+{% block footer_btns %}<a class="btn btn-navy" href="/league/rosters">&larr; Back to Rosters</a>{% endblock %}
 {% block extra_btns %}{% endblock %}

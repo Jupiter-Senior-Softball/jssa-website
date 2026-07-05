@@ -13,8 +13,12 @@
     border-top:5px solid var(--line);overflow:hidden}
   .tcard.RED{border-top-color:var(--red)} .tcard.BLUE{border-top-color:var(--blue)}
   .tcard.WHITE{border-top-color:var(--navy)}
-  .tname{font-family:var(--display);font-weight:800;color:var(--navy);font-size:1.2rem;
-    padding:14px 18px 8px}
+  .tname{display:block;font-family:var(--display);font-weight:800;color:var(--navy);font-size:1.2rem;
+    padding:14px 18px 8px;text-decoration:none}
+  a.tname:hover{color:var(--blue)}
+  a.tname .tname-cta{display:block;font-size:.8rem;font-weight:700;color:var(--blue);
+    letter-spacing:.02em;margin-top:3px}
+  a.tname:hover .tname-cta{text-decoration:underline}
   .tcount{color:var(--muted);font-size:.85rem;font-weight:600;padding:0 18px 8px}
   .tcard ol{list-style:none;padding:0 18px 16px;margin:0}
   .tcard li{padding:7px 0;border-top:1px solid var(--line);font-size:1.05rem;color:var(--navy)}
@@ -29,7 +33,7 @@
     <div class="teamgrid">
       {% for t in teams %}
       <div class="tcard {{ div }}">
-        <div class="tname">{{ t.team }}</div>
+        <a class="tname" href="{{ url_for('team_cards', team=t.team) }}">{{ t.team }}<span class="tname-cta">🃏 See player cards →</span></a>
         <div class="tcount">{{ t.players|length }} player{{ '' if t.players|length == 1 else 's' }}</div>
         <ol>
           {% for p in t.players %}<li><a href="/league/player/{{ p.slug }}">{{ p.name }}</a></li>{% endfor %}

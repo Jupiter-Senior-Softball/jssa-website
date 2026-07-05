@@ -184,6 +184,7 @@ def team_cards():
     """A 'binder page' view: every team's players shown as baseball cards in a
     grid, grouped by team. Reuses the same card data as the individual player
     cards. Preview route — not linked from the nav yet."""
+    want = (request.args.get("team") or "").strip().lower()
     try:
         cards = sheets.player_cards()
     except Exception:
@@ -198,7 +199,9 @@ def team_cards():
         players.sort(key=lambda x: (x.get("last", "").lower(), x.get("name", "").lower()))
         teams.append({"division": div, "team": team, "players": players})
     teams.sort(key=lambda t: (order.get(t["division"], 9), t["team"].lower()))
-    return render_template("pages/team-cards.html", teams=teams)
+    if want:  # a single team was requested (clicked from the Rosters page)
+        teams = [t for t in teams if t["team"].strip().lower() == want]
+    return render_template("pages/team-cards.html", teams=teams, single=bool(want))
 
 
 @app.route("/teams/debug")
