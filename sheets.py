@@ -922,7 +922,7 @@ def delete_bb_post(post_id):
 # Highlights work even where that var isn't set (e.g. no Render access). This is
 # the same public album the homepage "See all photos" button links to — not a
 # secret. To switch albums, change this id (or set the env var, which wins).
-_DEFAULT_PHOTOS_FOLDER_ID = "12af7Q-8h7Ya-tJv8Gqc0q8vzg7HkWN9zw_l9a0czpRCi7n1bg3oX2uIwfKDeoPkGRS_8dEe1"
+_DEFAULT_PHOTOS_FOLDER_ID = "1bxCZ2BXHqZzNYS92CChaQEsQQY5unV0WvNQsdFpraDKOX_GdY4crTg1lpAcuHtEb5xxKGApZ"
 PHOTOS_FOLDER_ID = (os.environ.get("PHOTOS_FOLDER_ID", "").strip()
                     or _DEFAULT_PHOTOS_FOLDER_ID)
 _DRIVE_SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
