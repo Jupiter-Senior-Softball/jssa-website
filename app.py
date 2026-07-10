@@ -165,16 +165,21 @@ def pickup():
 
 @app.route("/teams")
 def teams():
-    # The Website Controls "Game Day Button" switch: OFF fully un-publishes (hides
-    # the homepage button AND makes this page read "not posted yet"); ON forces
-    # the posted roster to show regardless of the time of day; AUTO (default)
-    # follows the noon auto-hide.
+    # The Website Controls "Game Day Button" switch drives this page:
+    #   OFF  → un-published ("not posted yet").
+    #   ON   → show the board's hand-built teams (the SAME reader that powers the
+    #          working /teams/manual page), falling back to the automated roster
+    #          if no manual teams are posted. Shown regardless of the time of day.
+    #   AUTO → the automated roster with the usual noon auto-hide (default).
     try:
         mode = sheets.roster_button_mode()
         if mode == "OFF":
             data = None
+        elif mode == "ON":
+            data = (sheets.manual_game_day_teams()
+                    or sheets.game_day_teams(enforce_date_window=False))
         else:
-            data = sheets.game_day_teams(enforce_date_window=(mode != "ON"))
+            data = sheets.game_day_teams()
     except Exception:
         data = None
     try:
@@ -221,8 +226,13 @@ def gameday_team_cards():
         side = "home"
     try:
         mode = sheets.roster_button_mode()
-        data = None if mode == "OFF" else sheets.game_day_teams(
-            enforce_date_window=(mode != "ON"))
+        if mode == "OFF":
+            data = None
+        elif mode == "ON":
+            data = (sheets.manual_game_day_teams()
+                    or sheets.game_day_teams(enforce_date_window=False))
+        else:
+            data = sheets.game_day_teams()
     except Exception:
         data = None
     try:
