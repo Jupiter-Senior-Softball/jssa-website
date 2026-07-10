@@ -269,6 +269,24 @@ def _parse_marker(cell):
     return side, is_captain
 
 
+def _is_stale_gameday(date_str):
+    """True if a game-day header date is in the past, or is today and it's past
+    noon Eastern (games are over). Used to auto-hide stale rosters. Unparseable
+    dates are treated as not stale (show whatever's there)."""
+    try:
+        game_date = datetime.datetime.strptime(date_str, "%A, %B %d, %Y").date()
+        eastern = datetime.timezone(datetime.timedelta(hours=-4))  # EDT (UTC-4 May-Nov)
+        now_et = datetime.datetime.now(tz=eastern)
+        today = now_et.date()
+        if game_date < today:
+            return True
+        if game_date == today and now_et.hour >= 12:
+            return True
+    except ValueError:
+        pass
+    return False
+
+
 def _parse_teams_block(rows, enforce_date_window=True):
     """
     Parse the topmost game-day block from the worksheet's raw rows.
@@ -383,22 +401,11 @@ def _parse_teams_block(rows, enforce_date_window=True):
 
     total = sum(len(f["home"]) + len(f["visitor"]) for f in fields)
 
-    # Hide stale rosters. The Google Sheets API ignores tab visibility, so we use
-    # the date in the sheet header as the signal. Rules:
-    #   • Game date in the past → always hide.
-    #   • Game date is today and it is past noon Eastern → hide (games are over).
-    if enforce_date_window:
-        try:
-            game_date = datetime.datetime.strptime(date_str, "%A, %B %d, %Y").date()
-            eastern = datetime.timezone(datetime.timedelta(hours=-4))  # EDT (UTC-4 May-Nov)
-            now_et = datetime.datetime.now(tz=eastern)
-            today = now_et.date()
-            if game_date < today:
-                return None
-            if game_date == today and now_et.hour >= 12:
-                return None
-        except ValueError:
-            pass  # Unparseable date — show whatever's there.
+    # Hide stale rosters (past, or today after noon) unless the caller opted out.
+    # The Google Sheets API ignores tab visibility, so the header date is the
+    # signal.
+    if enforce_date_window and _is_stale_gameday(date_str):
+        return None
 
     return {
         "date": date_str,
@@ -409,29 +416,39 @@ def _parse_teams_block(rows, enforce_date_window=True):
     }
 
 
-def game_day_teams():
+def game_day_teams(enforce_date_window=True):
     """
     Structured current-game roster, or None if unavailable.
-    Cached briefly so we don't hit the Google API on every page view.
+
+    The raw roster block is cached briefly so we don't hit the Google API on every
+    page view; the stale-date filter is applied AFTER the cache, so the same cache
+    serves both the normal (auto-hide) callers and a forced 'show it now' caller.
+    Pass enforce_date_window=False (e.g. when the 'Game Day Button' switch is
+    forced ON) to show the posted roster regardless of the time of day.
     """
     now = time.time()
     with _lock:
-        if _teams_cache["ts"] > 0 and now - _teams_cache["ts"] < _TEAMS_TTL:
-            return _teams_cache["data"]
+        fresh = _teams_cache["ts"] > 0 and now - _teams_cache["ts"] < _TEAMS_TTL
+        block = _teams_cache["data"] if fresh else None
 
-    data = None
-    try:
-        if teams_is_configured():
-            ws = _teams_worksheet()
-            rows = ws.get_all_values()
-            data = _parse_teams_block(rows)
-        with _lock:
-            _teams_cache["data"] = data
-            _teams_cache["ts"] = now
-        return data
-    except Exception:
-        # On any hiccup, return the last good value (may be None).
-        return _teams_cache["data"]
+    if not fresh:
+        try:
+            block = None
+            if teams_is_configured():
+                ws = _teams_worksheet()
+                rows = ws.get_all_values()
+                block = _parse_teams_block(rows, enforce_date_window=False)
+            with _lock:
+                _teams_cache["data"] = block
+                _teams_cache["ts"] = now
+        except Exception:
+            # On any hiccup, fall back to the last good value (may be None).
+            with _lock:
+                block = _teams_cache["data"]
+
+    if block and enforce_date_window and _is_stale_gameday(block.get("date", "")):
+        return None
+    return block
 
 
 # ----------------------------------------------------------------------------
