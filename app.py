@@ -422,6 +422,25 @@ def teams_preview():
     return render_template("teams.html", teams=data, card_slugs=set())
 
 
+@app.route("/teams/manual")
+def teams_manual():
+    """TEST: the board's hand-built game-day teams, mirrored from the separate
+    Manual_Game_Day_Teams tab. Runs completely alongside the automated /teams
+    page (different tab, different reader) so both can be compared without either
+    affecting the other. Intentionally NOT linked from the homepage or nav — it's
+    reached only by its direct link while the board tries the manual workflow."""
+    try:
+        data = sheets.manual_game_day_teams()
+    except Exception:
+        data = None
+    try:
+        card_slugs = set(sheets.player_cards())
+    except Exception:
+        card_slugs = set()
+    return render_template("teams.html", teams=data, card_slugs=card_slugs,
+                           banner="TEST PAGE · Manual team sheet — not the official rosters")
+
+
 @app.route("/players")
 def players():
     try:
