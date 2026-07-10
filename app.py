@@ -165,11 +165,16 @@ def pickup():
 
 @app.route("/teams")
 def teams():
-    # The Website Controls "Game Day Button = OFF" switch fully un-publishes:
-    # it hides the homepage button AND makes this page read "not posted yet",
-    # so a finished test doesn't leave teams on the site.
+    # The Website Controls "Game Day Button" switch: OFF fully un-publishes (hides
+    # the homepage button AND makes this page read "not posted yet"); ON forces
+    # the posted roster to show regardless of the time of day; AUTO (default)
+    # follows the noon auto-hide.
     try:
-        data = None if sheets.roster_button_mode() == "OFF" else sheets.game_day_teams()
+        mode = sheets.roster_button_mode()
+        if mode == "OFF":
+            data = None
+        else:
+            data = sheets.game_day_teams(enforce_date_window=(mode != "ON"))
     except Exception:
         data = None
     try:
@@ -215,7 +220,9 @@ def gameday_team_cards():
     if side not in ("home", "visitor"):
         side = "home"
     try:
-        data = None if sheets.roster_button_mode() == "OFF" else sheets.game_day_teams()
+        mode = sheets.roster_button_mode()
+        data = None if mode == "OFF" else sheets.game_day_teams(
+            enforce_date_window=(mode != "ON"))
     except Exception:
         data = None
     try:
