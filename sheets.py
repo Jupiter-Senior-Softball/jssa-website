@@ -269,10 +269,15 @@ def _parse_marker(cell):
     return side, is_captain
 
 
-def _parse_teams_block(rows):
+def _parse_teams_block(rows, enforce_date_window=True):
     """
     Parse the topmost game-day block from the worksheet's raw rows.
     Returns a structured dict or None.
+
+    enforce_date_window: when True (the live automated page) a roster whose game
+    date is in the past — or today after noon — is hidden. The manual TEST page
+    passes False so the board can always see what they just published while
+    experimenting, no matter the time of day.
     """
     # 1) Find the title row ("JSSA Game Day Teams").
     start = None
@@ -382,17 +387,18 @@ def _parse_teams_block(rows):
     # the date in the sheet header as the signal. Rules:
     #   • Game date in the past → always hide.
     #   • Game date is today and it is past noon Eastern → hide (games are over).
-    try:
-        game_date = datetime.datetime.strptime(date_str, "%A, %B %d, %Y").date()
-        eastern = datetime.timezone(datetime.timedelta(hours=-4))  # EDT (UTC-4 May-Nov)
-        now_et = datetime.datetime.now(tz=eastern)
-        today = now_et.date()
-        if game_date < today:
-            return None
-        if game_date == today and now_et.hour >= 12:
-            return None
-    except ValueError:
-        pass  # Unparseable date — show whatever's there.
+    if enforce_date_window:
+        try:
+            game_date = datetime.datetime.strptime(date_str, "%A, %B %d, %Y").date()
+            eastern = datetime.timezone(datetime.timedelta(hours=-4))  # EDT (UTC-4 May-Nov)
+            now_et = datetime.datetime.now(tz=eastern)
+            today = now_et.date()
+            if game_date < today:
+                return None
+            if game_date == today and now_et.hour >= 12:
+                return None
+        except ValueError:
+            pass  # Unparseable date — show whatever's there.
 
     return {
         "date": date_str,
@@ -426,6 +432,61 @@ def game_day_teams():
     except Exception:
         # On any hiccup, return the last good value (may be None).
         return _teams_cache["data"]
+
+
+# ----------------------------------------------------------------------------
+# Manual (board-run) teams — a completely separate, opt-in lane.
+# ----------------------------------------------------------------------------
+# The board can build a game day BY HAND instead of using the automated
+# assignment system. Their hand-built roster is published (by a button in the
+# Emergency Backup spreadsheet) to its OWN tab — MANUAL_TEAMS_TAB — in the same
+# public Game Day spreadsheet. The website reads it at /teams/manual.
+#
+# This is deliberately kept 100% independent of game_day_teams() above:
+#   • different tab (never the live Game_Day_Teams tab)
+#   • different cache
+#   • its own page (/teams/manual), not linked from the homepage
+# so the manual system can be tested alongside the automated one without either
+# touching the other. Nothing here changes what the public /teams page shows.
+
+MANUAL_TEAMS_TAB = os.environ.get("MANUAL_TEAMS_TAB", "Manual_Game_Day_Teams").strip()
+_manual_teams_cache = {"data": None, "ts": 0.0}
+
+
+def _manual_teams_worksheet():
+    """The Manual_Game_Day_Teams tab in the public Game Day spreadsheet, or None
+    if it doesn't exist yet (before the board has ever published a manual sheet).
+    Unlike _teams_worksheet(), this does NOT fall back to the first tab — we never
+    want to accidentally read the automated roster here."""
+    sh = _open_teams_spreadsheet()
+    try:
+        return sh.worksheet(MANUAL_TEAMS_TAB)
+    except Exception:
+        return None
+
+
+def manual_game_day_teams():
+    """Structured roster from the hand-built Manual_Game_Day_Teams tab, or None.
+    Mirrors game_day_teams() but for the manual lane, with its own cache and with
+    the date window disabled so a fresh test is always visible."""
+    now = time.time()
+    with _lock:
+        if _manual_teams_cache["ts"] > 0 and now - _manual_teams_cache["ts"] < _TEAMS_TTL:
+            return _manual_teams_cache["data"]
+
+    data = None
+    try:
+        if teams_is_configured():
+            ws = _manual_teams_worksheet()
+            if ws is not None:
+                rows = ws.get_all_values()
+                data = _parse_teams_block(rows, enforce_date_window=False)
+        with _lock:
+            _manual_teams_cache["data"] = data
+            _manual_teams_cache["ts"] = now
+        return data
+    except Exception:
+        return _manual_teams_cache["data"]
 
 
 # ----------------------------------------------------------------------------

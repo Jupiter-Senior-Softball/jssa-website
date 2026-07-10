@@ -302,6 +302,14 @@
   <a class="nav-home" href="/">← Home</a>
 </nav>
 
+{% if banner %}
+<div style="background:var(--gold);color:var(--navy);text-align:center;
+     font-family:var(--display);font-weight:800;font-size:.95rem;
+     letter-spacing:.02em;padding:11px 16px;">
+  🧪 {{ banner }}
+</div>
+{% endif %}
+
 <div class="hdr">
   <div class="hdr-inner">
     <div class="eyebrow">Jupiter Senior Softball Association · Pickup Games</div>
