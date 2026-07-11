@@ -130,6 +130,26 @@ so they don't refresh. Scoring **from the website admin** runs the full chain an
 everything. Permanent fix: add `updatePredictionMetrics();` to `handlePredictionGamesEdit_`
 right after `updatePredictionChampions();`.
 
+## Scores entered from the website/portal need a watchdog (`PredictionAutoUpdate.gs`)
+
+`onEdit` is a **simple trigger**: it fires only for values a person types **by hand**
+in the sheet. It is **blind to API / programmatic writes**. When a score is entered
+from the **website admin page** (`/admin/predictions/save` → `sheets.set_prediction_winner`,
+a gspread `update_cell`), the winner lands in the Prediction Games tab **without** firing
+`onEdit`, so the scoring chain never runs. The Flask side tries to compensate with a
+fire-and-forget ping (`_trigger_scoring` → `?action=score_predictions`), but that daemon-thread
+`urlopen` is unreliable and fails silently (`except: pass`) — the winners appear while the
+homepage "Season insights" / leaderboard / analytics stay stale.
+
+**Fix:** `PredictionAutoUpdate.gs` adds a time-based **watchdog** (`predictionAutoUpdate_`,
+installed via `installPredictionAutoUpdateTrigger_()`, default every 5 min). It runs the same
+chain `onEdit` would (`scorePredictions` → `updatePredictionAnalytics` →
+`updatePredictionLeaderboard` → `updatePredictionChampions` → `updatePredictionMetrics`) but
+**only when it sees a winner with `Scored` ≠ TRUE**, so it's idle when nothing changed and
+processes each game once (`scorePredictions` sets `Scored = true`). A `LockService` guard
+prevents overlap with a concurrent `onEdit`. This makes score→refresh reliable no matter how
+the winner was entered. Emails are intentionally left to the existing paths.
+
 ## Deployment gotcha
 
 The web-app URL (`…/macros/s/AKfycb…/exec`) is **hard-coded** in
