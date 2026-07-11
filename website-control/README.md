@@ -150,6 +150,24 @@ processes each game once (`scorePredictions` sets `Scored = true`). A `LockServi
 prevents overlap with a concurrent `onEdit`. This makes score→refresh reliable no matter how
 the winner was entered. Emails are intentionally left to the existing paths.
 
+## Game photos land in the wrong folder (`PhotoAlbumSweep.gs`)
+
+The homepage highlights read images from the **`PHOTOS_FOLDER_ID`** album
+("JSSA Game Photos", `1bxCZ2BX…GApZ`, default in `sheets.py`). But the photo-upload
+Google Form drops uploads into its **own** auto-created `… (File responses)` folder
+(a separate, nested folder Google won't let you repoint), so new uploads never appear
+in the album or on the homepage — and moving that folder into the album would leave a
+sub-folder people must click into.
+
+`PhotoAlbumSweep.gs` (bound to the Website Control sheet) fixes it: a time trigger
+(`sweepPhotoUploadsIntoAlbum`, every 5 min, installed via `installPhotoSweep()`)
+`moveTo()`s every file out of the form's `(File responses)` folder(s) straight into the
+flat album, so everything lives in one folder, uploads inherit the album's public
+sharing, and file ids (hence `/highlights/photo/<id>` links) are preserved. The two
+folder ids it touches are constants at the top of the file. `removePhotoSweep()` undoes
+it. If the site still shows nothing after a sweep, confirm `PHOTOS_FOLDER_ID` really is
+the album via `/highlights/debug` (it reports `images_found`).
+
 ## Deployment gotcha
 
 The web-app URL (`…/macros/s/AKfycb…/exec`) is **hard-coded** in
