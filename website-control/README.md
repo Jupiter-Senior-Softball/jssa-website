@@ -130,6 +130,44 @@ so they don't refresh. Scoring **from the website admin** runs the full chain an
 everything. Permanent fix: add `updatePredictionMetrics();` to `handlePredictionGamesEdit_`
 right after `updatePredictionChampions();`.
 
+## Scores entered from the website/portal need a watchdog (`PredictionAutoUpdate.gs`)
+
+`onEdit` is a **simple trigger**: it fires only for values a person types **by hand**
+in the sheet. It is **blind to API / programmatic writes**. When a score is entered
+from the **website admin page** (`/admin/predictions/save` → `sheets.set_prediction_winner`,
+a gspread `update_cell`), the winner lands in the Prediction Games tab **without** firing
+`onEdit`, so the scoring chain never runs. The Flask side tries to compensate with a
+fire-and-forget ping (`_trigger_scoring` → `?action=score_predictions`), but that daemon-thread
+`urlopen` is unreliable and fails silently (`except: pass`) — the winners appear while the
+homepage "Season insights" / leaderboard / analytics stay stale.
+
+**Fix:** `PredictionAutoUpdate.gs` adds a time-based **watchdog** (`predictionAutoUpdate_`,
+installed via `installPredictionAutoUpdateTrigger_()`, default every 5 min). It runs the same
+chain `onEdit` would (`scorePredictions` → `updatePredictionAnalytics` →
+`updatePredictionLeaderboard` → `updatePredictionChampions` → `updatePredictionMetrics`) but
+**only when it sees a winner with `Scored` ≠ TRUE**, so it's idle when nothing changed and
+processes each game once (`scorePredictions` sets `Scored = true`). A `LockService` guard
+prevents overlap with a concurrent `onEdit`. This makes score→refresh reliable no matter how
+the winner was entered. Emails are intentionally left to the existing paths.
+
+## Game photos land in the wrong folder (`PhotoAlbumSweep.gs`)
+
+The homepage highlights read images from the **`PHOTOS_FOLDER_ID`** album
+("JSSA Game Photos", `1bxCZ2BX…GApZ`, default in `sheets.py`). But the photo-upload
+Google Form drops uploads into its **own** auto-created `… (File responses)` folder
+(a separate, nested folder Google won't let you repoint), so new uploads never appear
+in the album or on the homepage — and moving that folder into the album would leave a
+sub-folder people must click into.
+
+`PhotoAlbumSweep.gs` (bound to the Website Control sheet) fixes it: a time trigger
+(`sweepPhotoUploadsIntoAlbum`, every 5 min, installed via `installPhotoSweep()`)
+`moveTo()`s every file out of the form's `(File responses)` folder(s) straight into the
+flat album, so everything lives in one folder, uploads inherit the album's public
+sharing, and file ids (hence `/highlights/photo/<id>` links) are preserved. The two
+folder ids it touches are constants at the top of the file. `removePhotoSweep()` undoes
+it. If the site still shows nothing after a sweep, confirm `PHOTOS_FOLDER_ID` really is
+the album via `/highlights/debug` (it reports `images_found`).
+
 ## Deployment gotcha
 
 The web-app URL (`…/macros/s/AKfycb…/exec`) is **hard-coded** in
