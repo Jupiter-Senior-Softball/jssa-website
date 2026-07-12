@@ -506,6 +506,50 @@ def manual_game_day_teams():
         return _manual_teams_cache["data"]
 
 
+# The PRACTICE / TEST lane. The board's "Practice publish (TEST)" button writes
+# to its OWN tab (never the real Manual_Game_Day_Teams tab) and flips the
+# "Manual Test Button" switch ON. The private /teams/manual page shows this so
+# the board can check a layout without touching the real public /teams page.
+MANUAL_TEST_TEAMS_TAB = os.environ.get(
+    "MANUAL_TEST_TEAMS_TAB", "Manual_Game_Day_Teams (TEST)").strip()
+_manual_test_teams_cache = {"data": None, "ts": 0.0}
+
+
+def _manual_test_teams_worksheet():
+    """The 'Manual_Game_Day_Teams (TEST)' practice tab, or None if it doesn't
+    exist yet. Like _manual_teams_worksheet(), it never falls back to another
+    tab, so a missing practice tab simply reads as 'nothing posted.'"""
+    sh = _open_teams_spreadsheet()
+    try:
+        return sh.worksheet(MANUAL_TEST_TEAMS_TAB)
+    except Exception:
+        return None
+
+
+def manual_test_game_day_teams():
+    """Structured roster from the practice '(TEST)' tab, or None. Mirrors
+    manual_game_day_teams() but for the practice lane, with its own cache."""
+    now = time.time()
+    with _lock:
+        c = _manual_test_teams_cache
+        if c["ts"] > 0 and now - c["ts"] < _TEAMS_TTL:
+            return c["data"]
+
+    data = None
+    try:
+        if teams_is_configured():
+            ws = _manual_test_teams_worksheet()
+            if ws is not None:
+                rows = ws.get_all_values()
+                data = _parse_teams_block(rows, enforce_date_window=False)
+        with _lock:
+            _manual_test_teams_cache["data"] = data
+            _manual_test_teams_cache["ts"] = now
+        return data
+    except Exception:
+        return _manual_test_teams_cache["data"]
+
+
 # ----------------------------------------------------------------------------
 # Website Controls — small manual switches Tom flips in the Google Sheet
 # ----------------------------------------------------------------------------
@@ -551,6 +595,14 @@ def roster_button_mode():
     Set by the 'Game Day Button' row on the Website Controls tab."""
     val = _website_controls().get("game day button", "").strip().upper()
     return val if val in ("ON", "OFF") else "AUTO"
+
+
+def manual_test_button_on():
+    """True when the private TEST page (/teams/manual) should show the board's
+    practice teams. Driven by the 'Manual Test Button' row on the Website
+    Controls tab; the board's 'Practice publish (TEST)' turns it ON and 'Take
+    teams DOWN' turns it OFF. Defaults to OFF (hidden) if the row is missing."""
+    return _website_controls().get("manual test button", "").strip().upper() == "ON"
 
 
 # ----------------------------------------------------------------------------

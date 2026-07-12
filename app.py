@@ -441,13 +441,15 @@ def teams_preview():
 
 @app.route("/teams/manual")
 def teams_manual():
-    """TEST: the board's hand-built game-day teams, mirrored from the separate
-    Manual_Game_Day_Teams tab. Runs completely alongside the automated /teams
-    page (different tab, different reader) so both can be compared without either
-    affecting the other. Intentionally NOT linked from the homepage or nav — it's
-    reached only by its direct link while the board tries the manual workflow."""
+    """TEST page: the board's PRACTICE teams, from the separate '(TEST)' tab that
+    the "Practice publish (TEST)" button writes. Gated by the 'Manual Test Button'
+    switch — ON shows the practice teams, OFF (or never published / taken down)
+    reads "not posted yet." Runs completely alongside the public /teams page
+    (different tab, different switch) so a practice run never affects the real
+    rosters. Intentionally NOT linked from the homepage or nav."""
     try:
-        data = sheets.manual_game_day_teams()
+        data = (sheets.manual_test_game_day_teams()
+                if sheets.manual_test_button_on() else None)
     except Exception:
         data = None
     try:
