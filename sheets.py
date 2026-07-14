@@ -2361,6 +2361,7 @@ def _parse_profiles(tabs):
     has_div = lambda low: ("division" in low) or ("your division" in low)
     has_name = lambda low: any(_is_name_col(h) for h in low)
     has_photo = lambda low: any("photo" in h for h in low)
+    has_firstlast = lambda low: ("first name" in low) and ("last name" in low)
 
     # Roster team/division by slug, to enrich the profile page.
     roster_meta = {}
@@ -2405,8 +2406,14 @@ def _parse_profiles(tabs):
                     entry["qa"].append((_clean(header[ci]), v))
             out[entry["slug"]] = entry
 
-    # Photo tab: a form tab that has a 'photo' column.
-    frows = find(lambda low: is_form(low) and has_photo(low))
+    # Photo tab: a form tab that has a 'photo' column AND identifies players by a
+    # Division or First/Last Name column. The identity requirement is what keeps
+    # us from grabbing the highlights photo-album upload form's response tabs
+    # (e.g. "Form Responses 10/11") — they also have a photo-ish column ("...your
+    # photo(s)", "Upload Your Photos...") but no player identity, and they can
+    # sort ahead of the real "Player Photo Upload" tab and shadow it.
+    frows = find(lambda low: is_form(low) and has_photo(low)
+                 and (has_div(low) or has_firstlast(low)))
     if frows is not None:
         low = [_clean(c).lower() for c in frows[0]]
         pidx = next((i for i, h in enumerate(low) if "photo" in h), None)
