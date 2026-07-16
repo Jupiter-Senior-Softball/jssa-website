@@ -477,13 +477,19 @@ def players():
 
 @app.route("/champions")
 def champions():
-    """Public Champion of the Month page — every month's top predictor."""
-    try:
-        champs = sheets.prediction_champions()
-    except Exception:
-        champs = []
-    return render_template("pages/champions.html",
-                           page_title="Champion of the Month", champions=champs)
+    """Champion of the Month page — REMOVED while the Prediction Contest is
+    suspended (2026-07-16). It showed only prediction-contest content, so any
+    visits (e.g. old bookmarks) now redirect to the homepage.
+    To bring the page back: delete the redirect line below and un-comment the
+    original code beneath it."""
+    return redirect("/")
+    # --- Original Champion of the Month page (restore by removing the redirect above) ---
+    # try:
+    #     champs = sheets.prediction_champions()
+    # except Exception:
+    #     champs = []
+    # return render_template("pages/champions.html",
+    #                        page_title="Champion of the Month", champions=champs)
 
 
 @app.route("/survey-results")

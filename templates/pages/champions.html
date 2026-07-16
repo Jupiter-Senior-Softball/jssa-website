@@ -39,4 +39,7 @@
 {% endif %}
 {% endblock %}
 {% block footer_btns %}<a class="btn btn-navy" href="/">← Back to Home</a>{% endblock %}
-{% block extra_btns %}<a class="btn" style="background:var(--blue);color:#fff" href="/#predict">Enter the Prediction Contest →</a>{% endblock %}
+{# "Enter the Prediction Contest" button removed while the contest is suspended (2026-07-16).
+   It pointed at the homepage prediction section, which is now hidden. To restore, put back:
+   {% block extra_btns %}<a class="btn" style="background:var(--blue);color:#fff" href="/#predict">Enter the Prediction Contest →</a>{% endblock %}
+#}
