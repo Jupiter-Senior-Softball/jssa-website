@@ -143,25 +143,25 @@
      (everything else in the section is unchanged). To revert, change the
      color value #ef5a5f below back to #fff. */
   .getin-title{font-size:clamp(1.4rem,2.6vw,1.8rem);font-weight:600;margin-bottom:18px;text-align:left;color:#ef5a5f}
-  /* Compact Quick Links and Forms cards: a colored icon sits inline with the
-     title on the top row, with the short description and the link stacked
-     below, and tighter padding — roughly half the old height so the section
-     feels less imposing. Each card keeps its top accent line, alternating the
-     league red and blue. To revert, restore the taller values (54px icon tile,
-     padding-top:22px) and unwrap the icon/title from the .chead row. */
-  #getin .card{padding:15px 20px;gap:3px}
-  #getin .chead{display:flex;align-items:center;gap:11px}
-  #getin .card .ic{display:flex;flex:none;width:38px;height:38px;border-radius:11px;
-    align-items:center;justify-content:center;font-size:1.2rem;line-height:1}
-  #getin .card .ttl{font-size:1.1rem;line-height:1.15}
-  #getin .card .sub{font-size:.92rem}
-  #getin .card .go{padding-top:7px;font-size:.92rem}
-  #getin .card::before{left:0;right:0;top:0;bottom:auto;width:auto;height:4px;opacity:1}
-  #getin .card:nth-child(odd) .ic{background:var(--red-tint)}
-  #getin .card:nth-child(odd)::before{background:var(--red)}
-  #getin .card:nth-child(odd) .go{color:var(--red)}
-  #getin .card:nth-child(even) .ic{background:var(--blue-tint)}
-  #getin .card:nth-child(even)::before{background:var(--blue)}
+  /* Quick Links and Forms as a divided list (no cards): the six links sit in a
+     wide 3-across grid on the navy background, each a single row with a colored
+     icon tile, the name, and an arrow, separated by thin divider lines. This
+     replaces the old white cards so the section no longer echoes the pickup
+     buttons above it. To revert to cards, restore the previous #getin .card CSS
+     and the .cards/.card markup further down the page. */
+  #getin .qlist{display:grid;grid-template-columns:repeat(3,1fr);gap:0 34px}
+  #getin .qrow{display:flex;align-items:center;gap:14px;padding:15px 4px;text-decoration:none;
+    border-bottom:1px solid rgba(255,255,255,.16);transition:background .14s}
+  #getin .qrow:hover{background:rgba(255,255,255,.06)}
+  #getin .qrow .ic{flex:none;width:42px;height:42px;border-radius:11px;display:flex;
+    align-items:center;justify-content:center;font-size:1.25rem;line-height:1}
+  #getin .qrow .qt{flex:1;min-width:0;font-family:var(--display);font-weight:700;color:#fff;font-size:1.06rem;line-height:1.16}
+  #getin .qrow .qa{flex:none;font-family:var(--display);font-weight:800;font-size:1.2rem;transition:transform .14s}
+  #getin .qrow:hover .qa{transform:translateX(3px)}
+  #getin .qrow:nth-child(odd) .ic{background:rgba(216,38,43,.22)}
+  #getin .qrow:nth-child(odd) .qa{color:#ef5a5f}
+  #getin .qrow:nth-child(even) .ic{background:rgba(43,91,208,.26)}
+  #getin .qrow:nth-child(even) .qa{color:#7fa8ff}
   .sec-sub{color:var(--muted);max-width:62ch;margin-bottom:30px}
 
   /* Action cards */
@@ -389,6 +389,7 @@
 
   @media(max-width:820px){
     .cards,.people{grid-template-columns:repeat(2,1fr)}
+    #getin .qlist{grid-template-columns:repeat(2,1fr)}
     .stats{grid-template-columns:repeat(2,1fr)}
     .predict-grid,.board-grid,.res-grid,.foot-grid,.about .grid{grid-template-columns:1fr}
     .menubar-inner{gap:2px;padding:6px 10px}.menubar a,.navgroup>summary{font-size:.95rem;padding:9px 11px}
@@ -396,6 +397,7 @@
   @media(max-width:560px){
     .stats{grid-template-columns:1fr;}
     .cards,.people{grid-template-columns:1fr}
+    #getin .qlist{grid-template-columns:1fr}
     .hero .wrap{padding:44px 20px 40px}
     .topbanner .blink{display:none}
   }
@@ -614,37 +616,13 @@
 <section class="block" id="getin">
   <div class="wrap">
     <h2 class="sec-title getin-title">Quick Links and Forms</h2>
-    <div class="cards">
-      <a class="card" href="/players">
-        <div class="chead"><span class="ic" aria-hidden="true">👥</span><div class="ttl">Players by Division</div></div>
-        <div class="sub">Red · White · Blue rosters</div>
-        <div class="go">View rosters →</div>
-      </a>
-      <a class="card" href="https://docs.google.com/forms/d/e/1FAIpQLSfdn86QGzP2nlgT9YZuJ4fgIs7pXasotsxobvveZmLbqxIUKw/viewform">
-        <div class="chead"><span class="ic" aria-hidden="true">📝</span><div class="ttl">New Member Registration</div></div>
-        <div class="sub">Join the league</div>
-        <div class="go">Register →</div>
-      </a>
-      <a class="card" href="https://docs.google.com/forms/d/e/1FAIpQLSfCXtRQcE5G718MLOdi40bxCc_Bga0fRHsNR_EHuVffISH_6w/viewform">
-        <div class="chead"><span class="ic" aria-hidden="true">🔄</span><div class="ttl">Membership Renewal</div></div>
-        <div class="sub">Keep playing this season</div>
-        <div class="go">Renew →</div>
-      </a>
-      <a class="card" href="https://script.google.com/macros/s/AKfycbxKp-CQGVcb3J1-xozS9k2GCXvGz_bwSLd8MPIWM04P8JbSwbp6r2RBO56KA0JYHEEH/exec">
-        <div class="chead"><span class="ic" aria-hidden="true">👕</span><div class="ttl">Shirt &amp; Hat Orders</div></div>
-        <div class="sub">Order your gear</div>
-        <div class="go">Order now →</div>
-      </a>
-      <a class="card" href="https://docs.google.com/forms/d/e/1FAIpQLSdwi4Vjm9FKgMKH9NKf8pGHs0p9yVwc_Bc1B7lX8rOvJGAF9g/viewform">
-        <div class="chead"><span class="ic" aria-hidden="true">🎟️</span><div class="ttl">2-Week Guest Pass</div></div>
-        <div class="sub">Try the league out first</div>
-        <div class="go">Get a pass →</div>
-      </a>
-      <a class="card" href="https://docs.google.com/forms/d/e/1FAIpQLSe135Vaq_8gub20Th7p31d8OOtMgCzV_BA8ZtJDdGa_3mycYg/viewform">
-        <div class="chead"><span class="ic" aria-hidden="true">🤝</span><div class="ttl">Patron Registration</div></div>
-        <div class="sub">Support the league</div>
-        <div class="go">Become a patron →</div>
-      </a>
+    <div class="qlist">
+      <a class="qrow" href="/players"><span class="ic" aria-hidden="true">👥</span><span class="qt">Players by Division</span><span class="qa" aria-hidden="true">→</span></a>
+      <a class="qrow" href="https://docs.google.com/forms/d/e/1FAIpQLSfdn86QGzP2nlgT9YZuJ4fgIs7pXasotsxobvveZmLbqxIUKw/viewform"><span class="ic" aria-hidden="true">📝</span><span class="qt">New Member Registration</span><span class="qa" aria-hidden="true">→</span></a>
+      <a class="qrow" href="https://docs.google.com/forms/d/e/1FAIpQLSfCXtRQcE5G718MLOdi40bxCc_Bga0fRHsNR_EHuVffISH_6w/viewform"><span class="ic" aria-hidden="true">🔄</span><span class="qt">Membership Renewal</span><span class="qa" aria-hidden="true">→</span></a>
+      <a class="qrow" href="https://script.google.com/macros/s/AKfycbxKp-CQGVcb3J1-xozS9k2GCXvGz_bwSLd8MPIWM04P8JbSwbp6r2RBO56KA0JYHEEH/exec"><span class="ic" aria-hidden="true">👕</span><span class="qt">Shirt &amp; Hat Orders</span><span class="qa" aria-hidden="true">→</span></a>
+      <a class="qrow" href="https://docs.google.com/forms/d/e/1FAIpQLSdwi4Vjm9FKgMKH9NKf8pGHs0p9yVwc_Bc1B7lX8rOvJGAF9g/viewform"><span class="ic" aria-hidden="true">🎟️</span><span class="qt">2-Week Guest Pass</span><span class="qa" aria-hidden="true">→</span></a>
+      <a class="qrow" href="https://docs.google.com/forms/d/e/1FAIpQLSe135Vaq_8gub20Th7p31d8OOtMgCzV_BA8ZtJDdGa_3mycYg/viewform"><span class="ic" aria-hidden="true">🤝</span><span class="qt">Patron Registration</span><span class="qa" aria-hidden="true">→</span></a>
     </div>
   </div>
 </section>
