@@ -143,6 +143,20 @@
      (everything else in the section is unchanged). To revert, change the
      color value #ef5a5f below back to #fff. */
   .getin-title{font-size:clamp(1.4rem,2.6vw,1.8rem);font-weight:600;margin-bottom:18px;text-align:left;color:#ef5a5f}
+  /* Icon badges on the Quick Links and Forms cards: each card gets a colored
+     icon tile plus a top accent line, alternating the league red and blue, so
+     the cards read as colorful and distinct instead of six plain white boxes.
+     To revert, delete this block and remove the <span class="ic"> icons from
+     the cards further down the page. */
+  #getin .card{padding-top:22px}
+  #getin .card .ic{display:flex;width:54px;height:54px;border-radius:14px;
+    align-items:center;justify-content:center;font-size:1.7rem;line-height:1}
+  #getin .card::before{left:0;right:0;top:0;bottom:auto;width:auto;height:4px;opacity:1}
+  #getin .card:nth-child(odd) .ic{background:var(--red-tint)}
+  #getin .card:nth-child(odd)::before{background:var(--red)}
+  #getin .card:nth-child(odd) .go{color:var(--red)}
+  #getin .card:nth-child(even) .ic{background:var(--blue-tint)}
+  #getin .card:nth-child(even)::before{background:var(--blue)}
   .sec-sub{color:var(--muted);max-width:62ch;margin-bottom:30px}
 
   /* Action cards */
@@ -597,31 +611,37 @@
     <h2 class="sec-title getin-title">Quick Links and Forms</h2>
     <div class="cards">
       <a class="card" href="/players">
+        <span class="ic" aria-hidden="true">👥</span>
         <div class="ttl">Players by Division</div>
         <div class="sub">Red · White · Blue rosters</div>
         <div class="go">View rosters →</div>
       </a>
       <a class="card" href="https://docs.google.com/forms/d/e/1FAIpQLSfdn86QGzP2nlgT9YZuJ4fgIs7pXasotsxobvveZmLbqxIUKw/viewform">
+        <span class="ic" aria-hidden="true">📝</span>
         <div class="ttl">New Member Registration</div>
         <div class="sub">Join the league</div>
         <div class="go">Register →</div>
       </a>
       <a class="card" href="https://docs.google.com/forms/d/e/1FAIpQLSfCXtRQcE5G718MLOdi40bxCc_Bga0fRHsNR_EHuVffISH_6w/viewform">
+        <span class="ic" aria-hidden="true">🔄</span>
         <div class="ttl">Membership Renewal</div>
         <div class="sub">Keep playing this season</div>
         <div class="go">Renew →</div>
       </a>
       <a class="card" href="https://script.google.com/macros/s/AKfycbxKp-CQGVcb3J1-xozS9k2GCXvGz_bwSLd8MPIWM04P8JbSwbp6r2RBO56KA0JYHEEH/exec">
+        <span class="ic" aria-hidden="true">👕</span>
         <div class="ttl">Shirt &amp; Hat Orders</div>
         <div class="sub">Order your gear</div>
         <div class="go">Order now →</div>
       </a>
       <a class="card" href="https://docs.google.com/forms/d/e/1FAIpQLSdwi4Vjm9FKgMKH9NKf8pGHs0p9yVwc_Bc1B7lX8rOvJGAF9g/viewform">
+        <span class="ic" aria-hidden="true">🎟️</span>
         <div class="ttl">2-Week Guest Pass</div>
         <div class="sub">Try the league out first</div>
         <div class="go">Get a pass →</div>
       </a>
       <a class="card" href="https://docs.google.com/forms/d/e/1FAIpQLSe135Vaq_8gub20Th7p31d8OOtMgCzV_BA8ZtJDdGa_3mycYg/viewform">
+        <span class="ic" aria-hidden="true">🤝</span>
         <div class="ttl">Patron Registration</div>
         <div class="sub">Support the league</div>
         <div class="go">Become a patron →</div>
