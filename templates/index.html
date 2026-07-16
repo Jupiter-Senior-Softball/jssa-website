@@ -134,8 +134,12 @@
   section.block{padding:38px 0}
   .sec-eyebrow{font-family:var(--display);font-weight:700;font-size:.8rem;letter-spacing:.12em;text-transform:uppercase;color:var(--blue)}
   .sec-title{font-size:clamp(1.7rem,3.4vw,2.3rem);font-weight:800;margin:8px 0 6px}
-  #getin{padding-top:28px}
-  .getin-title{font-size:clamp(1.4rem,2.6vw,1.8rem);font-weight:600;margin-bottom:18px;text-align:left}
+  /* Quick Links and Forms sits on the dark navy background (same look the
+     Prediction Contest used). The white cards inside stay unchanged and pop
+     nicely against the navy. To revert: remove background/color here and set
+     padding-top back to 28px, and drop the color:#fff on .getin-title. */
+  #getin{padding-top:38px;background:var(--navy);color:#fff}
+  .getin-title{font-size:clamp(1.4rem,2.6vw,1.8rem);font-weight:600;margin-bottom:18px;text-align:left;color:#fff}
   .sec-sub{color:var(--muted);max-width:62ch;margin-bottom:30px}
 
   /* Action cards */
@@ -498,7 +502,14 @@
   </div>
 </section>
 
-<!-- ============ PREDICTION CONTEST ============ -->
+<!-- ============ PREDICTION CONTEST — TEMPORARILY SUSPENDED (2026-07-16) ============ -->
+<!-- Tom asked to hide the Prediction Contest from the homepage but keep it for
+     later. The entire section is preserved below inside a Jinja {# ... #} comment,
+     so it is NOT shown on the site but stays fully intact and ready to re-enable.
+     TO BRING IT BACK: delete the line reading "{#" directly below this note, and
+     the line reading "#}" just after this section's closing </section> tag. Nothing
+     else needs to change. The admin panel's prediction tools are left fully working. -->
+{#
 <section class="block predict" id="predict">
   <div class="wrap">
     <div class="sec-eyebrow">Prediction Contest</div>
@@ -575,8 +586,9 @@
     {% endif %}
   </div>
 </section>
+#}
 
-<!-- ============ GET IN THE GAME ============ -->
+<!-- ============ QUICK LINKS AND FORMS (now on the dark navy background) ============ -->
 <section class="block" id="getin">
   <div class="wrap">
     <h2 class="sec-title getin-title">Quick Links and Forms</h2>
@@ -764,7 +776,9 @@
         <h4>Quick Links</h4>
         <ul>
           <li><a href="#getin">Registration</a></li>
-          <li><a href="#predict">Prediction Contest</a></li>
+          {# Prediction Contest link hidden while the contest is suspended (2026-07-16).
+             To restore, delete this comment and put the line back:
+             <li><a href="#predict">Prediction Contest</a></li> #}
           <li><a href="#sponsors">Sponsors</a></li>
           <li><a href="#resources">Documents</a></li>
           <li><a href="#people">About</a></li>
