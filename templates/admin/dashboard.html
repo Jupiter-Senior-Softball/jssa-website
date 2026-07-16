@@ -107,17 +107,6 @@
     <a class="mtile" href="{{ url_for('admin_scores') }}"><span class="ic">&#9918;</span> Enter League Game Scores</a>
   </div>
 
-  {# Prediction Contest Management hidden while the contest is suspended (2026-07-16).
-     The underlying tools still work — only these dashboard links are hidden.
-     To restore, delete this "{#" line and the matching "#}" line just below. #}
-  {#
-  <div class="manage-sub">Prediction Contest Management</div>
-  <div class="manage-grid">
-    <a class="mtile" href="{{ url_for('admin_predictions') }}"><span class="ic">&#127919;</span> Report Prediction Winners</a>
-    <a class="mtile" href="{{ url_for('admin_champion') }}"><span class="ic">&#127942;</span> Champion of the Month</a>
-  </div>
-  #}
-
   <div class="manage-sub">Communications</div>
   <div class="manage-grid">
     <a class="mtile" href="{{ url_for('admin_communications') }}"><span class="ic">&#9993;</span> Email Members</a>

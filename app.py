@@ -27,7 +27,6 @@ import hmac
 import functools
 import re
 import json
-import threading
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
@@ -86,26 +85,6 @@ def home():
         blackboard = sheets.blackboard_posts()
     except Exception:
         blackboard = []
-    # Current Prediction Champion of the Month (gold banner in the contest area).
-    try:
-        champion = sheets.prediction_champion()
-    except Exception:
-        champion = None
-    # For a few days after a champion is crowned, also drop a short celebratory
-    # card at the top of the Blackboard. It rides on the champion's "crowned"
-    # date, so it disappears on its own — no announcement to clean up later.
-    if champion and champion.get("is_fresh") and champion.get("announce"):
-        who = champion["name"]
-        month = champion.get("month") or "this month"
-        blackboard = [{
-            "when": "Prediction Contest",
-            "title": "🏆 %s is the %s champion!" % (who, month),
-            "body": ("Congratulations to %s for topping the prediction contest. "
-                     "Think you can call the games better? Jump in and play — "
-                     "a new champion is crowned every month." % who),
-            "image": "", "link_url": "#predict",
-            "link_text": "See the contest", "sign": "", "side": "left",
-        }] + (blackboard or [])
     try:
         board = sheets.board_members()
     except Exception:
@@ -114,24 +93,6 @@ def home():
         sponsor_list = sheets.sponsors()
     except Exception:
         sponsor_list = []
-    try:
-        pred_odds = sheets.prediction_odds()
-    except Exception:
-        pred_odds = []
-    try:
-        pred_board = sheets.prediction_leaderboard(5)
-    except Exception:
-        pred_board = []
-    try:
-        pred_stats = sheets.prediction_analytics()
-    except Exception:
-        pred_stats = {}
-    # League accuracy = % of all member picks correct — same number the
-    # leaderboard shows, so the homepage and leaderboard always agree.
-    try:
-        league_acc = sheets.prediction_league_accuracy()
-    except Exception:
-        league_acc = None
     # Count this homepage visit and read the running total to show in the footer.
     try:
         sheets.record_home_view()
@@ -141,9 +102,7 @@ def home():
     return render_template("index.html", notice=notice,
                            teams_posted=teams_posted, blackboard=blackboard,
                            board=board, sponsors=sponsor_list,
-                           pred_odds=pred_odds, pred_board=pred_board,
-                           pred_stats=pred_stats, league_acc=league_acc,
-                           champion=champion, views=views)
+                           views=views)
 
 
 @app.route("/pickup")
@@ -477,19 +436,9 @@ def players():
 
 @app.route("/champions")
 def champions():
-    """Champion of the Month page — REMOVED while the Prediction Contest is
-    suspended (2026-07-16). It showed only prediction-contest content, so any
-    visits (e.g. old bookmarks) now redirect to the homepage.
-    To bring the page back: delete the redirect line below and un-comment the
-    original code beneath it."""
+    """Old Champion-of-the-Month URL. The page has been removed, so any visits
+    (e.g. old bookmarks) redirect to the homepage instead of showing a 404."""
     return redirect("/")
-    # --- Original Champion of the Month page (restore by removing the redirect above) ---
-    # try:
-    #     champs = sheets.prediction_champions()
-    # except Exception:
-    #     champs = []
-    # return render_template("pages/champions.html",
-    #                        page_title="Champion of the Month", champions=champs)
 
 
 @app.route("/survey-results")
@@ -722,83 +671,6 @@ def admin_scores_save():
             ok = False
     return redirect(url_for("admin_scores", division=division or None,
                             saved=("1" if ok else "0")))
-
-
-@app.route("/admin/predictions")
-@login_required
-def admin_predictions():
-    try:
-        games = sheets.prediction_games_for_scoring()
-    except Exception:
-        games = []
-    return render_template("admin/predictions.html", games=games,
-                           saved=request.args.get("saved"))
-
-
-_APPS_SCRIPT_SCORE_URL = (
-    "https://script.google.com/macros/s/AKfycbwqXbN6B6WNa7Dye3NJcUWzmNrMETCZWjW2F8Jr"
-    "jmhKb7F3idebOxiBeRm1Fpzpx1ij/exec"
-    "?action=score_predictions&key=JSSA_PREDICTION_SYNC_2026"
-)
-
-
-def _trigger_scoring():
-    try:
-        urllib.request.urlopen(_APPS_SCRIPT_SCORE_URL, timeout=30)
-    except Exception:
-        pass
-
-
-@app.route("/admin/predictions/save", methods=["POST"])
-@login_required
-def admin_predictions_save():
-    row = request.form.get("row", "").strip()
-    winner = request.form.get("winner", "").strip().upper()[:1]
-    ok = False
-    if row.isdigit() and winner in ("H", "V", "T"):
-        try:
-            ok = sheets.set_prediction_winner(int(row), winner)
-        except Exception:
-            ok = False
-    if ok:
-        threading.Thread(target=_trigger_scoring, daemon=True).start()
-    return redirect(url_for("admin_predictions", saved=("1" if ok else "0")))
-
-
-@app.route("/admin/champion")
-@login_required
-def admin_champion():
-    configured = sheets.is_configured()
-    champions = []
-    if configured:
-        try:
-            champions = sheets.prediction_champions()
-        except Exception:
-            champions = []
-    return render_template("admin/champion.html", configured=configured,
-                           champions=champions, saved=request.args.get("saved"))
-
-
-@app.route("/admin/champion/add", methods=["POST"])
-@login_required
-def admin_champion_add():
-    ok = False
-    if request.form.get("name", "").strip():
-        try:
-            ok = sheets.add_prediction_champion(request.form)
-        except Exception:
-            ok = False
-    return redirect(url_for("admin_champion", saved=("1" if ok else "0")))
-
-
-@app.route("/admin/champion/<cid>/delete", methods=["POST"])
-@login_required
-def admin_champion_delete(cid):
-    try:
-        sheets.delete_prediction_champion(cid)
-    except Exception:
-        pass
-    return redirect(url_for("admin_champion"))
 
 
 @app.route("/admin/directory")

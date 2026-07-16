@@ -60,8 +60,6 @@
   .topbanner.is-note .btext a{font-weight:600}
   /* Teams posted */
   .topbanner.is-teams{background:linear-gradient(100deg,#0f5132 0%,#1f9d57 100%)}
-  /* Predictions nudge */
-  .topbanner.is-predict{background:linear-gradient(100deg,#16233f 0%,#22335a 100%)}
 
   header{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
   .nav{display:flex;align-items:center;justify-content:center;height:96px}
@@ -134,9 +132,9 @@
   section.block{padding:38px 0}
   .sec-eyebrow{font-family:var(--display);font-weight:700;font-size:.8rem;letter-spacing:.12em;text-transform:uppercase;color:var(--blue)}
   .sec-title{font-size:clamp(1.7rem,3.4vw,2.3rem);font-weight:800;margin:8px 0 6px}
-  /* Quick Links and Forms sits on the dark navy background (same look the
-     Prediction Contest used). The white cards inside stay unchanged and pop
-     nicely against the navy. To revert: remove background/color here and set
+  /* Quick Links and Forms sits on the dark navy background. The white cards
+     inside stay unchanged and pop nicely against the navy. To revert: remove
+     background/color here and set
      padding-top back to 28px, and drop the color:#fff on .getin-title. */
   #getin{padding-top:38px;background:var(--navy);color:#fff}
   /* The "Quick Links and Forms" heading is a soft red for a splash of color
@@ -180,80 +178,6 @@
   .card.feature::before{background:var(--red);opacity:1}
   .card.feature .go{color:#ffd34d}
 
-  /* Prediction */
-  .predict{background:var(--navy);color:#fff}
-  .predict .sec-eyebrow{color:#9fc0ff}
-  .predict .sec-title{color:#fff}.predict .sec-sub{color:#cbd6ee}
-  /* Champion of the Month — a gold button that links to the Champion of the
-     Month page. Sits on the same row as the other two buttons, starting after
-     "View the Leaderboard" and growing to fill the rest of the row. */
-  .cotm-btn{flex:1 1 240px;display:inline-flex;align-items:center;justify-content:center;gap:8px;
-    background:linear-gradient(135deg,#ffe27a,#f0b822);color:#16233f !important;
-    border:1px solid #ffe9a3;font-family:var(--display);font-weight:800;text-align:center;line-height:1.2}
-  .cotm-btn:hover{filter:brightness(1.04);transform:translateY(-1px)}
-  /* Live odds panel */
-  .odds{margin-top:30px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:16px;padding:22px 22px 18px}
-  .odds-head{font-family:var(--display);font-weight:800;color:#fff;font-size:1.18rem;margin:0 0 4px;display:flex;align-items:center;gap:9px}
-  .odds-sub{color:#9fc0ff;font-size:.95rem;margin:0 0 18px}
-  .ogame{padding:16px 0;border-top:1px solid rgba(255,255,255,.1)}
-  .ogame:first-of-type{border-top:none;padding-top:4px}
-  .ofield{display:flex;justify-content:space-between;align-items:baseline;font-family:var(--display);font-weight:700;color:#cfe0ff;font-size:1.02rem;margin-bottom:11px}
-  .ofield .on{color:#9fc0ff;font-weight:600;font-size:.86rem}
-  .obar{position:relative;height:38px;border-radius:9px;overflow:hidden;background:rgba(255,255,255,.1);margin-bottom:9px}
-  .obar .ofill{position:absolute;inset:0 auto 0 0;height:100%;border-radius:9px;transition:width .4s ease}
-  .obar.home .ofill{background:linear-gradient(90deg,#2b5bd0,#5a86e8)}
-  .obar.away .ofill{background:linear-gradient(90deg,#d8262b,#ec6266)}
-  .obar .olabel{position:relative;z-index:2;display:flex;align-items:center;justify-content:space-between;height:100%;padding:0 14px;font-family:var(--display);font-weight:700;color:#fff;font-size:1.05rem;text-shadow:0 1px 2px rgba(0,0,0,.25)}
-  .obar:last-child{margin-bottom:0}
-  .onopicks{color:#cbd6ee;font-size:.98rem;padding:4px 0 2px}
-  .odds-note{color:#9fc0ff;font-size:.9rem;margin:16px 0 0;text-align:center}
-  .odds-quiet{color:#9fc0ff;font-size:1rem;margin:10px 0 4px;line-height:1.6}
-  .board{margin-top:30px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:16px;padding:22px 22px 18px}
-  .board-head{font-family:var(--display);font-weight:800;color:#fff;font-size:1.18rem;margin:0 0 4px;display:flex;align-items:center;gap:9px}
-  .board-sub{color:#9fc0ff;font-size:.95rem;margin:0 0 16px}
-  .btable{width:100%;border-collapse:collapse}
-  .btable th{text-align:left;font-family:var(--display);font-weight:700;color:#9fc0ff;font-size:.82rem;text-transform:uppercase;letter-spacing:.03em;padding:0 8px 10px;border-bottom:1px solid rgba(255,255,255,.14)}
-  .btable th.num,.btable td.num{text-align:right}
-  .btable td{padding:13px 8px;color:#eaf1ff;font-size:1.05rem;border-bottom:1px solid rgba(255,255,255,.08)}
-  .btable tr:last-child td{border-bottom:none}
-  .btable td.bname{font-weight:700;color:#fff}
-  .btable td.brank{color:#9fc0ff;font-weight:800;font-family:var(--display);width:2.2em}
-  .btable tr.me td{background:rgba(43,91,208,.18)}
-  .btable td.bpts{font-weight:800;color:#fff}
-  .board-note{color:#9fc0ff;font-size:.9rem;margin:16px 0 0;text-align:center}
-  .board-note a{color:#cfe0ff;font-weight:700}
-  @media(max-width:560px){.btable .hide-sm{display:none}.btable td,.btable th{padding-left:5px;padding-right:5px;font-size:.98rem}}
-  .insights{margin-top:30px}
-  .insights-head{font-family:var(--display);font-weight:800;color:#fff;font-size:1.18rem;margin:0 0 14px;display:flex;align-items:center;gap:9px}
-  .igrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px}
-  .icard{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:14px;padding:16px 18px}
-  .icard .ival{font-family:var(--display);font-weight:800;color:#fff;font-size:1.7rem;line-height:1.1}
-  .icard .ilab{color:#9fc0ff;font-size:.92rem;margin-top:5px;font-weight:600}
-  .icard .isub{color:#7e93c2;font-size:.78rem;margin-top:4px;font-weight:600}
-  .icard.wide .ival{font-size:1.18rem}
-  .lb{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:var(--radius);overflow:hidden}
-  .lb .lbhead{display:flex;align-items:center;justify-content:space-between;padding:16px 22px;border-bottom:1px solid rgba(255,255,255,.12)}
-  .lb .lbhead h3{color:#fff;font-size:1.15rem}
-  .lb .live{display:inline-flex;align-items:center;gap:8px;font-family:var(--display);font-weight:700;font-size:.78rem;letter-spacing:.06em;color:#86efac;background:#143a2a;border:1px solid #1f6b46;padding:6px 12px;border-radius:999px}
-  .lb .live .dot{width:8px;height:8px;border-radius:50%;background:#34d399;animation:pulse 1.8s infinite}
-  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(52,211,153,.6)}70%{box-shadow:0 0 0 9px rgba(52,211,153,0)}100%{box-shadow:0 0 0 0 rgba(52,211,153,0)}}
-  .lb ol{list-style:none}
-  .lb li{display:flex;align-items:center;gap:14px;padding:13px 22px;border-top:1px solid rgba(255,255,255,.08)}
-  .lb li:first-child{border-top:none}
-  .lb .rank{font-family:var(--display);font-weight:800;color:#9fc0ff;width:22px;text-align:center}
-  .lb .who{font-family:var(--display);font-weight:600;color:#fff}
-  .lb .qual{font-family:var(--display);font-weight:700;font-size:.62rem;letter-spacing:.05em;color:#0d1a33;background:#9fc0ff;padding:2px 6px;border-radius:5px;margin-left:8px;vertical-align:middle}
-  .lb .rec{margin-left:auto;color:#cbd6ee;font-size:.92rem;text-align:right}
-  .lb .rec b{font-family:var(--display);color:#fff}
-  .champ{background:linear-gradient(140deg,#1f2c4a,#2a3a60);border:1px solid rgba(255,255,255,.14);border-radius:var(--radius);padding:24px;display:flex;flex-direction:column;justify-content:center}
-  .champ .lbl{font-family:var(--display);font-weight:700;font-size:.78rem;letter-spacing:.1em;text-transform:uppercase;color:#ffd34d}
-  .champ .name{font-family:var(--display);font-weight:900;font-size:1.7rem;color:#fff;margin:6px 0}
-  .champ .desc{color:#cbd6ee;font-size:.96rem}
-  .champ .mini{display:flex;gap:18px;margin-top:16px}
-  .champ .mini div{font-family:var(--display)}
-  .champ .mini .n{font-weight:800;font-size:1.3rem;color:#fff}
-  .champ .mini .l{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:#9fc0ff}
-  .predict-grid{display:grid;grid-template-columns:1.5fr 1fr;gap:18px;align-items:start}
 
   /* Blackboard */
   .board-grid{display:grid;grid-template-columns:1fr;gap:16px}
@@ -391,7 +315,7 @@
     .cards,.people{grid-template-columns:repeat(2,1fr)}
     #getin .qlist{grid-template-columns:repeat(2,1fr)}
     .stats{grid-template-columns:repeat(2,1fr)}
-    .predict-grid,.board-grid,.res-grid,.foot-grid,.about .grid{grid-template-columns:1fr}
+    .board-grid,.res-grid,.foot-grid,.about .grid{grid-template-columns:1fr}
     .menubar-inner{gap:2px;padding:6px 10px}.menubar a,.navgroup>summary{font-size:.95rem;padding:9px 11px}
   }
   @media(max-width:560px){
@@ -472,8 +396,6 @@
     }
   } else {
     // No admin-posted announcement: hide the banner entirely.
-    // (The automatic "Teams posted" and "Prediction Contest" banners are kept
-    //  in git history and can be re-enabled if ever wanted.)
     el.remove();
     return;
   }
@@ -526,91 +448,6 @@
   </div>
 </section>
 
-<!-- ============ PREDICTION CONTEST — TEMPORARILY SUSPENDED (2026-07-16) ============ -->
-<!-- Tom asked to hide the Prediction Contest from the homepage but keep it for
-     later. The entire section is preserved below inside a Jinja {# ... #} comment,
-     so it is NOT shown on the site but stays fully intact and ready to re-enable.
-     TO BRING IT BACK: delete the line reading "{#" directly below this note, and
-     the line reading "#}" just after this section's closing </section> tag. Nothing
-     else needs to change. The admin panel's prediction tools are left fully working. -->
-{#
-<section class="block predict" id="predict">
-  <div class="wrap">
-    <div class="sec-eyebrow">Prediction Contest</div>
-    <h2 class="sec-title">Call the winners. Climb the board.</h2>
-    <p class="sec-sub">Before each game day, pick who takes every field. We score it against the real results and crown a champion every month.</p>
-
-    <div class="cta-row" style="margin-top:28px;gap:16px;flex-wrap:wrap;display:flex;align-items:stretch">
-      <a class="btn btn-red" href="https://script.google.com/macros/s/AKfycbwqXbN6B6WNa7Dye3NJcUWzmNrMETCZWjW2F8JrjmhKb7F3idebOxiBeRm1Fpzpx1ij/exec?view=predictions_test" target="_blank" rel="noopener">🏆 Enter the Prediction Game →</a>
-      <a class="btn" style="background:#2b5bd0;color:#fff" href="https://script.google.com/macros/s/AKfycbwqXbN6B6WNa7Dye3NJcUWzmNrMETCZWjW2F8JrjmhKb7F3idebOxiBeRm1Fpzpx1ij/exec?view=prediction_leaderboard" target="_blank" rel="noopener">📊 View the Leaderboard →</a>
-      {% if champion and champion.name %}
-      <a class="btn cotm-btn" href="/champions">🏆 {{ champion.month }}{% if champion.month %} {% endif %}Champion: {{ champion.name }}</a>
-      {% endif %}
-    </div>
-
-    {% if pred_odds %}
-    {% set has_picks = pred_odds | selectattr('total') | list | length > 0 %}
-    <div class="odds">
-      <div class="odds-head">🔮 Live odds — how the league is picking</div>
-      {% if has_picks %}
-      <p class="odds-sub">Updating as members lock in their picks. The bars move right up until game time.</p>
-      {% for g in pred_odds %}
-      {% if g.total %}
-      <div class="ogame">
-        <div class="ofield">
-          <span>{{ g.field }}</span>
-          <span class="on">{{ g.total }} pick{{ '' if g.total == 1 else 's' }} in</span>
-        </div>
-        <div class="obar home"><div class="ofill" style="width:{{ g.home_pct }}%"></div>
-          <div class="olabel"><span>H – {{ g.home or 'Home' }}</span><span>{{ g.home_pct }}%</span></div></div>
-        <div class="obar away"><div class="ofill" style="width:{{ g.away_pct }}%"></div>
-          <div class="olabel"><span>V – {{ g.away or 'Visitor' }}</span><span>{{ g.away_pct }}%</span></div></div>
-      </div>
-      {% endif %}
-      {% endfor %}
-      <p class="odds-note">These are the crowd's picks, not a guarantee — make your own call above!</p>
-      {% else %}
-      <p class="odds-quiet">Picks open when the game lineup is posted. Check back on game day to see how the league is calling it — the bars update live as members lock in their picks.</p>
-      {% endif %}
-    </div>
-    {% endif %}
-
-    {% if pred_stats %}
-    <div class="insights">
-      <div class="insights-head">📈 Season insights</div>
-      <div class="igrid">
-        {% if pred_stats.get('total games scored') %}
-        <div class="icard"><div class="ival">{{ pred_stats['total games scored'].value }}</div><div class="ilab">Games scored</div></div>
-        {% endif %}
-        {% if pred_stats.get('total predictions') %}
-        <div class="icard"><div class="ival">{{ pred_stats['total predictions'].value }}</div><div class="ilab">Total picks made</div></div>
-        {% endif %}
-        {% if league_acc %}
-        <div class="icard"><div class="ival">{{ league_acc.pct }}</div><div class="ilab">League accuracy</div><div class="isub">{{ league_acc.correct }} of {{ league_acc.total }} picks correct</div></div>
-        {% elif pred_stats.get('league prediction accuracy %') %}
-        <div class="icard"><div class="ival">{{ pred_stats['league prediction accuracy %'].value }}</div><div class="ilab">League accuracy</div></div>
-        {% endif %}
-        {% if pred_stats.get('upset rate %') %}
-        <div class="icard"><div class="ival">{{ pred_stats['upset rate %'].value }}</div><div class="ilab">Upset rate</div></div>
-        {% endif %}
-        {% if pred_stats.get('most trusted captain') %}
-        <div class="icard wide"><div class="ival">{{ pred_stats['most trusted captain'].value }}</div><div class="ilab">Most-trusted captain</div></div>
-        {% endif %}
-        {% if pred_stats.get('most underrated captain') %}
-        <div class="icard wide"><div class="ival">{{ pred_stats['most underrated captain'].value }}</div><div class="ilab">Most underrated captain</div></div>
-        {% endif %}
-      </div>
-    </div>
-    {% endif %}
-
-    {% if pred_board %}
-    <div class="board">
-      <p class="board-note" style="margin:0;font-size:1.05rem">🏆 <strong>Who's leading the pack?</strong> <a href="https://script.google.com/macros/s/AKfycbwqXbN6B6WNa7Dye3NJcUWzmNrMETCZWjW2F8JrjmhKb7F3idebOxiBeRm1Fpzpx1ij/exec?view=prediction_leaderboard" target="_blank" rel="noopener">See this season's top predictors →</a></p>
-    </div>
-    {% endif %}
-  </div>
-</section>
-#}
 
 <!-- ============ QUICK LINKS AND FORMS (now on the dark navy background) ============ -->
 <section class="block" id="getin">
@@ -776,9 +613,6 @@
         <h4>Quick Links</h4>
         <ul>
           <li><a href="#getin">Registration</a></li>
-          {# Prediction Contest link hidden while the contest is suspended (2026-07-16).
-             To restore, delete this comment and put the line back:
-             <li><a href="#predict">Prediction Contest</a></li> #}
           <li><a href="#sponsors">Sponsors</a></li>
           <li><a href="#resources">Documents</a></li>
           <li><a href="#people">About</a></li>
