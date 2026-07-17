@@ -2523,6 +2523,14 @@ def player_cards():
                     pos_by_slug.setdefault(_slug(e["name"]), e["pos"])
     except Exception:
         pos_by_slug = {}
+    # When the photo cut-out feature is switched on (a background-removal key is
+    # configured), route each photo through the cut-out endpoint so the player
+    # floats over the stadium. Off by default; falls back to the normal photo.
+    try:
+        import cutout
+        _cutout_on = cutout.enabled()
+    except Exception:
+        _cutout_on = False
     out = {}
     for div, teams in season.get("rosters", {}).items():
         for t in teams:
@@ -2535,13 +2543,18 @@ def player_cards():
                 # Prefer an explicit Position on the team's Players tab, else fall
                 # back to the master roster's position for that name.
                 position = p.get("position", "") or pos_by_slug.get(slug, "")
+                prof = profiles.get(slug, {})
+                photo_url = prof.get("photo_url", "")
+                pid = prof.get("photo_id", "")
+                if _cutout_on and photo_url and pid:
+                    photo_url = "/league/player/cutout/%s" % pid
                 out[slug] = {
                     "slug": slug, "name": nm,
                     "first": parts[0] if parts else nm,
                     "last": parts[-1] if parts else nm,
                     "team": t.get("team", ""), "division": div,
                     "position": position,
-                    "photo_url": profiles.get(slug, {}).get("photo_url", ""),
+                    "photo_url": photo_url,
                 }
     return out
 
