@@ -39,12 +39,24 @@
   .mc-capstar{flex:0 0 auto;font-size:.8rem;color:#fff;background:rgba(0,0,0,.28);
     border-radius:999px;padding:2px 7px;font-family:var(--display);font-weight:800}
   .mc.home .mc-capstar{color:#3a2e00;background:rgba(255,255,255,.45)}
-  .mc-photo{position:relative;aspect-ratio:1/1;background:#22335a;
+  .mc-photo{position:relative;aspect-ratio:1/1;overflow:hidden;
     border-top:2.5px solid var(--accent);border-bottom:2.5px solid var(--accent)}
-  .mc-photo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 20%}
-  .mc-noimg{position:absolute;inset:0;display:grid;place-items:center;color:#fff;
+  /* Shared "Stadium at Dusk" backdrop (CSS, no image). Behind the photo, so a
+     normal photo covers it and a background-removed photo shows it through. */
+  .mc-scene{position:absolute;inset:0;z-index:0;
+    background:linear-gradient(180deg,#243a63 0%,#6d5a8a 42%,#c9713f 74%,#e79a4d 100%)}
+  .mc-scene::before{content:"";position:absolute;inset:0;
+    background:radial-gradient(58% 42% at 72% 30%,rgba(255,214,150,.9),rgba(255,214,150,0) 60%)}
+  .mc-scene::after{content:"";position:absolute;left:0;right:0;bottom:0;height:36%;
+    background:linear-gradient(180deg,rgba(20,28,50,0),rgba(20,28,50,.8))}
+  .mc-photo img{position:absolute;inset:0;z-index:1;width:100%;height:100%;object-fit:cover;object-position:center 20%}
+  .mc-noimg{position:absolute;inset:0;z-index:1;display:grid;place-items:center;color:#fff;
     font-family:var(--display);font-weight:900;font-size:2.8rem;
-    background:linear-gradient(160deg,var(--accent),#16233f)}
+    background:linear-gradient(160deg,rgba(22,35,63,.35),rgba(22,35,63,.6))}
+  .mc-glowtop{position:absolute;left:0;right:0;top:0;height:40%;z-index:2;pointer-events:none;
+    background:linear-gradient(180deg,rgba(255,196,120,.42),rgba(255,196,120,0))}
+  .mc-glowbot{position:absolute;left:0;right:0;bottom:0;height:42%;z-index:2;pointer-events:none;
+    background:linear-gradient(180deg,rgba(22,35,63,0),rgba(22,35,63,.4))}
   .mc-plate{background:#fff;padding:9px 8px 11px;text-align:center}
   .mc-name{font-family:var(--display);font-weight:900;text-transform:uppercase;color:#16233f;
     line-height:1.05;font-size:1.02rem;letter-spacing:.01em}
@@ -78,11 +90,14 @@
           {% if p.captain %}<span class="mc-capstar">★</span>{% endif %}
         </div>
         <div class="mc-photo">
+          <div class="mc-scene"></div>
           {% if p.photo_url %}
             <img src="{{ p.photo_url }}" alt="{{ p.name }}" loading="lazy">
           {% else %}
             <div class="mc-noimg">{{ (p.first[:1] ~ p.last[:1])|upper }}</div>
           {% endif %}
+          <div class="mc-glowtop"></div>
+          <div class="mc-glowbot"></div>
         </div>
         <div class="mc-plate">
           <div class="mc-name">{{ p.name }}</div>
