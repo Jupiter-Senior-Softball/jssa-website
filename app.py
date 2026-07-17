@@ -36,6 +36,7 @@ from flask import (
 )
 
 import sheets
+import cutout
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-only-insecure-key")
@@ -327,6 +328,49 @@ def player_photo(file_id):
     resp = Response(data, mimetype=ctype or "image/jpeg")
     resp.headers["Cache-Control"] = "public, max-age=3600"
     return resp
+
+
+@app.route("/league/player/cutout/<file_id>")
+def player_cutout(file_id):
+    """Serve a background-removed (see-through) version of a player photo, so the
+    card shows them standing in the stadium. If a cut-out isn't available (feature
+    off, service error, etc.) this falls back to the ordinary Google photo, so a
+    card always has an image and is never broken by this feature."""
+    if not _PROFILE_PHOTO_RE.match(file_id):
+        abort(404)
+    png = None
+    try:
+        if file_id in sheets._profile_photo_ids():
+            png = cutout.cutout_png(file_id)
+    except Exception:
+        png = None
+    if png:
+        from flask import Response
+        resp = Response(png, mimetype="image/png")
+        resp.headers["Cache-Control"] = "public, max-age=86400"
+        return resp
+    return redirect("https://lh3.googleusercontent.com/d/%s=w800" % file_id)
+
+
+@app.route("/league/cutout/status")
+def cutout_status():
+    """Plain-language health check for the photo cut-out feature. No secrets are
+    shown — only whether a key is present and whether a test cut-out succeeds.
+    Add ?slug=<player-slug> to actually try one photo and see any error."""
+    out = cutout.status()
+    try:
+        profs = sheets.player_profiles()
+        out["photos_on_file"] = sum(1 for p in profs.values() if p.get("photo_id"))
+        slug = (request.args.get("slug") or "").strip()
+        if slug and slug in profs:
+            fid = profs[slug].get("photo_id", "")
+            if fid:
+                out["test_slug"] = slug
+                out["test_cutout_ok"] = bool(cutout.cutout_png(fid))
+                out.update(cutout.status(fid))
+    except Exception as e:
+        out["error"] = "%s: %s" % (type(e).__name__, e)
+    return jsonify(out)
 
 
 @app.route("/teams/preview")
