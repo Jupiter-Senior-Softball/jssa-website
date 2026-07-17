@@ -18,8 +18,12 @@
       background:#fff;display:flex;flex-direction:column}
 
   /* Header: JSSA roundel + team name + division pill */
-  .tc-head{position:relative;background:var(--accent);
+  .tc-head{position:relative;overflow:hidden;background:var(--accent);
       display:flex;align-items:center;gap:10px;padding:12px 13px}
+  /* soft stadium-light flare sweeping across the header */
+  .tc-flare{position:absolute;top:-45%;right:-8%;width:130px;height:190%;z-index:0;
+      pointer-events:none;background:radial-gradient(closest-side,rgba(255,255,255,.5),rgba(255,255,255,0))}
+  .tc-head>*:not(.tc-flare){position:relative;z-index:1}
   .tc-brand{flex:0 0 auto;width:36px;height:36px;border-radius:50%;background:#fff;
       display:grid;place-items:center;font-family:var(--display);font-weight:900;
       color:var(--accent);font-size:.72rem;letter-spacing:-.02em;
@@ -36,17 +40,41 @@
       padding:5px 11px;text-transform:uppercase;white-space:nowrap}
 
   /* Photo */
-  .tc-photo{position:relative;aspect-ratio:1/1;background:#22335a;
+  .tc-photo{position:relative;aspect-ratio:1/1;overflow:hidden;
       border-top:3px solid var(--accent);border-bottom:3px solid var(--accent)}
+  /* Shared "Stadium at Dusk" backdrop (drawn in CSS, no image file needed).
+     It sits BEHIND the photo: a normal photo covers it and gets the warm framing
+     below; a background-removed photo lets the stadium show behind the player. */
+  .tc-scene{position:absolute;inset:0;z-index:0;
+      background:linear-gradient(180deg,#243a63 0%,#6d5a8a 42%,#c9713f 74%,#e79a4d 100%)}
+  .tc-scene::before{content:"";position:absolute;inset:0;
+      background:radial-gradient(58% 42% at 72% 30%,rgba(255,214,150,.9),rgba(255,214,150,0) 60%)}
+  .tc-scene::after{content:"";position:absolute;left:0;right:0;bottom:0;height:36%;
+      background:linear-gradient(180deg,rgba(20,28,50,0),rgba(20,28,50,.55) 72%,rgba(20,28,50,.8))}
   /* Crop from near the top, not the center: faces sit in the upper part of a
      photo, so this shows heads/shoulders instead of midsections on tall or
      full-body shots. */
-  .tc-photo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 20%}
-  .tc-noimg{position:absolute;inset:0;display:grid;place-items:center;color:#fff;
+  .tc-photo img{position:absolute;inset:0;z-index:1;width:100%;height:100%;object-fit:cover;object-position:center 20%}
+  .tc-noimg{position:absolute;inset:0;z-index:1;display:grid;place-items:center;color:#fff;
       font-family:var(--display);font-weight:900;font-size:5.4rem;
-      background:linear-gradient(160deg,var(--accent),#16233f)}
+      background:linear-gradient(160deg,rgba(22,35,63,.35),rgba(22,35,63,.6))}
+  /* Warm haze up top + a gentle vignette into the name plate, so a normal photo
+     still reads as a dusk ballgame and blends into the card. */
+  .tc-glowtop{position:absolute;left:0;right:0;top:0;height:40%;z-index:2;pointer-events:none;
+      background:linear-gradient(180deg,rgba(255,196,120,.45),rgba(255,196,120,0))}
+  .tc-glowbot{position:absolute;left:0;right:0;bottom:0;height:42%;z-index:2;pointer-events:none;
+      background:linear-gradient(180deg,rgba(22,35,63,0),rgba(22,35,63,.42))}
+  /* Gold foil "Legacy Series" badge */
+  .tc-badge{position:absolute;top:11px;right:11px;z-index:3;width:66px;height:48px;border-radius:8px;
+      background:linear-gradient(135deg,#f7e08a,#c9962f 55%,#8a6417);
+      box-shadow:0 2px 7px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.6);
+      display:grid;place-items:center;text-align:center}
+  .tc-badge b{color:#3a2a08;font-weight:900;line-height:1.05;font-size:.56rem;letter-spacing:.03em;
+      text-transform:uppercase;text-shadow:0 1px 0 rgba(255,255,255,.35)}
+  .tc-badge b em{display:block;font-style:normal;font-size:.46rem;letter-spacing:.12em}
+  .tc-badge b i{display:block;font-style:normal;font-size:.95rem;letter-spacing:.03em}
   /* decorative baseball in the corner — vintage flair */
-  .tc-ball{position:absolute;right:13px;bottom:13px;width:52px;height:52px;
+  .tc-ball{position:absolute;right:13px;bottom:13px;z-index:3;width:52px;height:52px;
       border-radius:50%;background:radial-gradient(circle at 34% 30%,#fff,#ece5d3);
       box-shadow:0 2px 6px rgba(0,0,0,.4),inset -4px -4px 7px rgba(0,0,0,.12)}
   .tc-ball::before,.tc-ball::after{content:"";position:absolute;top:9px;bottom:9px;
@@ -66,16 +94,21 @@
 <div class="tc {{ player.division }}">
   <div class="tc-frame">
     <div class="tc-head">
+      <span class="tc-flare"></span>
       <span class="tc-brand">JSSA</span>
       <div class="tc-team"><span>{{ player.team or 'JSSA' }}</span></div>
       {% if player.division %}<em class="tc-div">{{ player.division }}</em>{% endif %}
     </div>
     <div class="tc-photo">
+      <div class="tc-scene"></div>
       {% if player.photo_url %}
         <img src="{{ player.photo_url }}" alt="{{ player.name }}">
       {% else %}
         <div class="tc-noimg">{{ (player.first[:1] ~ player.last[:1])|upper }}</div>
       {% endif %}
+      <div class="tc-glowtop"></div>
+      <div class="tc-glowbot"></div>
+      <div class="tc-badge"><b><em>2026</em><i>Legacy</i>Series</b></div>
       <div class="tc-ball"></div>
     </div>
     <div class="tc-plate">
