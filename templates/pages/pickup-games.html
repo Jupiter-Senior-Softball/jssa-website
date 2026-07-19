@@ -2,6 +2,10 @@
 {% block eyebrow %}How We Play{% endblock %}
 {% block sub %}<p class="sub">Pickup games run every Monday, Wednesday and Friday, April through December. Here's how to get on a roster.</p>{% endblock %}
 {% block body %}
+{% if pickup and pickup.paused %}
+{% include "_pickup_break.html" %}
+<div style="height:28px"></div>
+{% endif %}
 <p class="lead">JSSA pickup games are organized every Monday, Wednesday and Friday from April through December. Members who want to play must sign up in advance of each game day.</p>
 
 <h2>How sign-ups work</h2>

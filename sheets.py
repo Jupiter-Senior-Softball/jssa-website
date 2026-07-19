@@ -606,6 +606,144 @@ def manual_test_button_on():
 
 
 # ----------------------------------------------------------------------------
+# Pickup Games on/off switch  —  the "offseason" control
+# ----------------------------------------------------------------------------
+# Lets the board pause pickup games for the league season (and point players to
+# the League Game Schedule), then resume them later. Two ways to drive it, set
+# from the Board Portal (/admin/pickup):
+#   * AUTO  — pause on the "Pause From" date, resume on the "Resume On" date, all
+#             by itself. Set the dates once and forget it.
+#   * ON    — force pickup games ON now.  OFF — force the break ON now.
+# Stored as simple "Setting | Value" rows on a "Pickup Control" tab in the
+# control sheet. Fail-safe: any error → NOT paused, so pickup shows normally and
+# the site is never worse off than before this feature existed.
+
+PICKUP_CONTROL_TAB = "Pickup Control"
+
+PICKUP_DEFAULT_MESSAGE = (
+    "Pickup games are on a break for the league season. "
+    "Please head over to the League Game Schedule for upcoming league games.")
+
+_pickup_cache = {"data": None, "ts": 0.0}
+_PICKUP_TTL = 60  # seconds — picks up a flipped switch within about a minute
+
+
+def _pickup_settings():
+    """{setting (lowercased): value} from the Pickup Control tab, or {} if the
+    tab is missing / the API hiccups."""
+    now = time.time()
+    with _lock:
+        c = _pickup_cache
+        if c["data"] is not None and now - c["ts"] < _PICKUP_TTL:
+            return c["data"]
+    out = {}
+    try:
+        if CONTROL_SHEET_ID and _SA_JSON:
+            ws = _control_sheet(readonly=True).worksheet(PICKUP_CONTROL_TAB)
+            for row in ws.get_all_values():
+                if len(row) >= 2 and str(row[0]).strip():
+                    out[str(row[0]).strip().lower()] = str(row[1]).strip()
+    except Exception:
+        out = {}
+    with _lock:
+        _pickup_cache["data"] = out
+        _pickup_cache["ts"] = now
+    return out
+
+
+def get_pickup_control():
+    """Current raw control values, for the admin form, with sensible defaults:
+        {'mode': 'AUTO'|'ON'|'OFF', 'pause_from': 'YYYY-MM-DD'|'',
+         'resume_on': 'YYYY-MM-DD'|'', 'message': str}"""
+    s = _pickup_settings()
+    mode = (s.get("mode", "") or "AUTO").strip().upper()
+    if mode not in ("AUTO", "ON", "OFF"):
+        mode = "AUTO"
+    return {
+        "mode": mode,
+        "pause_from": s.get("pause from", "").strip(),
+        "resume_on": s.get("resume on", "").strip(),
+        "message": s.get("message", "").strip() or PICKUP_DEFAULT_MESSAGE,
+    }
+
+
+def set_pickup_control(mode, pause_from, resume_on, message):
+    """Write the pickup control settings to the Pickup Control tab (creating it
+    if it doesn't exist yet). Returns True on success."""
+    try:
+        if not (CONTROL_SHEET_ID and _SA_JSON):
+            return False
+        mode = (mode or "AUTO").strip().upper()
+        if mode not in ("AUTO", "ON", "OFF"):
+            mode = "AUTO"
+        rows = [
+            ["Setting", "Value"],
+            ["Mode", mode],
+            ["Pause From", (pause_from or "").strip()],
+            ["Resume On", (resume_on or "").strip()],
+            ["Message", (message or "").strip()],
+        ]
+        sh = _control_sheet(readonly=False)
+        try:
+            ws = sh.worksheet(PICKUP_CONTROL_TAB)
+        except Exception:
+            ws = sh.add_worksheet(title=PICKUP_CONTROL_TAB, rows=20, cols=4)
+        ws.clear()
+        ws.update(rows, "A1")
+        with _lock:                       # force a fresh read on the next page view
+            _pickup_cache["ts"] = 0.0
+        return True
+    except Exception:
+        return False
+
+
+def _parse_iso_date(s):
+    try:
+        return datetime.datetime.strptime(str(s).strip(), "%Y-%m-%d").date()
+    except Exception:
+        return None
+
+
+def pickup_status(today=None):
+    """Whether pickup games are currently paused, plus the message to show:
+        {'paused': bool, 'mode': str, 'message': str,
+         'resume_on': 'YYYY-MM-DD'|'', 'resume_pretty': str}
+    `today` is injectable for testing; defaults to the current Eastern date.
+    Fail-safe: on any error returns not-paused (pickup shows normally)."""
+    try:
+        c = get_pickup_control()
+        mode = c["mode"]
+        if today is None:
+            today = datetime.datetime.now(_EASTERN).date()
+        pf = _parse_iso_date(c["pause_from"])
+        ro = _parse_iso_date(c["resume_on"])
+        if mode == "OFF":
+            paused = True
+        elif mode == "ON":
+            paused = False
+        else:  # AUTO — follow the dates
+            if pf and ro:
+                if pf <= ro:
+                    paused = pf <= today < ro
+                else:                     # window wraps past the year end
+                    paused = today >= pf or today < ro
+            elif pf:
+                paused = today >= pf
+            else:
+                paused = False
+        resume_pretty = ""
+        if paused and ro:
+            resume_pretty = "%s, %s %d, %d" % (
+                ro.strftime("%A"), ro.strftime("%B"), ro.day, ro.year)
+        return {"paused": paused, "mode": mode, "message": c["message"],
+                "resume_on": c["resume_on"], "resume_pretty": resume_pretty}
+    except Exception:
+        return {"paused": False, "mode": "AUTO",
+                "message": PICKUP_DEFAULT_MESSAGE,
+                "resume_on": "", "resume_pretty": ""}
+
+
+# ----------------------------------------------------------------------------
 # Pickup Game Schedule — live "next game" preview for the homepage middle card
 # and the /pickup preview page.
 # ----------------------------------------------------------------------------
