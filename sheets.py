@@ -407,6 +407,16 @@ def _parse_teams_block(rows, enforce_date_window=True):
     if enforce_date_window and _is_stale_gameday(date_str):
         return None
 
+    # The published location line (A3 on the Game Day Teams tab) can go stale if
+    # a publish doesn't refresh it. The pickup schedule's "Game Field" is the
+    # live source of truth for the venue, so prefer it when we can read it.
+    try:
+        live_venue = pickup_game_venue(date_str)
+        if live_venue:
+            park_str = live_venue
+    except Exception:
+        pass
+
     return {
         "date": date_str,
         "park": park_str,
@@ -651,6 +661,82 @@ def _schedule_worksheet():
         except Exception:
             continue
     return sh.get_worksheet(0)
+
+
+def _month_day(s):
+    """(month, day) from a date-ish label like 'Wednesday, July 22, 2026',
+    'Wed, July 22' or '7/22/2026'. None if it can't be read."""
+    s = _clean(s)
+    if not s:
+        return None
+    m = re.match(r"^(\d{1,2})/(\d{1,2})", s)
+    if m:
+        return (int(m.group(1)), int(m.group(2)))
+    t = s.split(",", 1)[1] if "," in s else s   # drop a leading weekday word
+    t = t.replace(",", "").strip()
+    for fmt in ("%B %d %Y", "%b %d %Y", "%B %d", "%b %d"):
+        try:
+            d = datetime.datetime.strptime(t, fmt)
+            return (d.month, d.day)
+        except ValueError:
+            continue
+    return None
+
+
+def pickup_game_venue(date_str=None):
+    """The 'Game Field' (venue) from the LIVE pickup schedule, matched to
+    date_str when given, otherwise the earliest game's venue. Returns '' if it
+    can't be determined.
+
+    The Game Day Teams page's location line comes from a published snapshot cell
+    that can go stale if a publish doesn't refresh it. The pickup schedule's
+    'Game Field' row is the live source of truth, so we prefer it. Fail-safe:
+    any problem returns '' and the caller keeps the published value."""
+    try:
+        rows = _schedule_worksheet().get_all_values()
+    except Exception:
+        return ""
+    phdr, cols = None, {}
+    for i, r in enumerate(rows):
+        low = [_clean(c).lower() for c in r]
+        if "first name" in low and "last name" in low and "division" in low:
+            phdr = i
+            cols = {n: ci for ci, n in enumerate(low)}
+            break
+    if phdr is None:
+        return ""
+    idxs = [cols[k] for k in
+            ("first name", "last name", "division", "position", "preferred positions")
+            if k in cols]
+    base = max(idxs) if idxs else 0
+    header = rows[phdr]
+    # The "Game Field" row lives in the header block above the player rows.
+    field_row = None
+    for r in rows[:phdr]:
+        lbl = ""
+        for c in r:
+            if _clean(c):
+                lbl = _clean(c).lower()
+                break
+        if lbl in ("game field", "field"):
+            field_row = r
+            break
+    if field_row is None:
+        return ""
+    want = _month_day(date_str) if date_str else None
+    first_field = ""
+    for ci in range(base + 1, len(header)):
+        label = _clean(header[ci])
+        if not label:
+            continue
+        fld = _clean(field_row[ci]) if len(field_row) > ci else ""
+        if not fld:
+            continue
+        if not first_field:
+            first_field = fld
+        if want and _month_day(label) == want:
+            return fld
+    return first_field
 
 
 def _parse_schedule_date(label, today):
