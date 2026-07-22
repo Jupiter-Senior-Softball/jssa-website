@@ -58,6 +58,13 @@
   .topbanner.is-note{background:linear-gradient(100deg,#b91e22 0%,#d8262b 100%)}
   .topbanner.is-note .btext{font-family:var(--body);font-weight:500;font-size:1rem;letter-spacing:0;line-height:1.4}
   .topbanner.is-note .btext a{font-weight:600}
+  /* When the red "Game Day Rosters Are Posted" button is up, a red announcement
+     banner clashes with it — switch that banner to the yellow game-day look
+     (dark text) so the two don't fight. Only applied while that button shows. */
+  .topbanner.is-note.is-rosters-up{background:#f5c800;color:#16233f}
+  .topbanner.is-note.is-rosters-up .btext a{color:#16233f}
+  .topbanner.is-note.is-rosters-up .close{color:#16233f}
+  .topbanner.is-note.is-rosters-up .icon{background:rgba(22,35,63,.14);box-shadow:inset 0 0 0 1px rgba(22,35,63,.20)}
   /* Teams posted */
   .topbanner.is-teams{background:linear-gradient(100deg,#0f5132 0%,#1f9d57 100%)}
 
@@ -399,7 +406,8 @@
     el.remove();
     return;
   }
-  el.className = 'topbanner ' + cls;
+  el.className = 'topbanner ' + cls +
+    (cls === 'is-note' && teams ? ' is-rosters-up' : '');
   el.setAttribute('role','alert');
   el.innerHTML = inner;
   var c = el.querySelector('.close');
