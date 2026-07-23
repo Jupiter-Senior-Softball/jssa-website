@@ -1,0 +1,25 @@
+{# Shown wherever pickup sign-up normally appears, when pickup games are paused
+   for the league season (the Board Portal "offseason" switch). Points players
+   to the League Game Schedule. Expects a `pickup` object in context:
+   {paused, message, resume_pretty}. #}
+<div class="pickup-break">
+  <style>
+    .pickup-break{max-width:820px;margin:0 auto;background:#fff;border:1px solid var(--line);
+      border-top:6px solid var(--red);border-radius:16px;padding:30px 26px;text-align:center;
+      box-shadow:0 12px 30px rgba(22,35,63,.10)}
+    .pickup-break .pb-tag{display:inline-block;font-family:var(--display);font-weight:800;
+      text-transform:uppercase;letter-spacing:.08em;font-size:.84rem;color:var(--red);margin-bottom:12px}
+    .pickup-break h3{font-family:var(--display);font-weight:900;color:var(--navy);
+      font-size:1.7rem;margin:0 0 12px;letter-spacing:-.01em}
+    .pickup-break p{color:var(--text);font-size:1.15rem;line-height:1.5;margin:0 auto 10px;max-width:640px}
+    .pickup-break .pb-resume{color:var(--muted);font-size:1.02rem;font-weight:600;margin-bottom:22px}
+    .pickup-break .pb-btn{display:inline-block;background:var(--navy);color:#fff;font-family:var(--display);
+      font-weight:700;font-size:1.15rem;padding:16px 32px;border-radius:999px;min-height:44px}
+    .pickup-break .pb-btn:hover{background:var(--blue)}
+  </style>
+  <span class="pb-tag">🥎 Pickup Games Paused</span>
+  <h3>Pickup games are on a break</h3>
+  <p>{{ pickup.message }}</p>
+  {% if pickup.resume_pretty %}<p class="pb-resume">Pickup games are scheduled to return {{ pickup.resume_pretty }}.</p>{% endif %}
+  <a class="pb-btn" href="/league/schedules">See the League Game Schedule &rarr;</a>
+</div>

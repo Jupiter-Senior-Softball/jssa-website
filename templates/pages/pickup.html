@@ -1,6 +1,6 @@
 {% extends "page_base.html" %}
 {% block eyebrow %}Pickup Games{% endblock %}
-{% block sub %}<p class="sub">A live, preliminary look at who's signed up for the next pickup game. This list updates on its own as new signups come in.</p>{% endblock %}
+{% block sub %}{% if pickup and pickup.paused %}<p class="sub">Pickup games are on a break for the league season.</p>{% else %}<p class="sub">A live, preliminary look at who's signed up for the next pickup game. This list updates on its own as new signups come in.</p>{% endif %}{% endblock %}
 {% block body %}
 <style>
   html{font-size:112.5%}  /* larger, easier-to-read text */
@@ -52,6 +52,9 @@
   .ng-none h2{font-size:1.5rem;color:var(--navy);border:0;padding:0;margin:0 0 10px}
 </style>
 
+{% if pickup and pickup.paused %}
+{% include "_pickup_break.html" %}
+{% else %}
 {% if game %}
 {% set divs = [('RED','red','Red'), ('WHITE','white','White'), ('BLUE','blue','Blue')] %}
 <div class="ng-banner">
@@ -132,10 +135,15 @@
   <p>Check the full schedule for upcoming dates, or sign up to get into the next pickup game.</p>
 </div>
 {% endif %}
+{% endif %}
 {% endblock %}
 
 {% block footer_btns %}
+{% if pickup and pickup.paused %}
+<a class="btn btn-navy" href="/league/schedules">📅 League Game Schedule</a>
+{% else %}
 <a class="btn btn-red" href="https://script.google.com/macros/s/AKfycbzLLz9E-qjJwXbgAkaGjhH0PT_3oa13uzrl9T5dT1omGCL6Ocw1lYELg8xFBM7zuapN7g/exec">✍️ Sign Up for Pickup</a>
 <a class="btn btn-navy" href="{{ game.schedule_url if game else 'https://docs.google.com/spreadsheets/d/1oHgGae0aXVVsr7t9hmDmoLxZWO5p9rLFPebSsXoFfAA/edit?gid=883277822#gid=883277822' }}" target="_blank" rel="noopener">📅 Full schedule grid</a>
+{% endif %}
 {% endblock %}
 {% block extra_btns %}<a class="btn btn-ghost" href="/">← Back home</a>{% endblock %}

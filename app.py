@@ -94,6 +94,13 @@ def home():
         sponsor_list = sheets.sponsors()
     except Exception:
         sponsor_list = []
+    # Pickup games can be paused for the league season (the "offseason" switch,
+    # set from the Board Portal). When paused, the homepage pickup buttons are
+    # replaced with a notice pointing to the League Game Schedule.
+    try:
+        pickup = sheets.pickup_status()
+    except Exception:
+        pickup = {"paused": False}
     # Count this homepage visit and read the running total to show in the footer.
     try:
         sheets.record_home_view()
@@ -103,13 +110,17 @@ def home():
     return render_template("index.html", notice=notice,
                            teams_posted=teams_posted, blackboard=blackboard,
                            board=board, sponsors=sponsor_list,
-                           views=views)
+                           pickup=pickup, views=views)
 
 
 @app.route("/pickup")
 def pickup():
     """Live preliminary roster for the next pickup game — who's signed up so
     far, grouped by division, with a countdown to the signup deadline."""
+    try:
+        pickup = sheets.pickup_status()
+    except Exception:
+        pickup = {"paused": False}
     try:
         game = sheets.pickup_next_game()
     except Exception:
@@ -120,7 +131,7 @@ def pickup():
         card_slugs = set()
     return render_template("pages/pickup.html",
                            page_title="Next Pickup Game", game=game,
-                           card_slugs=card_slugs)
+                           card_slugs=card_slugs, pickup=pickup)
 
 
 @app.route("/teams")
@@ -609,6 +620,11 @@ def page(slug):
             ctx["inductees"] = sheets.hof_entries()
         except Exception:
             ctx["inductees"] = []
+    elif slug == "pickup-games":
+        try:
+            ctx["pickup"] = sheets.pickup_status()
+        except Exception:
+            ctx["pickup"] = {"paused": False}
     return render_template(f"pages/{slug}.html", **ctx)
 
 
@@ -723,6 +739,37 @@ def admin_scores_save():
             ok = False
     return redirect(url_for("admin_scores", division=division or None,
                             saved=("1" if ok else "0")))
+
+
+@app.route("/admin/pickup")
+@login_required
+def admin_pickup():
+    """Board Portal control to pause/resume pickup games for the league season."""
+    try:
+        control = sheets.get_pickup_control()
+    except Exception:
+        control = {"mode": "AUTO", "pause_from": "", "resume_on": "", "message": ""}
+    try:
+        status = sheets.pickup_status()
+    except Exception:
+        status = {"paused": False}
+    return render_template("admin/pickup.html", page_title="Pickup Games",
+                           control=control, status=status,
+                           saved=request.args.get("saved"))
+
+
+@app.route("/admin/pickup/save", methods=["POST"])
+@login_required
+def admin_pickup_save():
+    mode = (request.form.get("mode") or "AUTO").strip().upper()
+    pause_from = (request.form.get("pause_from") or "").strip()
+    resume_on = (request.form.get("resume_on") or "").strip()
+    message = (request.form.get("message") or "").strip()
+    try:
+        ok = sheets.set_pickup_control(mode, pause_from, resume_on, message)
+    except Exception:
+        ok = False
+    return redirect(url_for("admin_pickup", saved=("1" if ok else "0")))
 
 
 @app.route("/admin/directory")

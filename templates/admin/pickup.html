@@ -1,0 +1,100 @@
+{% extends "page_base.html" %}
+{% block eyebrow %}Admin{% endblock %}
+{% block sub %}<p class="sub">Turn pickup games on or off for the season. When they're paused, the pickup buttons on the website are replaced with a friendly notice that points players to the League Game Schedule. Changes show on the site within about a minute.</p>{% endblock %}
+{% block body %}
+<style>
+  html{font-size:112.5%}
+  .adminbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+  .adminbar a{font-weight:600}
+  .saved{background:#e8f6ee;border:1px solid #bfe3cd;color:#1a7f4b;border-radius:12px;padding:14px 18px;margin-bottom:18px;font-weight:600}
+  .failed{background:var(--red-tint);border:1px solid #f0c9cb;color:#b3151b;border-radius:12px;padding:14px 18px;margin-bottom:18px;font-weight:600}
+  .statusnow{border-radius:12px;padding:14px 18px;margin-bottom:22px;font-weight:700;font-size:1.05rem}
+  .statusnow.on{background:#e8f6ee;border:1px solid #bfe3cd;color:#1a7f4b}
+  .statusnow.off{background:var(--red-tint);border:1px solid #f0c9cb;color:#b3151b}
+  .pform{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 22px 26px;max-width:640px}
+  .pform fieldset{border:0;margin:0 0 22px;padding:0}
+  .pform legend{font-family:var(--display);font-weight:800;color:var(--navy);font-size:1.15rem;margin-bottom:10px}
+  .choice{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border:1px solid var(--line);
+    border-radius:10px;margin-bottom:10px;cursor:pointer}
+  .choice input{margin-top:4px;transform:scale(1.3)}
+  .choice .ct{font-weight:700;color:var(--navy)}
+  .choice .cd{color:var(--muted);font-size:.95rem;font-weight:400}
+  .datesrow{display:flex;gap:20px;flex-wrap:wrap}
+  .fld{display:flex;flex-direction:column;gap:6px}
+  .fld label{font-weight:700;color:var(--navy)}
+  .fld input[type=date]{font-size:1.05rem;padding:10px 12px;border:1px solid var(--line);border-radius:8px;min-height:44px}
+  .hinttext{color:var(--muted);font-size:.92rem;margin:6px 0 0}
+  .msgfld{margin-top:22px}
+  .msgfld label{display:block;font-weight:700;color:var(--navy);margin-bottom:6px}
+  .msgfld textarea{width:100%;min-height:90px;font-size:1.02rem;padding:12px;border:1px solid var(--line);
+    border-radius:8px;font-family:var(--body);line-height:1.4;resize:vertical}
+  .saverow{margin-top:24px}
+  .saverow button{min-height:48px;padding:0 26px;font-size:1.05rem}
+</style>
+
+<div class="adminbar">
+  <a href="{{ url_for('admin_dashboard') }}">← Back to dashboard</a>
+  <a href="{{ url_for('admin_logout') }}">Sign out</a>
+</div>
+
+{% if saved == '1' %}<div class="saved">✓ Saved. The website will update within about a minute.</div>{% endif %}
+{% if saved == '0' %}<div class="failed">Couldn't save that. Please try again in a moment.</div>{% endif %}
+
+{% if status and status.paused %}
+  <div class="statusnow off">● Right now: pickup games are PAUSED on the website{% if status.resume_pretty %} — set to return {{ status.resume_pretty }}{% endif %}.</div>
+{% else %}
+  <div class="statusnow on">● Right now: pickup games are ON and showing normally on the website.</div>
+{% endif %}
+
+<form class="pform" method="post" action="{{ url_for('admin_pickup_save') }}">
+  <fieldset>
+    <legend>Pickup games are…</legend>
+
+    <label class="choice">
+      <input type="radio" name="mode" value="AUTO" {% if control.mode == 'AUTO' %}checked{% endif %}>
+      <span><span class="ct">Automatic (use the dates below)</span><br>
+        <span class="cd">Pickup pauses on the "Pause from" date and comes back on its own on the "Resume on" date. Set it once and forget it.</span></span>
+    </label>
+
+    <label class="choice">
+      <input type="radio" name="mode" value="ON" {% if control.mode == 'ON' %}checked{% endif %}>
+      <span><span class="ct">On now</span><br>
+        <span class="cd">Force pickup games ON right away, ignoring the dates.</span></span>
+    </label>
+
+    <label class="choice">
+      <input type="radio" name="mode" value="OFF" {% if control.mode == 'OFF' %}checked{% endif %}>
+      <span><span class="ct">Paused now</span><br>
+        <span class="cd">Force the "on a break" notice ON right away, ignoring the dates.</span></span>
+    </label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Season dates (used by Automatic)</legend>
+    <div class="datesrow">
+      <div class="fld">
+        <label for="pause_from">Pause pickup from</label>
+        <input type="date" id="pause_from" name="pause_from" value="{{ control.pause_from }}">
+      </div>
+      <div class="fld">
+        <label for="resume_on">Resume pickup on</label>
+        <input type="date" id="resume_on" name="resume_on" value="{{ control.resume_on }}">
+      </div>
+    </div>
+    <p class="hinttext">Leave both blank if you'd rather just use the On / Paused buttons above.</p>
+  </fieldset>
+
+  <div class="msgfld">
+    <label for="message">Message players see during the break</label>
+    <textarea id="message" name="message" placeholder="Pickup games are on a break for the league season…">{{ control.message }}</textarea>
+    <p class="hinttext">A "See the League Game Schedule →" button is added under this message automatically.</p>
+  </div>
+
+  <div class="saverow">
+    <button class="btn btn-navy" type="submit">Save settings</button>
+  </div>
+</form>
+{% endblock %}
+
+{% block footer_btns %}<a class="btn btn-navy" href="{{ url_for('admin_dashboard') }}">← Back to dashboard</a>{% endblock %}
+{% block extra_btns %}{% endblock %}
