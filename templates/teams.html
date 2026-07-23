@@ -159,12 +159,6 @@
   .team.visitor .cap .n { font-family: var(--display); font-weight: 600; font-size: .82rem; color: rgba(255,255,255,.6); }
 
   .team ul { list-style: none; }
-  .team-cards-link{display:block;margin:10px 12px 12px;text-align:center;text-decoration:none;
-    font-family:var(--display);font-weight:800;font-size:.92rem;padding:11px;border-radius:10px}
-  .team.home .team-cards-link{background:rgba(245,197,24,.16);color:#ffe08a;border:1px solid rgba(245,197,24,.4)}
-  .team.home .team-cards-link:hover{background:rgba(245,197,24,.28)}
-  .team.visitor .team-cards-link{background:rgba(43,91,208,.22);color:#bcd0ff;border:1px solid rgba(43,91,208,.5)}
-  .team.visitor .team-cards-link:hover{background:rgba(43,91,208,.34)}
 
   /* "Make your baseball card" call-out — small, low-key, neutral (no gold) */
   .card-promo{display:flex;gap:12px;align-items:center;flex-wrap:wrap;
@@ -315,7 +309,7 @@
       <div class="cp-badge">🃏</div>
       <div class="cp-body">
         <h3 class="cp-title">Where's your baseball card?</h3>
-        <p class="cp-text">Tap any team's <strong>&ldquo;View Team Photo&rdquo;</strong> to see the cards. Still a
+        <p class="cp-text">Tap any player's <strong>photo or name</strong> below to see their card. Still a
           mystery silhouette? Send your best shot &mdash; ballcap, shades, beach selfie &mdash; and we'll make your own.</p>
         <a class="cp-btn" href="https://docs.google.com/forms/d/e/1FAIpQLSc_5Wvkxoq3QsFfSDJ6kiTvyWre2xHH3m3AflNqiehA4-q58A/viewform" target="_blank" rel="noopener">📸 Make my card →</a>
       </div>
@@ -333,7 +327,6 @@
         <div class="matchup">
           <div class="team home">
             <div class="cap"><b>🏠 Home</b><span class="n">{{ hc }} players</span></div>
-            <a class="team-cards-link" href="{{ url_for('gameday_team_cards', field=field.name, side='home') }}">📸 View Team Photo</a>
             <ul>
               {% for p in field.home %}
               {% set card = cards.get(p.slug) if p.slug else None %}
@@ -354,7 +347,6 @@
           </div>
           <div class="team visitor">
             <div class="cap"><b>✈️ Visitor</b><span class="n">{{ vc }} players</span></div>
-            <a class="team-cards-link" href="{{ url_for('gameday_team_cards', field=field.name, side='visitor') }}">📸 View Team Photo</a>
             <ul>
               {% for p in field.visitor %}
               {% set card = cards.get(p.slug) if p.slug else None %}
