@@ -624,12 +624,20 @@ def login_required(view):
     return wrapped
 
 
+def _normalize_password(s):
+    """Fold away the differences that trip board members up: capitalization and
+    any spaces. So 'JCP softball', 'jcp softball', 'JCPsoftball' and 'jcpsoftball'
+    all match. Returns a lowercase, space-free string."""
+    return "".join(str(s or "").split()).lower()
+
+
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login():
     error = None
     if request.method == "POST":
         pw = request.form.get("password", "")
-        if ADMIN_PASSWORD and hmac.compare_digest(pw, ADMIN_PASSWORD):
+        if ADMIN_PASSWORD and hmac.compare_digest(
+                _normalize_password(pw), _normalize_password(ADMIN_PASSWORD)):
             session["admin"] = True
             dest = request.args.get("next") or url_for("admin_dashboard")
             return redirect(dest)
