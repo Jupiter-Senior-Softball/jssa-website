@@ -143,10 +143,11 @@ def teams():
     except Exception:
         data = None
     try:
-        card_slugs = set(sheets.player_cards())
+        cards = sheets.player_cards()
     except Exception:
-        card_slugs = set()
-    return render_template("teams.html", teams=data, card_slugs=card_slugs)
+        cards = {}
+    return render_template("teams.html", teams=data, card_slugs=set(cards),
+                           cards=cards)
 
 
 @app.route("/teams/cards")
@@ -439,7 +440,7 @@ def teams_preview():
             },
         ],
     }
-    return render_template("teams.html", teams=data, card_slugs=set())
+    return render_template("teams.html", teams=data, card_slugs=set(), cards={})
 
 
 @app.route("/teams/manual")
@@ -456,10 +457,11 @@ def teams_manual():
     except Exception:
         data = None
     try:
-        card_slugs = set(sheets.player_cards())
+        cards = sheets.player_cards()
     except Exception:
-        card_slugs = set()
-    return render_template("teams.html", teams=data, card_slugs=card_slugs,
+        cards = {}
+    return render_template("teams.html", teams=data, card_slugs=set(cards),
+                           cards=cards,
                            banner="TEST PAGE · Manual team sheet — not the official rosters")
 
 
