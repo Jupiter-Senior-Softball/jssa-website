@@ -545,9 +545,15 @@ def league_section(section):
     }.get(section)
     if section_template and has_data:
         template = section_template
+    cards = {}
+    if section == "rosters":
+        try:
+            cards = sheets.player_cards()
+        except Exception:
+            cards = {}
     return render_template(template,
                            page_title=title, section_eyebrow=eyebrow,
-                           section=section, season=season)
+                           section=section, season=season, cards=cards)
 
 
 @app.route("/healthz")

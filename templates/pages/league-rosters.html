@@ -21,8 +21,21 @@
   a.tname:hover .tname-cta{text-decoration:underline}
   .tcount{color:var(--muted);font-size:.85rem;font-weight:600;padding:0 18px 8px}
   .tcard ol{list-style:none;padding:0 18px 16px;margin:0}
-  .tcard li{padding:7px 0;border-top:1px solid var(--line);font-size:1.05rem;color:var(--navy)}
+  .tcard li{padding:7px 0;border-top:1px solid var(--line);font-size:1.05rem;color:var(--navy);
+    display:flex;align-items:center;gap:10px}
+  .tcard li a{color:inherit;text-decoration:none}
+  .tcard li a:hover{color:var(--blue);text-decoration:underline}
+  .thumb{width:30px;height:30px;border-radius:50%;flex-shrink:0;overflow:hidden;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--bg);border:2px solid var(--line)}
+  .thumb img{width:100%;height:100%;object-fit:cover}
+  .thumb-ph{color:#b7bfd1}
+  .thumb-ph svg{width:17px;height:17px}
+  .tcard.RED .thumb{border-color:rgba(216,38,43,.4)}
+  .tcard.BLUE .thumb{border-color:rgba(43,91,208,.4)}
+  .tcard.WHITE .thumb{border-color:rgba(22,35,63,.4)}
 </style>
+{% macro silhouette() %}<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 12c2.7 0 4.9-2.2 4.9-4.9S14.7 2.2 12 2.2 7.1 4.4 7.1 7.1 9.3 12 12 12zm0 2.4c-3.3 0-9.8 1.6-9.8 4.9v2.5h19.6v-2.5c0-3.3-6.5-4.9-9.8-4.9z"/></svg>{% endmacro %}
 {% set picker_label = 'rosters' %}
 {% include "_divpicker.html" %}
 {% for div in ['RED','WHITE','BLUE'] %}
@@ -36,7 +49,15 @@
         <a class="tname" href="{{ url_for('team_cards', team=t.team) }}">{{ t.team }}<span class="tname-cta">📸 View Team Photo</span></a>
         <div class="tcount">{{ t.players|length }} player{{ '' if t.players|length == 1 else 's' }}</div>
         <ol>
-          {% for p in t.players %}<li><a href="/league/player/{{ p.slug }}">{{ p.name }}</a></li>{% endfor %}
+          {% for p in t.players %}
+          {% set card = cards.get(p.slug) %}
+          <li>
+            <a class="thumb{{ '' if (card and card.photo_url) else ' thumb-ph' }}" href="/league/player/{{ p.slug }}" aria-hidden="true" tabindex="-1">
+              {% if card and card.photo_url %}<img src="{{ card.photo_url }}" alt="" loading="lazy">{% else %}{{ silhouette() }}{% endif %}
+            </a>
+            <a href="/league/player/{{ p.slug }}">{{ p.name }}</a>
+          </li>
+          {% endfor %}
         </ol>
       </div>
       {% endfor %}
