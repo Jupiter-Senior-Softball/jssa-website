@@ -394,10 +394,12 @@ def _parse_teams_block(rows, enforce_date_window=True):
             # Row had a name but no recognizable side marker; skip quietly.
             continue
 
-    # Sort each side so captains come first, then alphabetical.
+    # Sort each side so captains come first, then alphabetical by last name.
     for f in fields:
         for key in ("home", "visitor"):
-            f[key].sort(key=lambda e: (not e["captain"], e["name"].lower()))
+            f[key].sort(key=lambda e: (not e["captain"],
+                                        e["name"].split()[-1].lower(),
+                                        e["name"].lower()))
 
     total = sum(len(f["home"]) + len(f["visitor"]) for f in fields)
 
