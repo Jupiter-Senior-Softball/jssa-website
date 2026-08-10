@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JSSA Board Members Portal — How-To Guide</title>
+<style>
+  :root{
+    --navy:#16233f; --blue:#2b5bd0; --red:#d8262b;
+    --bg:#f3f6fb; --line:#d9e0ee; --muted:#5a6580; --surface:#ffffff;
+    --blue-tint:#e9eefb; --red-tint:#fdecec; --green:#1a7f4b; --amber:#7a5b12;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--navy);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Helvetica,Arial,sans-serif;
+    font-size:19px; line-height:1.62;
+  }
+  .wrap{max-width:860px; margin:0 auto; padding:34px 26px 70px}
+
+  header.mast{
+    background:var(--navy); color:#fff; border-radius:18px;
+    padding:34px 34px 30px; margin-bottom:34px;
+  }
+  header.mast .eyebrow{
+    font-size:.82rem; letter-spacing:.14em; text-transform:uppercase;
+    font-weight:800; color:#9fb6ea; margin:0 0 10px;
+  }
+  header.mast h1{font-size:2.35rem; line-height:1.15; margin:0 0 12px; font-weight:800}
+  header.mast p{margin:0; font-size:1.12rem; color:#dbe3f4}
+
+  h2{
+    font-size:1.62rem; font-weight:800; margin:44px 0 6px; padding-top:20px;
+    border-top:3px solid var(--line);
+  }
+  h2 .num{color:var(--blue)}
+  h2:first-of-type{border-top:none; padding-top:0}
+  h3{font-size:1.22rem; font-weight:800; margin:26px 0 6px; color:var(--navy)}
+  p{margin:10px 0}
+  ul,ol{margin:10px 0 10px; padding-left:26px}
+  li{margin:7px 0}
+  strong{font-weight:750}
+  .lead{color:var(--muted); font-size:1.06rem; margin-top:0}
+
+  .card{
+    background:var(--surface); border:1px solid var(--line); border-radius:16px;
+    padding:24px 26px; margin:18px 0; box-shadow:0 2px 10px rgba(22,35,63,.05);
+  }
+  .card.key{border-left:8px solid var(--blue)}
+  .callout{
+    background:#fff8e6; border:1px solid #f3e2b3; color:var(--amber);
+    border-radius:14px; padding:18px 22px; margin:18px 0;
+  }
+  .callout strong{color:#5d4409}
+  .safe{
+    background:#e8f6ee; border:1px solid #bfe3cd; color:#14603a;
+    border-radius:14px; padding:18px 22px; margin:18px 0;
+  }
+  .pw{
+    background:var(--blue-tint); border:2px solid var(--blue); border-radius:14px;
+    padding:20px 24px; margin:18px 0; text-align:center;
+  }
+  .pw .label{font-size:.85rem; letter-spacing:.1em; text-transform:uppercase; font-weight:800; color:var(--blue); margin:0 0 6px}
+  .pw .code{font-family:"SF Mono",Menlo,Consolas,monospace; font-size:2rem; font-weight:800; letter-spacing:.04em; margin:0}
+  .pw .note{font-size:.95rem; color:var(--muted); margin:8px 0 0}
+
+  table{width:100%; border-collapse:collapse; margin:16px 0; font-size:1rem}
+  th{
+    text-align:left; background:var(--blue-tint); color:var(--navy);
+    font-size:.8rem; letter-spacing:.06em; text-transform:uppercase; font-weight:800;
+    padding:11px 12px; border-bottom:2px solid var(--line);
+  }
+  td{padding:11px 12px; border-bottom:1px solid var(--line); vertical-align:top}
+  tr:nth-child(even) td{background:#fafbfe}
+
+  .btnchip{
+    display:inline-block; background:#fff; border:1px solid var(--line);
+    border-radius:8px; padding:2px 10px; font-weight:700; font-size:.95em; white-space:nowrap;
+  }
+  .on{background:#e8f6ee; border-color:#bfe3cd; color:var(--green)}
+  .off{background:#f4f5f8; color:var(--navy)}
+  .del{background:#fff; border-color:#f0c9cb; color:#b3151b}
+
+  .steps{counter-reset:s; list-style:none; padding-left:0}
+  .steps li{
+    counter-increment:s; position:relative; padding-left:48px; margin:14px 0;
+  }
+  .steps li::before{
+    content:counter(s); position:absolute; left:0; top:1px;
+    width:32px; height:32px; border-radius:999px; background:var(--blue); color:#fff;
+    font-weight:800; font-size:1rem; display:flex; align-items:center; justify-content:center;
+  }
+
+  .divchip{display:inline-block; color:#fff; font-weight:800; font-size:.78rem; letter-spacing:.05em;
+    padding:3px 10px; border-radius:999px}
+  .divchip.RED{background:var(--red)} .divchip.WHITE{background:var(--navy)} .divchip.BLUE{background:var(--blue)}
+
+  footer{margin-top:50px; padding-top:22px; border-top:3px solid var(--line); color:var(--muted); font-size:1rem}
+
+  @media print{
+    @page{margin:0.55in}
+    body{background:#fff; font-size:11pt; line-height:1.45}
+    .wrap{max-width:none; padding:0}
+    header.mast{padding:20px 22px; margin-bottom:22px}
+    h2{margin:26px 0 4px; padding-top:14px; font-size:1.45rem}
+    h3{margin:16px 0 4px}
+    .card,.callout,.safe{padding:14px 18px; margin:12px 0}
+    .pw{padding:14px 18px; margin:12px 0}
+    p{margin:7px 0}
+    li{margin:4px 0}
+    .card,.callout,.safe,.pw{break-inside:avoid}
+    h2{break-after:avoid}
+    h3{break-after:avoid}
+    table{break-inside:auto}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="mast">
+  <p class="eyebrow">Jupiter Senior Softball Association</p>
+  <h1>The Board Members Portal</h1>
+  <p>A plain-English guide to what it does and how to use it. No computer experience required — if you can fill out a form and click a button, you can run the website.</p>
+</header>
+
+<p class="lead">The Board Portal is the private, password-protected control room for the JSSA website. Everything you post in it appears on the public site within about a minute — no waiting on anyone, no code, no phone calls. This guide walks through every section, what it controls, and the handful of rules worth remembering.</p>
+
+<!-- ============================================== -->
+<h2><span class="num">1.</span> Getting in</h2>
+
+<ol class="steps">
+  <li>Go to the JSSA website — the same address you use to check the schedule.</li>
+  <li>Click <span class="btnchip">Board Portal</span> in the menu at the top of the page. (It's also in the <strong>Quick Links</strong> list on the homepage, as "Board Members Portal.")</li>
+  <li>Type the password and click <span class="btnchip">Sign in</span>.</li>
+</ol>
+
+<div class="pw">
+  <p class="label">Portal password</p>
+  <p class="code">see Tom's email</p>
+  <p class="note">Capital letters and spaces don't matter when you type it in.</p>
+</div>
+
+<div class="card">
+  <h3>Things worth knowing about signing in</h3>
+  <ul>
+    <li>Your device stays signed in, so you usually won't be asked again on your own phone or computer.</li>
+    <li>There's a <span class="btnchip">Sign out</span> link in the top-right of every portal page. Use it if you're on a shared or public computer.</li>
+    <li>This password is for <strong>board members only</strong>. Please don't forward it to the general membership — anyone who has it can change what appears on the website.</li>
+  </ul>
+</div>
+
+<!-- ============================================== -->
+<h2><span class="num">2.</span> The portal at a glance</h2>
+
+<p>Once you sign in you land on the <strong>dashboard</strong>. The top of that page is the announcement form; below it are groups of big buttons that take you to everything else.</p>
+
+<table>
+  <thead><tr><th>Section</th><th>What it controls</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Make an announcement</strong></td><td>The banner strip across the top of the website (rainouts, notices)</td></tr>
+    <tr><td><strong>Blackboard posts</strong></td><td>The announcement cards on the homepage</td></tr>
+    <tr><td><strong>People &amp; Recognition</strong></td><td>In Memoriam, Hall of Fame, Board of Directors, Sponsors</td></tr>
+    <tr><td><strong>Communications</strong></td><td>Emailing members by division, and the daily email send counter</td></tr>
+    <tr><td><strong>Board Portal Links</strong></td><td>Your own buttons — registration lists, membership database, score entry, whatever you add</td></tr>
+    <tr><td><strong>Site stats</strong></td><td>How many times the homepage has been visited</td></tr>
+    <tr><td><strong>Posted updates</strong></td><td>The running list of banner announcements, with Edit / Turn on / Turn off / Delete</td></tr>
+  </tbody>
+</table>
+
+<!-- ============================================== -->
+<h2><span class="num">3.</span> Make an announcement <span style="font-weight:600;color:var(--muted);font-size:1rem">(the banner across the top)</span></h2>
+
+<p>This is the fastest tool in the portal and the one you'll use most. Whatever you post here shows up in the colored strip at the very top of every page of the website.</p>
+
+<div class="card key">
+  <h3>The form, field by field</h3>
+  <ul>
+    <li><strong>What kind of update?</strong> — <em>Game-day / weather</em> for rainouts and field conditions, or <em>Announcement</em> for everything else. When a weather notice is live it takes priority in the banner.</li>
+    <li><strong>Message</strong> — keep it short; it has to fit in one banner line. Example: <em>"No games today — fields are wet from overnight rain. Check back tomorrow."</em></li>
+    <li><strong>Link text</strong> <em>(optional)</em> — a short phrase like "Sign up here" that becomes the clickable part. The message itself stays plain text.</li>
+    <li><strong>Link URL</strong> <em>(optional)</em> — the web address that phrase points to. Leave both link boxes blank if you don't need a link.</li>
+    <li><strong>Your name</strong> — so the board knows who posted it.</li>
+  </ul>
+  <p style="margin-bottom:0">Then click <span class="btnchip">Post update</span>. It's on the website within about a minute.</p>
+</div>
+
+<h3>Managing what's already posted</h3>
+<p>Scroll down to <strong>Posted updates</strong> and you'll see everything you've ever posted, with its status:</p>
+<ul>
+  <li><strong>● Live</strong> — currently showing on the website.</li>
+  <li><strong>○ Off</strong> — saved but hidden.</li>
+</ul>
+<p>Each row has three buttons:</p>
+<table>
+  <thead><tr><th>Button</th><th>What it does</th></tr></thead>
+  <tbody>
+    <tr><td><span class="btnchip">Edit</span></td><td>Fix a typo or reword the message. Click Save when you're done.</td></tr>
+    <tr><td><span class="btnchip off">Turn off</span> / <span class="btnchip on">Turn on</span></td><td>Hide or re-show it. <strong>This is the one you want</strong> for a rainout notice — turn it off when games are back to normal, and it's ready to reuse next time.</td></tr>
+    <tr><td><span class="btnchip del">Delete</span></td><td>Removes it for good. It asks you to confirm first.</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <strong>Rule of thumb:</strong> "Turn off" beats "Delete." A rainout notice you turn off can be turned back on the next rainy Monday in one click. A deleted one has to be retyped.
+</div>
+
+<!-- ============================================== -->
+<h2><span class="num">4.</span> Blackboard posts <span style="font-weight:600;color:var(--muted);font-size:1rem">(the cards on the homepage)</span></h2>
+
+<p>The Blackboard is the set of announcement cards on the homepage — community nights, sponsor shout-outs, league news. Bigger and more permanent than a banner notice.</p>
+
+<div class="card">
+  <h3>What goes on a card</h3>
+  <ul>
+    <li><strong>Headline</strong> — the big line. <em>"Free scoop at Village Scoop Shack"</em></li>
+    <li><strong>Small label above the headline</strong> <em>(optional)</em> — <em>"Community Night · Tuesday, July 7"</em></li>
+    <li><strong>Message</strong> — the body of the announcement.</li>
+    <li><strong>Button link + button text</strong> <em>(optional)</em> — adds a clickable button, e.g. "Visit website."</li>
+    <li><strong>Photo</strong> <em>(optional)</em> — paste a Google Drive share link (see the box below). No photo is fine; you get a clean text-only card.</li>
+    <li><strong>Photo side</strong> — picture on the left or the right.</li>
+    <li><strong>Sign-off</strong> <em>(optional)</em> — <em>"— John &amp; Toni Cariero"</em></li>
+  </ul>
+  <p style="margin-bottom:0">Cards show top-to-bottom by their <strong>Order</strong> number, lowest first, and the first one is displayed a little larger as the featured card. Same <span class="btnchip">Edit</span> / <span class="btnchip off">Turn off</span> / <span class="btnchip del">Delete</span> buttons as the banner announcements.</p>
+</div>
+
+<div class="callout" id="drivetip">
+  <strong>How to add a photo anywhere in the portal.</strong> Photos live in Google Drive, not on the website. In Drive: <strong>right-click the photo → Share → "Anyone with the link" → Copy link</strong>, then paste that link into the Photo box. If you skip the "Anyone with the link" step the picture won't show up — that's the single most common snag.
+</div>
+
+<!-- ============================================== -->
+<h2><span class="num">5.</span> People &amp; Recognition</h2>
+
+<p>Four buttons, all working the same way: a form at the top to add or edit, and a list underneath with Edit / Turn off / Delete on every row. Changes appear on the site in about a minute.</p>
+
+<h3>🕊️ In Memoriam</h3>
+<p>Add a brother to the In Memoriam page: <strong>Name</strong>, <strong>Month &amp; year</strong>, and an optional <strong>photo</strong>. The names already built into the page stay exactly as they are — anything you add joins them.</p>
+
+<h3>🏆 Hall of Fame</h3>
+<p>Add an inductee: <strong>Year</strong>, <strong>Name</strong>, an optional <strong>tribute</strong> (write as much as you like — leave a blank line between paragraphs and each becomes its own paragraph), and an optional <strong>photo</strong>. New inductees appear above the ones already on the page, newest first.</p>
+
+<h3>👥 Board of Directors</h3>
+<p>Manage the board list on the homepage: <strong>Name</strong>, <strong>Role</strong> (Commissioner, Vice Commissioner, Treasurer, Director…), and <strong>Division</strong> for directors, which adds the colored dot and "· Red / White / Blue" after their name. The current board is already loaded, so this is mostly editing an existing row when someone changes seats. Officers with no division usually come first, then <span class="divchip RED">RED</span> <span class="divchip WHITE">WHITE</span> <span class="divchip BLUE">BLUE</span>, controlled by the Order number.</p>
+
+<h3>🤝 Sponsors</h3>
+<p>Manage the sponsor tiles on the homepage: <strong>Business name</strong>, optional <strong>tagline</strong>, <strong>website</strong>, <strong>phone</strong> (shows when there's no website), and an optional <strong>logo</strong> (Google Drive link, same as photos). No logo? The sponsor automatically gets a clean navy initials tile — it still looks sharp. When a sponsor doesn't renew, just turn them off or delete the row.</p>
+
+<!-- ============================================== -->
+<h2><span class="num">6.</span> Communications</h2>
+
+<h3>✉️ Email Members</h3>
+<p>One-click emailing to the whole league, split by division. Pick a group and the portal does the address-gathering for you.</p>
+<ol class="steps">
+  <li>Click a group: <span class="divchip RED">RED Division</span> <span class="divchip WHITE">WHITE Division</span> <span class="divchip BLUE">BLUE Division</span> or <strong>Board of Directors</strong>. Each button shows how many addresses it holds.</li>
+  <li>Type a <strong>subject</strong> if you like (optional).</li>
+  <li>Click <span class="btnchip">✉️ Open in my email</span> — your normal email program opens with everyone already filled in.</li>
+  <li>Type your message and hit Send.</li>
+</ol>
+
+<div class="card">
+  <h3>Three things to know</h3>
+  <ul>
+    <li><strong>It sends from your own email account</strong> — the one you normally use on that device. The portal doesn't send anything itself; it just addresses the message for you.</li>
+    <li><strong>Everyone goes in BCC</strong>, so no member ever sees anyone else's address.</li>
+    <li><strong>If your email app doesn't open</strong> (some apps limit how many addresses fit in one link), click <span class="btnchip">📋 Copy email addresses</span> instead, start a new email yourself, and paste them into the <strong>BCC</strong> field.</li>
+  </ul>
+  <p style="margin-bottom:0">Click <strong>"Show who's included"</strong> to see the full list of names. Anyone without an email address on file is flagged in red so you know who's missing — that's a nudge to get their address into the members sheet.</p>
+</div>
+
+<h3>📊 Email Send Counter</h3>
+<p>Gmail limits how many people one account can email in a day (roughly <strong>100</strong>). This page shows, for each league email account, how many sends are left today, how many messages went out, and how many people were reached. It refreshes on its own every minute, and the card turns amber and then red as an account gets close to its limit.</p>
+<p>A group email in BCC counts as <strong>one message</strong> but reaches many people — the "sends left" number counts people, because that's what Gmail actually limits. If you're about to email a big division, glance here first.</p>
+
+<!-- ============================================== -->
+<h2><span class="num">7.</span> Your own buttons — Board Portal Links</h2>
+
+<p>Below the built-in sections you'll find button groups the board maintains itself. This is where the links to registration submissions, the membership database, score entry and other league tools live. They open in a new tab.</p>
+
+<div class="card key">
+  <h3>Adding a button — no help needed</h3>
+  <p>Open the league <strong>control spreadsheet</strong>, go to the tab named <strong>"Board Portal Links"</strong>, and add a row with four things:</p>
+  <table>
+    <thead><tr><th>Section</th><th>Button name</th><th>Link</th><th>Show?</th></tr></thead>
+    <tbody>
+      <tr><td>Registrations &amp; Membership</td><td>Completed Registration Submissions</td><td>https://docs.google.com/…</td><td>Yes</td></tr>
+    </tbody>
+  </table>
+  <ul>
+    <li><strong>Section</strong> is the heading the button appears under — reuse a heading to group buttons together, or invent a new one.</li>
+    <li><strong>Show?</strong> set to <strong>Yes</strong> puts it on the portal. Change it to <strong>No</strong> to hide the button without deleting the row.</li>
+  </ul>
+  <p style="margin-bottom:0">The new button appears on the portal automatically within a minute or so. Nothing else to do.</p>
+</div>
+
+<h3>⚾ Enter League Game Scores</h3>
+<p>One of those buttons is score entry, and it's worth its own explanation:</p>
+<ol class="steps">
+  <li>Pick a division. Each one shows how many games still need a score — green zero means you're all caught up.</li>
+  <li>You get that division's games with the ones still needing a score at the top, most recently played first. Already-scored games drop to the bottom but stay editable.</li>
+  <li>Type both scores and click <span class="btnchip">Save score</span>.</li>
+</ol>
+<p>The score writes straight into the league Schedule sheet, and the <strong>Results and Standings update automatically</strong> within a couple of minutes. Got one wrong? Open the same game and click <span class="btnchip">Update</span>.</p>
+
+<h3>📇 Player Directory</h3>
+<p>Some boards also keep a link to the directory page — the full member contact list (name, division, email, phone) with a search box at the top. Type any part of a name or a division to filter it instantly. <strong>This is board-only information</strong>; it never appears anywhere on the public website.</p>
+
+<!-- ============================================== -->
+<h2><span class="num">8.</span> Site stats</h2>
+<p>Near the bottom of the dashboard is a <strong>Homepage visits</strong> counter — a running total of how many times people have opened the JSSA homepage. Nice for sponsor conversations.</p>
+
+<!-- ============================================== -->
+<h2><span class="num">9.</span> Six rules worth remembering</h2>
+
+<div class="safe">
+  <ol style="margin:0">
+    <li><strong>You can't break the website.</strong> Nothing in the portal can take the site down. The worst case of a mistake is a wrong-looking card that you fix or turn off a minute later.</li>
+    <li><strong>Changes take about a minute.</strong> If you don't see your change right away, wait a moment and refresh the page before re-posting it.</li>
+    <li><strong>"Turn off" is your friend.</strong> Hide things instead of deleting them; they're one click from coming back.</li>
+    <li><strong>Delete asks first, then it's gone.</strong> If a box pops up asking "are you sure," that's your last chance to say no.</li>
+    <li><strong>Photos come from Google Drive</strong>, and the share setting must be <strong>"Anyone with the link."</strong></li>
+    <li><strong>Keep the password inside the board.</strong> Everyone signs into the same portal, so put your name on announcements — that's how we know who posted what.</li>
+  </ol>
+</div>
+
+<!-- ============================================== -->
+<h2><span class="num">10.</span> "I want to…" — quick reference</h2>
+
+<table>
+  <thead><tr><th>If you want to…</th><th>Go to</th></tr></thead>
+  <tbody>
+    <tr><td>Announce a rainout or field closing</td><td>Dashboard → <strong>Make an announcement</strong> → Game-day / weather</td></tr>
+    <tr><td>Take the rainout notice back down</td><td>Dashboard → Posted updates → <span class="btnchip off">Turn off</span></td></tr>
+    <tr><td>Post league news with a photo</td><td><strong>Blackboard posts</strong></td></tr>
+    <tr><td>Email one division</td><td><strong>Email Members</strong> → pick the division</td></tr>
+    <tr><td>Check if we're near Gmail's daily limit</td><td><strong>Email Send Counter</strong></td></tr>
+    <tr><td>Enter last night's scores</td><td><strong>Enter League Game Scores</strong> → pick a division</td></tr>
+    <tr><td>Add a new sponsor</td><td><strong>Sponsors</strong></td></tr>
+    <tr><td>Add a Hall of Fame inductee</td><td><strong>Hall of Fame</strong></td></tr>
+    <tr><td>Honor a brother we lost</td><td><strong>In Memoriam</strong></td></tr>
+    <tr><td>Update who's on the board</td><td><strong>Board of Directors</strong></td></tr>
+    <tr><td>Look up a member's phone number</td><td><strong>Player Directory</strong></td></tr>
+    <tr><td>Add a new button to the portal</td><td>Control sheet → <strong>"Board Portal Links"</strong> tab → add a row</td></tr>
+  </tbody>
+</table>
+
+<footer>
+  <p><strong>Stuck on something?</strong> Nothing in the portal is permanent enough to worry about — post it, look at the site, and adjust. If something doesn't look right, turn it off and give Tom a call.</p>
+  <p style="margin-bottom:0">Jupiter Senior Softball Association · Board Members Portal Guide</p>
+</footer>
+
+</div>
+</body>
+</html>
