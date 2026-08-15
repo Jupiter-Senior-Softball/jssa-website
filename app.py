@@ -64,12 +64,19 @@ def _revalidate_html(resp):
 def _season_context():
     """Make the season switch available to every template — the homepage
     buttons and the shared main menu both read it. Any hiccup reading the
-    sheet falls back to PICKUP, i.e. the site behaves exactly as it does now."""
+    sheet falls back to PICKUP, i.e. the site behaves exactly as it does now.
+
+    Adding ?season=league (or ?season=pickup) to any address previews the other
+    season for that one page view only. Nothing is saved and nobody else sees a
+    thing — handy for checking a season over before flipping the real switch."""
     try:
         mode = sheets.season_mode()
         name = sheets.season_name()
     except Exception:
         mode, name = "PICKUP", "League Season"
+    peek = (request.args.get("season") or "").strip().upper()
+    if peek in ("LEAGUE", "PICKUP"):
+        mode = peek
     return {"season_mode": mode, "season_name": name}
 
 
