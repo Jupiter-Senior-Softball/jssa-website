@@ -8,6 +8,21 @@
    software. To add a link, drop another <a> inside the matching .navmenu. #}
 <a href="/">Home</a>
 
+{# During the fall/winter league season the homepage's three big buttons switch
+   over to league games, so the pickup-game links move up here into their own
+   drop-down. Flip the "Season Mode" row on the Website Controls tab back to
+   PICKUP and this menu disappears again (the big buttons come back). #}
+{% if season_mode == 'LEAGUE' %}
+<details class="navgroup">
+  <summary>Pickup Games</summary>
+  <div class="navmenu">
+    <a href="https://script.google.com/macros/s/AKfycbzLLz9E-qjJwXbgAkaGjhH0PT_3oa13uzrl9T5dT1omGCL6Ocw1lYELg8xFBM7zuapN7g/exec">Sign Up for Pickup</a>
+    <a href="/pickup">Pickup Game Schedule</a>
+    <a href="/teams">Pickup Game Rosters</a>
+  </div>
+</details>
+{% endif %}
+
 <details class="navgroup">
   <summary>League Games</summary>
   <div class="navmenu">

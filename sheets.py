@@ -617,6 +617,24 @@ def manual_test_button_on():
     return _website_controls().get("manual test button", "").strip().upper() == "ON"
 
 
+def season_mode():
+    """Which season the homepage is set up for:
+        'PICKUP' — the three big pickup-game buttons (spring/summer, default)
+        'LEAGUE' — the three big organized-league buttons (fall/winter)
+    Set by the 'Season Mode' row on the Website Controls tab. Anything other
+    than LEAGUE (blank row, missing tab, typo) falls back to PICKUP, so the
+    homepage keeps working exactly as it does today."""
+    return "LEAGUE" if _website_controls().get(
+        "season mode", "").strip().upper() == "LEAGUE" else "PICKUP"
+
+
+def season_name():
+    """The season label shown above the homepage buttons in LEAGUE mode, e.g.
+    'Fall 2026 Season'. Free text from the 'Season Name' row on the Website
+    Controls tab; falls back to a generic label if the row is blank."""
+    return _website_controls().get("season name", "").strip() or "League Season"
+
+
 # ----------------------------------------------------------------------------
 # Pickup Game Schedule — live "next game" preview for the homepage middle card
 # and the /pickup preview page.
