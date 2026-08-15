@@ -60,6 +60,19 @@ def _revalidate_html(resp):
     return resp
 
 
+@app.context_processor
+def _season_context():
+    """Make the season switch available to every template — the homepage
+    buttons and the shared main menu both read it. Any hiccup reading the
+    sheet falls back to PICKUP, i.e. the site behaves exactly as it does now."""
+    try:
+        mode = sheets.season_mode()
+        name = sheets.season_name()
+    except Exception:
+        mode, name = "PICKUP", "League Season"
+    return {"season_mode": mode, "season_name": name}
+
+
 # ----------------------------------------------------------------------------
 # Public site
 # ----------------------------------------------------------------------------

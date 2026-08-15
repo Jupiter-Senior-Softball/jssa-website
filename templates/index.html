@@ -433,9 +433,44 @@
     .qb-btn.pickup{background:var(--red);border-color:var(--red);color:#fff}
     .qb-btn.pickup .qb-go{color:#fff;opacity:.92}
     .qb-btn.pickup:hover{border-color:var(--navy)}
+    .qb-season{font-family:var(--display);font-weight:800;color:var(--navy);text-align:center;
+      font-size:clamp(1.5rem,3.2vw,2.05rem);letter-spacing:-.015em;margin:0 0 20px}
+    .qb-note{text-align:center;color:#3d4a63;font-size:1.05rem;line-height:1.5;
+      max-width:640px;margin:20px auto 0}
+    .qb-note strong{color:var(--navy)}
     @media(max-width:760px){.qb-grid{grid-template-columns:1fr}}
   </style>
   <div class="wrap">
+    {# Two seasons, one switch. The "Season Mode" row on the Website Controls
+       tab decides which set of three buttons is showing:
+         PICKUP (default) — spring/summer pickup games, as below.
+         LEAGUE           — the fall/winter organized league season, and the
+                            pickup links move up into the main menu.
+       Anything other than LEAGUE keeps the pickup buttons, so a blank or
+       missing row leaves the homepage exactly as it is today. #}
+    {% if season_mode == 'LEAGUE' %}
+    <h2 class="qb-season">{{ season_name }}</h2>
+    <div class="qb-grid">
+      <a class="qb-btn" href="/league/schedules">
+        <span class="qb-ic">📅</span>
+        <span class="qb-txt">Schedule &amp; Results</span>
+        <span class="qb-go">Games and final scores →</span>
+      </a>
+      <a class="qb-btn" href="/league/standings">
+        <span class="qb-ic">🏆</span>
+        <span class="qb-txt">League Standings</span>
+        <span class="qb-go">See where the teams stand →</span>
+      </a>
+      <a class="qb-btn" href="/league/rosters">
+        <span class="qb-ic">📋</span>
+        <span class="qb-txt">Teams &amp; Rosters</span>
+        <span class="qb-go">See who's on each team →</span>
+      </a>
+    </div>
+    <p class="qb-note">Pickup games are quiet during the league season. You'll
+      still find the sign-up, schedule and rosters under
+      <strong>Pickup Games</strong> in the menu above.</p>
+    {% else %}
     <div class="qb-grid">
       <a class="qb-btn" href="https://script.google.com/macros/s/AKfycbzLLz9E-qjJwXbgAkaGjhH0PT_3oa13uzrl9T5dT1omGCL6Ocw1lYELg8xFBM7zuapN7g/exec">
         <span class="qb-ic">✍️</span>
@@ -453,6 +488,7 @@
         <span class="qb-go">See who's playing →</span>
       </a>
     </div>
+    {% endif %}
   </div>
 </section>
 
