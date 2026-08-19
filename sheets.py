@@ -3229,8 +3229,31 @@ def delete_sponsor(sponsor_id):
 # does not appear. Nothing on this page ever says who has *not* signed up or
 # who still owes money — chasing payment is the treasurer's private job.
 
+# The id can come from Render, or - so the board can set this up without
+# needing Render access - from a "Registration Sheet ID" row on the Website
+# Controls tab. Render wins if both are set.
 REGISTRATION_SHEET_ID = os.environ.get("REGISTRATION_SHEET_ID", "").strip()
 MEMBERSHIP_MATRIX_TAB = os.environ.get("MEMBERSHIP_MATRIX_TAB", "Membership Matrix").strip()
+
+
+def _registration_sheet_id():
+    """Id of the registration spreadsheet, from Render or Website Controls.
+
+    Accepts a full Google Sheets address as well as a bare id, because pasting
+    the whole address out of the browser is the obvious thing to do and it is
+    unkind to make that a silent failure.
+    """
+    if REGISTRATION_SHEET_ID:
+        return REGISTRATION_SHEET_ID
+
+    raw = ""
+    try:
+        raw = _website_controls().get("registration sheet id", "").strip()
+    except Exception:
+        return ""
+
+    match = re.search(r"/spreadsheets/d/([a-zA-Z0-9-_]+)", raw)
+    return match.group(1) if match else raw
 
 # Row/column geography of the Membership Matrix, matching the Apps Script that
 # maintains it. Override only if that sheet is ever restructured.
@@ -3243,7 +3266,7 @@ _MEMBERS_TTL = 300                 # 5 min, same as the other public readers
 
 
 def registered_members_is_configured():
-    return bool(REGISTRATION_SHEET_ID and _SA_JSON)
+    return bool(_registration_sheet_id() and _SA_JSON)
 
 
 def _open_registration_spreadsheet():
@@ -3254,7 +3277,7 @@ def _open_registration_spreadsheet():
     scopes = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
     creds = Credentials.from_service_account_info(info, scopes=scopes)
     gc = gspread.authorize(creds)
-    return gc.open_by_key(REGISTRATION_SHEET_ID)
+    return gc.open_by_key(_registration_sheet_id())
 
 
 def _matrix_category(mark):
