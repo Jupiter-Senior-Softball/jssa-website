@@ -7,7 +7,7 @@
      a good number are in their eighties. Readability beats density here. */
   html{font-size:112.5%}
 
-  .mem-seasons{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:center;margin:0 0 22px}
+  .mem-seasons{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:center;margin:0 0 14px}
   .mem-seasons-label{color:var(--muted);font-size:.95rem}
   .mem-season{font-family:var(--display);font-weight:700;font-size:1rem;padding:9px 18px;
     border-radius:999px;border:1px solid var(--line);background:#fff;color:var(--blue);text-decoration:none}
@@ -39,10 +39,6 @@
     .mem-list li{flex-direction:column;align-items:flex-start;gap:6px}
   }
 
-  .mem-key{background:#fff;border:1px solid var(--line);border-radius:16px;padding:22px 24px;margin:0 0 26px}
-  .mem-key h2{font-size:1.1rem;font-weight:800;color:var(--navy);margin:0 0 14px;border:0;padding:0}
-  .mem-key dl{display:grid;grid-template-columns:auto 1fr;gap:12px 16px;margin:0;align-items:start}
-  .mem-key dd{margin:0;color:var(--text);font-size:.97rem}
 
   .mem-missing{background:var(--blue-tint);border:1px solid #c9d7f5;border-radius:16px;
     padding:20px 24px;margin:26px 0 0}
@@ -69,19 +65,6 @@
   <div class="mem-stat"><span class="n">{{ counts['new'] }}</span><span class="l">New</span></div>
   <div class="mem-stat"><span class="n">{{ counts['renewing'] }}</span><span class="l">Renewing</span></div>
   <div class="mem-stat"><span class="n">{{ counts['85+5'] }}</span><span class="l">85+5 Courtesy</span></div>
-</div>
-
-<div class="mem-key">
-  <h2>What the labels mean</h2>
-  <dl>
-    <dt><span class="chip new">New Member</span></dt>
-    <dd>Joined the JSSA for the {{ season }} season.</dd>
-    <dt><span class="chip renewing">Renewing Member</span></dt>
-    <dd>Returning member who has renewed for {{ season }}.</dd>
-    <dt><span class="chip plus85">85+5 Courtesy Member</span></dt>
-    <dd>Age 85 or older with at least five consecutive years of membership. The
-        league carries these members with our thanks — no dues, full membership.</dd>
-  </dl>
 </div>
 
 <ul class="mem-list">

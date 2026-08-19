@@ -3420,9 +3420,28 @@ def registered_members_season():
     return _matrix_snapshot()["target"]
 
 
+# How many seasons the page offers: the one in focus, plus the one before it.
+# The matrix goes back to 2021, but a member checking their own standing only
+# needs "the year I'm in" and "the year I'm renewing into" - and a long row of
+# buttons is noise on a page whose job is to answer one question.
+MATRIX_SEASONS_SHOWN = 2
+
+
 def registered_members_seasons():
-    """Every season that has at least one member, newest first."""
-    return _matrix_snapshot()["seasons"]
+    """Seasons offered on the page, newest first.
+
+    Derived from the target season rather than from whatever the matrix
+    happens to contain, so a stray mark in a far-future column can't add a
+    button, and the pair rolls forward on its own each year.
+    """
+    snap = _matrix_snapshot()
+    target = str(snap["target"])
+
+    if not target.isdigit():
+        return snap["seasons"][:MATRIX_SEASONS_SHOWN]
+
+    wanted = [str(int(target) - i) for i in range(MATRIX_SEASONS_SHOWN)]
+    return [s for s in wanted if snap["members"].get(s)]
 
 
 def registered_members(season=None):
