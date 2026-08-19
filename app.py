@@ -77,7 +77,24 @@ def _season_context():
     peek = (request.args.get("season") or "").strip().upper()
     if peek in ("LEAGUE", "PICKUP"):
         mode = peek
-    return {"season_mode": mode, "season_name": name}
+    return {"season_mode": mode, "season_name": name,
+            "members_page_on": _members_page_visible()}
+
+
+def _members_page_visible():
+    """True when the registered-members page and its links should be shown.
+
+    Follows the 'Members Page' row on the Website Controls tab. Adding
+    ?members=on to any address previews it for that one page view only —
+    nothing is saved and no other visitor sees a thing, so the board can look
+    the page over before switching it on for everyone."""
+    peek = (request.args.get("members") or "").strip().upper()
+    if peek in ("ON", "OFF"):
+        return peek == "ON"
+    try:
+        return sheets.members_page_on()
+    except Exception:
+        return False
 
 
 # ----------------------------------------------------------------------------
@@ -498,6 +515,33 @@ def players():
     return render_template("pages/players.html",
                            page_title="Players by Division", rosters=rosters,
                            card_slugs=card_slugs)
+
+
+@app.route("/members")
+def members():
+    """Public list of members registered for the current season, so anyone can
+    check that their renewal went through. Names and membership category only —
+    never contact details, and never a list of who has not signed up."""
+    if not _members_page_visible():
+        return redirect("/")
+
+    season = ""
+    members_list = []
+    try:
+        season = sheets.registered_members_season()
+        if season:
+            members_list = sheets.registered_members(season)
+    except Exception:
+        pass
+
+    counts = {"new": 0, "renewing": 0, "85+5": 0}
+    for m in members_list:
+        counts[m["category"]] = counts.get(m["category"], 0) + 1
+
+    return render_template("pages/members.html",
+                           page_title=("%s Registered Members" % season) if season
+                                      else "Registered Members",
+                           season=season, members=members_list, counts=counts)
 
 
 @app.route("/champions")
