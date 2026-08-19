@@ -7,6 +7,13 @@
      a good number are in their eighties. Readability beats density here. */
   html{font-size:112.5%}
 
+  .mem-seasons{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:center;margin:0 0 22px}
+  .mem-seasons-label{color:var(--muted);font-size:.95rem}
+  .mem-season{font-family:var(--display);font-weight:700;font-size:1rem;padding:9px 18px;
+    border-radius:999px;border:1px solid var(--line);background:#fff;color:var(--blue);text-decoration:none}
+  .mem-season:hover{background:var(--blue-tint)}
+  .mem-season.is-on{background:var(--navy);color:#fff;border-color:var(--navy)}
+
   .mem-summary{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin:0 0 26px}
   .mem-stat{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 20px;text-align:center;min-width:120px}
   .mem-stat .n{display:block;font-family:var(--display);font-weight:800;font-size:1.7rem;color:var(--navy);line-height:1.1}
@@ -45,6 +52,16 @@
   .mem-empty{background:#fff;border:1px solid var(--line);border-radius:16px;padding:30px;text-align:center;color:var(--muted)}
   .mem-updated{color:var(--muted);font-size:.9rem;text-align:center;margin:18px 0 0}
 </style>
+
+{% if seasons and seasons|length > 1 %}
+<div class="mem-seasons">
+  <span class="mem-seasons-label">Choose a season:</span>
+  {% for s in seasons %}
+    {% if s == season %}<span class="mem-season is-on">{{ s }}</span>
+    {% else %}<a class="mem-season" href="/members?season={{ s }}">{{ s }}</a>{% endif %}
+  {% endfor %}
+</div>
+{% endif %}
 
 {% if members %}
 <div class="mem-summary">
