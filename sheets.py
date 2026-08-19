@@ -590,13 +590,36 @@ def _website_controls():
             ws = _open_teams_spreadsheet().worksheet(WEBSITE_CONTROLS_TAB)
             for row in ws.get_all_values():
                 if len(row) >= 2 and str(row[0]).strip():
-                    out[str(row[0]).strip().lower()] = str(row[1]).strip()
+                    key = str(row[0]).strip().lower()
+                    val = str(row[1]).strip()
+                    out[key] = val
+                    # Also store the letters-and-digits-only form of the label,
+                    # so a setting still resolves when the row is typed with an
+                    # apostrophe, a hyphen or extra spacing ("Member's Page").
+                    squashed = re.sub(r"[^a-z0-9]", "", key)
+                    if squashed and squashed not in out:
+                        out[squashed] = val
     except Exception:
         out = {}
     with _lock:
         _controls_cache["data"] = out
         _controls_cache["ts"] = now
     return out
+
+
+def _control_value(name):
+    """Look up a Website Controls row, forgiving how the label was typed.
+
+    Tries the label as written, then its letters-and-digits-only form, so
+    "Members Page", "Member's Page" and "members-page" all find the same row.
+    A setting silently not applying because of a stray apostrophe is a bad
+    afternoon for whoever has to work out why.
+    """
+    controls = _website_controls()
+    key = str(name).strip().lower()
+    if key in controls:
+        return controls[key]
+    return controls.get(re.sub(r"[^a-z0-9]", "", key), "")
 
 
 def roster_button_mode():
@@ -636,7 +659,7 @@ def members_page_on():
     ready — and switched straight back off, with no code change and no deploy,
     if it turns out not to be wanted. Picked up within a minute either way.
     """
-    return _website_controls().get("members page", "").strip().upper() == "ON"
+    return _control_value("Members Page").strip().upper() == "ON"
 
 
 def season_name():
@@ -3213,12 +3236,11 @@ def delete_sponsor(sponsor_id):
 # ---------------------------------------------------------------------------
 # REGISTERED MEMBERS  (public "am I signed up for this season?" list)
 # ---------------------------------------------------------------------------
-# Reads the Membership Matrix on the registration spreadsheet — a different
+# Reads the Membership Matrix on the registration spreadsheet - a different
 # workbook from the website content sheet, so it needs its own id and the
 # service account must be given read access to it.
 #
-# Matrix layout: headers on row 7, members from row 8. One column per season
-# (2021, 2022, ... 2036). A member counts as registered for a season when that
+# One column per season. A member counts as registered for a season when that
 # season's cell carries a mark:
 #
 #     NEW      joined that year          -> New Member
@@ -3226,14 +3248,27 @@ def delete_sponsor(sponsor_id):
 #     85+5     courtesy membership       -> 85+5 Courtesy Member
 #
 # A blank cell means not registered for that season, and that member simply
-# does not appear. Nothing on this page ever says who has *not* signed up or
-# who still owes money — chasing payment is the treasurer's private job.
+# does not appear. Nothing here ever says who has *not* signed up or who still
+# owes money - chasing payment is the treasurer's private job.
 
-# The id can come from Render, or - so the board can set this up without
-# needing Render access - from a "Registration Sheet ID" row on the Website
-# Controls tab. Render wins if both are set.
 REGISTRATION_SHEET_ID = os.environ.get("REGISTRATION_SHEET_ID", "").strip()
 MEMBERSHIP_MATRIX_TAB = os.environ.get("MEMBERSHIP_MATRIX_TAB", "Membership Matrix").strip()
+
+MATRIX_TARGET_SEASON_CELL = "B1"   # "Target Season >>>" - the season in focus
+MATRIX_HEADER_SCAN_ROWS = 20       # how far down to look for the header row
+
+_matrix_cache = {"data": None, "ts": 0.0}
+_MATRIX_TTL = 300                  # 5 min, same as the other public readers
+
+CATEGORY_LABELS = {
+    "new": "New Member",
+    "renewing": "Renewing Member",
+    "85+5": "85+5 Courtesy Member",
+}
+
+
+def registered_members_is_configured():
+    return bool(_registration_sheet_id() and _SA_JSON)
 
 
 def _registration_sheet_id():
@@ -3245,28 +3280,12 @@ def _registration_sheet_id():
     """
     if REGISTRATION_SHEET_ID:
         return REGISTRATION_SHEET_ID
-
-    raw = ""
     try:
-        raw = _website_controls().get("registration sheet id", "").strip()
+        raw = _control_value("Registration Sheet ID").strip()
     except Exception:
         return ""
-
     match = re.search(r"/spreadsheets/d/([a-zA-Z0-9-_]+)", raw)
     return match.group(1) if match else raw
-
-# Row/column geography of the Membership Matrix, matching the Apps Script that
-# maintains it. Override only if that sheet is ever restructured.
-MATRIX_HEADER_ROW = 7
-MATRIX_FIRST_DATA_ROW = 8
-MATRIX_TARGET_SEASON_CELL = "B1"   # "Target Season >>>" — the season in focus
-
-_members_cache = {}                # season -> {"data": [...], "ts": float}
-_MEMBERS_TTL = 300                 # 5 min, same as the other public readers
-
-
-def registered_members_is_configured():
-    return bool(_registration_sheet_id() and _SA_JSON)
 
 
 def _open_registration_spreadsheet():
@@ -3298,93 +3317,120 @@ def _matrix_category(mark):
     return None
 
 
-CATEGORY_LABELS = {
-    "new": "New Member",
-    "renewing": "Renewing Member",
-    "85+5": "85+5 Courtesy Member",
-}
+def _matrix_header_row(grid):
+    """Index of the row holding the column headings.
+
+    Found by looking for the row that names the columns, rather than assuming a
+    fixed row number. The matrix carries a title block, a merged banner and
+    blank spacer rows above the headings, and exactly how many is not something
+    a public page should depend on - guessing wrong renders an empty list with
+    no error to explain it.
+    """
+    for i, row in enumerate(grid[:MATRIX_HEADER_SCAN_ROWS]):
+        cells = [str(c).strip().lower() for c in row]
+        if "first name" in cells and "last name" in cells:
+            return i
+    return -1
+
+
+def _matrix_snapshot():
+    """Parse the whole matrix once: every season and who is in it.
+
+    Returns {"target": season, "seasons": [...], "members": {season: [...]}}.
+    Cached for _MATRIX_TTL; the last good snapshot is served on error so a
+    Google hiccup never renders the league empty.
+    """
+    now = time.time()
+    with _lock:
+        if _matrix_cache["data"] is not None and now - _matrix_cache["ts"] < _MATRIX_TTL:
+            return _matrix_cache["data"]
+
+    empty = {"target": "", "seasons": [], "members": {}}
+
+    try:
+        if not registered_members_is_configured():
+            return empty
+
+        sh = _open_registration_spreadsheet()
+        ws = sh.worksheet(MEMBERSHIP_MATRIX_TAB)
+        grid = ws.get_all_values()
+
+        header_row = _matrix_header_row(grid)
+        if header_row < 0:
+            return empty
+
+        headers = [str(h).strip() for h in grid[header_row]]
+        lower = [h.lower() for h in headers]
+
+        first_col = lower.index("first name")
+        last_col = lower.index("last name")
+
+        # Every four-digit column heading is a season.
+        season_cols = [(h, i) for i, h in enumerate(headers) if re.fullmatch(r"(19|20)\d{2}", h)]
+
+        members = {}
+        for row in grid[header_row + 1:]:
+            first = str(row[first_col]).strip() if len(row) > first_col else ""
+            last = str(row[last_col]).strip() if len(row) > last_col else ""
+            if not (first or last):
+                continue
+
+            for season, col in season_cols:
+                if len(row) <= col:
+                    continue
+                category = _matrix_category(row[col])
+                if not category:
+                    continue
+                members.setdefault(season, []).append({
+                    "first": first,
+                    "last": last,
+                    "name": (first + " " + last).strip(),
+                    "category": category,
+                    "label": CATEGORY_LABELS[category],
+                })
+
+        for season in members:
+            members[season].sort(key=lambda m: (m["last"].lower(), m["first"].lower()))
+
+        # Only seasons that actually have members, newest first.
+        seasons = sorted(members.keys(), reverse=True)
+
+        target = ""
+        try:
+            raw = str(ws.acell(MATRIX_TARGET_SEASON_CELL).value or "").strip()
+            match = re.search(r"(19|20)\d{2}", raw)
+            target = match.group(0) if match else ""
+        except Exception:
+            target = ""
+        if target not in seasons:
+            target = seasons[0] if seasons else target
+
+        snapshot = {"target": target, "seasons": seasons, "members": members}
+        with _lock:
+            _matrix_cache["data"] = snapshot
+            _matrix_cache["ts"] = now
+        return snapshot
+
+    except Exception:
+        return _matrix_cache["data"] or empty
 
 
 def registered_members_season():
-    """The season the Membership Matrix is currently focused on, as text.
+    """The season the page shows by default."""
+    return _matrix_snapshot()["target"]
 
-    Read from the sheet rather than hardcoded, so the page rolls over to the
-    next season on its own when the board advances the matrix.
-    """
-    try:
-        sh = _open_registration_spreadsheet()
-        ws = sh.worksheet(MEMBERSHIP_MATRIX_TAB)
-        raw = str(ws.acell(MATRIX_TARGET_SEASON_CELL).value or "").strip()
-        match = re.search(r"(19|20)\d{2}", raw)
-        return match.group(0) if match else raw
-    except Exception:
-        return ""
+
+def registered_members_seasons():
+    """Every season that has at least one member, newest first."""
+    return _matrix_snapshot()["seasons"]
 
 
 def registered_members(season=None):
     """Members registered for `season`, alphabetical by last name.
 
     Returns a list of {"first", "last", "name", "category", "label"}. Only
-    first and last name are read — never email, phone or date of birth, so no
+    first and last name are read - never email, phone or date of birth - so no
     contact details can reach the public page even by accident.
-
-    Cached for _MEMBERS_TTL. On any error the last good list is served rather
-    than an empty page, so a Google hiccup never makes the league look empty.
     """
-    season = str(season or "").strip()
-    now = time.time()
-
-    with _lock:
-        hit = _members_cache.get(season)
-        if hit and hit["data"] is not None and now - hit["ts"] < _MEMBERS_TTL:
-            return hit["data"]
-
-    try:
-        members = []
-        if registered_members_is_configured() and season:
-            sh = _open_registration_spreadsheet()
-            ws = sh.worksheet(MEMBERSHIP_MATRIX_TAB)
-            grid = ws.get_all_values()
-
-            headers = grid[MATRIX_HEADER_ROW - 1] if len(grid) >= MATRIX_HEADER_ROW else []
-            headers = [str(h).strip() for h in headers]
-
-            try:
-                season_col = headers.index(season)
-            except ValueError:
-                season_col = -1
-
-            if season_col >= 0:
-                first_col = headers.index("First Name") if "First Name" in headers else 3
-                last_col = headers.index("Last Name") if "Last Name" in headers else 4
-
-                for row in grid[MATRIX_FIRST_DATA_ROW - 1:]:
-                    if len(row) <= season_col:
-                        continue
-
-                    category = _matrix_category(row[season_col])
-                    if not category:
-                        continue
-
-                    first = str(row[first_col]).strip() if len(row) > first_col else ""
-                    last = str(row[last_col]).strip() if len(row) > last_col else ""
-                    if not (first or last):
-                        continue
-
-                    members.append({
-                        "first": first,
-                        "last": last,
-                        "name": (first + " " + last).strip(),
-                        "category": category,
-                        "label": CATEGORY_LABELS[category],
-                    })
-
-                members.sort(key=lambda m: (m["last"].lower(), m["first"].lower()))
-
-        with _lock:
-            _members_cache[season] = {"data": members, "ts": now}
-        return members
-
-    except Exception:
-        hit = _members_cache.get(season)
-        return (hit or {}).get("data") or []
+    snap = _matrix_snapshot()
+    return snap["members"].get(str(season or "").strip(), [])

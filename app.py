@@ -526,9 +526,19 @@ def members():
         return redirect("/")
 
     season = ""
+    seasons = []
     members_list = []
     try:
+        seasons = sheets.registered_members_seasons()
         season = sheets.registered_members_season()
+
+        # ?season=2026 lets a member look back at an earlier year. Only a
+        # season the matrix actually has is accepted, so a made-up value in the
+        # address falls back to the current one instead of showing an empty page.
+        asked = (request.args.get("season") or "").strip()
+        if asked in seasons:
+            season = asked
+
         if season:
             members_list = sheets.registered_members(season)
     except Exception:
@@ -541,7 +551,8 @@ def members():
     return render_template("pages/members.html",
                            page_title=("%s Registered Members" % season) if season
                                       else "Registered Members",
-                           season=season, members=members_list, counts=counts)
+                           season=season, seasons=seasons,
+                           members=members_list, counts=counts)
 
 
 @app.route("/champions")
