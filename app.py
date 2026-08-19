@@ -500,6 +500,30 @@ def players():
                            card_slugs=card_slugs)
 
 
+@app.route("/members")
+def members():
+    """Public list of members registered for the current season, so anyone can
+    check that their renewal went through. Names and membership category only —
+    never contact details, and never a list of who has not signed up."""
+    season = ""
+    members_list = []
+    try:
+        season = sheets.registered_members_season()
+        if season:
+            members_list = sheets.registered_members(season)
+    except Exception:
+        pass
+
+    counts = {"new": 0, "renewing": 0, "85+5": 0}
+    for m in members_list:
+        counts[m["category"]] = counts.get(m["category"], 0) + 1
+
+    return render_template("pages/members.html",
+                           page_title=("%s Registered Members" % season) if season
+                                      else "Registered Members",
+                           season=season, members=members_list, counts=counts)
+
+
 @app.route("/champions")
 def champions():
     """Old Champion-of-the-Month URL. The page has been removed, so any visits

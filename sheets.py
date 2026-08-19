@@ -3197,3 +3197,160 @@ def delete_sponsor(sponsor_id):
             ws.delete_rows(i + 2)
             break
     _sponsor_invalidate()
+
+
+# ---------------------------------------------------------------------------
+# REGISTERED MEMBERS  (public "am I signed up for this season?" list)
+# ---------------------------------------------------------------------------
+# Reads the Membership Matrix on the registration spreadsheet — a different
+# workbook from the website content sheet, so it needs its own id and the
+# service account must be given read access to it.
+#
+# Matrix layout: headers on row 7, members from row 8. One column per season
+# (2021, 2022, ... 2036). A member counts as registered for a season when that
+# season's cell carries a mark:
+#
+#     NEW      joined that year          -> New Member
+#     X        renewed that year         -> Renewing Member
+#     85+5     courtesy membership       -> 85+5 Courtesy Member
+#
+# A blank cell means not registered for that season, and that member simply
+# does not appear. Nothing on this page ever says who has *not* signed up or
+# who still owes money — chasing payment is the treasurer's private job.
+
+REGISTRATION_SHEET_ID = os.environ.get("REGISTRATION_SHEET_ID", "").strip()
+MEMBERSHIP_MATRIX_TAB = os.environ.get("MEMBERSHIP_MATRIX_TAB", "Membership Matrix").strip()
+
+# Row/column geography of the Membership Matrix, matching the Apps Script that
+# maintains it. Override only if that sheet is ever restructured.
+MATRIX_HEADER_ROW = 7
+MATRIX_FIRST_DATA_ROW = 8
+MATRIX_TARGET_SEASON_CELL = "B1"   # "Target Season >>>" — the season in focus
+
+_members_cache = {}                # season -> {"data": [...], "ts": float}
+_MEMBERS_TTL = 300                 # 5 min, same as the other public readers
+
+
+def registered_members_is_configured():
+    return bool(REGISTRATION_SHEET_ID and _SA_JSON)
+
+
+def _open_registration_spreadsheet():
+    import gspread
+    from google.oauth2.service_account import Credentials
+
+    info = json.loads(_SA_JSON)
+    scopes = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
+    creds = Credentials.from_service_account_info(info, scopes=scopes)
+    gc = gspread.authorize(creds)
+    return gc.open_by_key(REGISTRATION_SHEET_ID)
+
+
+def _matrix_category(mark):
+    """Turn a season cell into a membership category, or None if unmarked.
+
+    Tolerates the annotated forms that show up by hand in older seasons, e.g.
+    "X(Z)", and is case-insensitive so a typed "new" counts the same as "NEW".
+    """
+    m = str(mark or "").strip().upper()
+    if not m:
+        return None
+    if m.startswith("85"):
+        return "85+5"
+    if m == "NEW":
+        return "new"
+    if m == "X" or m.startswith("X("):
+        return "renewing"
+    return None
+
+
+CATEGORY_LABELS = {
+    "new": "New Member",
+    "renewing": "Renewing Member",
+    "85+5": "85+5 Courtesy Member",
+}
+
+
+def registered_members_season():
+    """The season the Membership Matrix is currently focused on, as text.
+
+    Read from the sheet rather than hardcoded, so the page rolls over to the
+    next season on its own when the board advances the matrix.
+    """
+    try:
+        sh = _open_registration_spreadsheet()
+        ws = sh.worksheet(MEMBERSHIP_MATRIX_TAB)
+        raw = str(ws.acell(MATRIX_TARGET_SEASON_CELL).value or "").strip()
+        match = re.search(r"(19|20)\d{2}", raw)
+        return match.group(0) if match else raw
+    except Exception:
+        return ""
+
+
+def registered_members(season=None):
+    """Members registered for `season`, alphabetical by last name.
+
+    Returns a list of {"first", "last", "name", "category", "label"}. Only
+    first and last name are read — never email, phone or date of birth, so no
+    contact details can reach the public page even by accident.
+
+    Cached for _MEMBERS_TTL. On any error the last good list is served rather
+    than an empty page, so a Google hiccup never makes the league look empty.
+    """
+    season = str(season or "").strip()
+    now = time.time()
+
+    with _lock:
+        hit = _members_cache.get(season)
+        if hit and hit["data"] is not None and now - hit["ts"] < _MEMBERS_TTL:
+            return hit["data"]
+
+    try:
+        members = []
+        if registered_members_is_configured() and season:
+            sh = _open_registration_spreadsheet()
+            ws = sh.worksheet(MEMBERSHIP_MATRIX_TAB)
+            grid = ws.get_all_values()
+
+            headers = grid[MATRIX_HEADER_ROW - 1] if len(grid) >= MATRIX_HEADER_ROW else []
+            headers = [str(h).strip() for h in headers]
+
+            try:
+                season_col = headers.index(season)
+            except ValueError:
+                season_col = -1
+
+            if season_col >= 0:
+                first_col = headers.index("First Name") if "First Name" in headers else 3
+                last_col = headers.index("Last Name") if "Last Name" in headers else 4
+
+                for row in grid[MATRIX_FIRST_DATA_ROW - 1:]:
+                    if len(row) <= season_col:
+                        continue
+
+                    category = _matrix_category(row[season_col])
+                    if not category:
+                        continue
+
+                    first = str(row[first_col]).strip() if len(row) > first_col else ""
+                    last = str(row[last_col]).strip() if len(row) > last_col else ""
+                    if not (first or last):
+                        continue
+
+                    members.append({
+                        "first": first,
+                        "last": last,
+                        "name": (first + " " + last).strip(),
+                        "category": category,
+                        "label": CATEGORY_LABELS[category],
+                    })
+
+                members.sort(key=lambda m: (m["last"].lower(), m["first"].lower()))
+
+        with _lock:
+            _members_cache[season] = {"data": members, "ts": now}
+        return members
+
+    except Exception:
+        hit = _members_cache.get(season)
+        return (hit or {}).get("data") or []
