@@ -590,13 +590,36 @@ def _website_controls():
             ws = _open_teams_spreadsheet().worksheet(WEBSITE_CONTROLS_TAB)
             for row in ws.get_all_values():
                 if len(row) >= 2 and str(row[0]).strip():
-                    out[str(row[0]).strip().lower()] = str(row[1]).strip()
+                    key = str(row[0]).strip().lower()
+                    val = str(row[1]).strip()
+                    out[key] = val
+                    # Also store the letters-and-digits-only form of the label,
+                    # so a setting still resolves when the row is typed with an
+                    # apostrophe, a hyphen or extra spacing ("Member's Page").
+                    squashed = re.sub(r"[^a-z0-9]", "", key)
+                    if squashed and squashed not in out:
+                        out[squashed] = val
     except Exception:
         out = {}
     with _lock:
         _controls_cache["data"] = out
         _controls_cache["ts"] = now
     return out
+
+
+def _control_value(name):
+    """Look up a Website Controls row, forgiving how the label was typed.
+
+    Tries the label as written, then its letters-and-digits-only form, so
+    "Members Page", "Member's Page" and "members-page" all find the same row.
+    A setting silently not applying because of a stray apostrophe is a bad
+    afternoon for whoever has to work out why.
+    """
+    controls = _website_controls()
+    key = str(name).strip().lower()
+    if key in controls:
+        return controls[key]
+    return controls.get(re.sub(r"[^a-z0-9]", "", key), "")
 
 
 def roster_button_mode():
@@ -636,7 +659,7 @@ def members_page_on():
     ready — and switched straight back off, with no code change and no deploy,
     if it turns out not to be wanted. Picked up within a minute either way.
     """
-    return _website_controls().get("members page", "").strip().upper() == "ON"
+    return _control_value("Members Page").strip().upper() == "ON"
 
 
 def season_name():
@@ -3248,7 +3271,7 @@ def _registration_sheet_id():
 
     raw = ""
     try:
-        raw = _website_controls().get("registration sheet id", "").strip()
+        raw = _control_value("Registration Sheet ID").strip()
     except Exception:
         return ""
 
