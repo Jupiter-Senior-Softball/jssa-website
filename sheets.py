@@ -628,6 +628,17 @@ def season_mode():
         "season mode", "").strip().upper() == "LEAGUE" else "PICKUP"
 
 
+def members_page_on():
+    """Whether the public registered-members list and its links are shown.
+
+    Driven by the 'Members Page' row on the Website Controls tab. Defaults to
+    OFF, so the page can ship dark and be switched on only when the board is
+    ready — and switched straight back off, with no code change and no deploy,
+    if it turns out not to be wanted. Picked up within a minute either way.
+    """
+    return _website_controls().get("members page", "").strip().upper() == "ON"
+
+
 def season_name():
     """The season label shown above the homepage buttons in LEAGUE mode, e.g.
     'Fall 2026 Season'. Free text from the 'Season Name' row on the Website
