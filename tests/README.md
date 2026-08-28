@@ -7,8 +7,9 @@ Plain Python scripts — no test framework needed. They feed fake sheet data to
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 for t in tests/test_*.py; do .venv/bin/python "$t" || break; done
 
-# The Apps Script sender, run under Node with a fake MailApp:
+# The Apps Scripts, run under Node with a fake MailApp:
 node tests/sender/test_sender_script.js
+node tests/sender/test_email_counter.js
 ```
 
 What they cover:
@@ -27,3 +28,4 @@ What they cover:
 | `test_rehearsal.py` | A practice run reports the real headcount and warns when the quota wouldn't cover it |
 | `test_partial_send.py` | A failed send names everyone missed and does not lock out the day; a successful one still does |
 | `sender/test_sender_script.js` | The Apps Script itself: batching under Gmail's 50-per-message limit, partial failure, quota refusal |
+| `sender/test_email_counter.js` | The Email Send Counter reports Gmail's own remaining quota, not a Sent-folder tally that hides BCC |

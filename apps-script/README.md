@@ -88,6 +88,12 @@ gets its own row per day.
   **No** to hide one. No code change, no Render access.
 - A BCC blast to 80 people counts as **1** message but **80** recipients. The
   "sends left today" number uses recipients, since that's what Gmail limits.
+- **"Sends left" comes straight from Gmail**, not from adding up the Sent
+  folder. BCC recipients on script-sent mail are invisible in Sent
+  (`getBcc()` returns nothing for them), so a tally built that way badly
+  over-states what is left — on one live morning it showed **86 left when only
+  17 remained**. If "people reached" is higher than the Sent folder appears to
+  justify, that is the hidden BCC being accounted for correctly.
 - To change the daily limit, edit `DAILY_LIMIT` at the top of the script in each
   account.
 
