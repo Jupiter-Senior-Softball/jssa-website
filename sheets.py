@@ -3920,6 +3920,7 @@ def send_cancellation(reason, location, sent_by, plan=None, banner_only=False):
 
     # 2. The emails.
     emailed, notes = 0, []
+    attempted = False        # did we actually reach the sender script?
     addresses = [p["email"] for p in plan["recipients"]]
     if banner_only:
         notes.append("Banner only — no email was sent.")
@@ -3931,6 +3932,7 @@ def send_cancellation(reason, location, sent_by, plan=None, banner_only=False):
     elif not addresses:
         notes.append("Nobody was scheduled today, so there was no one to email.")
     else:
+        attempted = True
         test_to = settings["test_address"] if settings["test_mode"] else ""
         cap = settings["cap"]
         first, overflow = addresses[:cap], addresses[cap:]
@@ -3969,6 +3971,14 @@ def send_cancellation(reason, location, sent_by, plan=None, banner_only=False):
         result = "TEST RUN — " + result
     if missed:
         result += " · %d not reached" % len(missed)
+    # Record WHY, not just what. Without this the log says "0 emailed" and
+    # leaves you guessing between "the box was ticked", "no sender set up" and
+    # "the send failed" — the difference that actually matters when nothing
+    # arrives. The on-screen note is gone as soon as the page is left.
+    if notes:
+        result += " — " + " ".join(notes)
+    elif not attempted:
+        result += " — no email step ran"
 
     _log_cancellation(plan, reason, location, sent_by, emailed, missed, result)
     _invalidate()
