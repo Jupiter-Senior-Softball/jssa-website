@@ -9,7 +9,11 @@
  * What it reports, for the account it runs in, for TODAY:
  *   - messages_today    how many emails you sent (a BCC blast = 1)
  *   - recipients_today  how many people those reached (a BCC blast to 80 = 80)
- *   - remaining_today   DAILY_LIMIT minus recipients (your "sends left")
+ *   - remaining_today   what Gmail says is left (your "sends left")
+ *
+ * "Sends left" comes straight from Gmail, NOT from adding up the Sent folder.
+ * BCC recipients on script-sent mail are invisible there, so counting Sent
+ * badly over-states what is left - it once showed 86 when 17 remained.
  *
  * HOW TO DEPLOY (do this in each of the three accounts, signed in as that
  * account):
@@ -94,14 +98,30 @@ function _usage() {
     }
   }
 
-  var remaining = DAILY_LIMIT - recipients;
+  // Ask Gmail what is actually left rather than working it out from Sent mail.
+  //
+  // Counting the Sent folder MISSES BCC RECIPIENTS on anything a script sent:
+  // getBcc() comes back empty for those messages, so a cancellation BCC'd to
+  // 55 players counted as 1. That under-count is dangerous in the wrong
+  // direction - it reported 86 sends left when only 17 remained. Gmail's own
+  // figure cannot be fooled that way.
+  var remaining = MailApp.getRemainingDailyQuota();
   if (remaining < 0) remaining = 0;
+
+  var quotaUsed = DAILY_LIMIT - remaining;
+  if (quotaUsed < 0) quotaUsed = 0;
+
+  // Keep the Sent-folder tally only to notice when it disagrees, which is the
+  // signature of hidden BCC recipients.
+  var hiddenBcc = quotaUsed > recipients;
 
   return {
     ok: true,
     account: me,
     messages_today: messages,
-    recipients_today: recipients,
+    recipients_today: Math.max(quotaUsed, recipients),
+    recipients_visible: recipients,
+    hidden_bcc: hiddenBcc,
     remaining_today: remaining,
     daily_limit: DAILY_LIMIT,
     updated: Utilities.formatDate(new Date(), tz, 'MMM d, h:mm a')
