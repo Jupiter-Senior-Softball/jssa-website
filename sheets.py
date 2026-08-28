@@ -3987,3 +3987,14 @@ def cancellation_preview(plan=None):
     headline = "CANCELLED — no games today, %s%s. __REASON__" % (
         plan["date"].strftime("%A"), where)
     return {"subject": subject, "body": body, "headline": headline}
+
+
+def notice_is_cancellation(notice):
+    """True when the banner notice showing on the site is calling games off.
+
+    Catches both the notice the Cancel Today's Games button writes and anything
+    a board member types by hand, so the homepage never advertises "rosters are
+    posted" underneath a cancellation."""
+    if not notice:
+        return False
+    return "cancel" in str(notice.get("message") or "").lower()
