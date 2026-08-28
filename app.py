@@ -119,6 +119,14 @@ def home():
             teams_posted = sheets.game_day_teams() is not None
     except Exception:
         teams_posted = False
+    # A cancellation notice and the "Game Day Rosters Are Posted" button
+    # contradict each other, so the cancellation wins and the button comes down
+    # by itself. It returns as soon as the notice is switched off.
+    try:
+        if sheets.notice_is_cancellation(notice):
+            teams_posted = False
+    except Exception:
+        pass
     try:
         blackboard = sheets.blackboard_posts()
     except Exception:
