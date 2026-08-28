@@ -1,0 +1,266 @@
+{% extends "page_base.html" %}
+{% block eyebrow %}Admin{% endblock %}
+{% block sub %}<p class="sub">Call off today's games. This posts the notice on the website <em>and</em> emails everyone who was scheduled to play.</p>{% endblock %}
+{% block body %}
+<style>
+  html{font-size:112.5%}
+  .cx label{display:block;font-family:var(--display);font-weight:600;color:var(--navy);margin:0 0 7px;font-size:1.05rem}
+  .cx input[type=text],.cx textarea{width:100%;font-family:var(--body);font-size:1.1rem;padding:14px 16px;
+      border:1px solid var(--line);border-radius:10px}
+  .cx textarea{min-height:80px;resize:vertical}
+  .cx .row{margin-bottom:20px}
+  .hint{color:var(--muted);font-size:.92rem;margin-top:6px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 24px;margin-bottom:22px}
+  .card h3{font-size:1.15rem;margin:0 0 12px}
+  .who{font-size:2.6rem;font-weight:800;font-family:var(--display);color:var(--navy);line-height:1;letter-spacing:-.02em}
+  .who small{display:block;font-size:.95rem;font-weight:600;color:var(--muted);font-family:var(--body);
+      letter-spacing:0;margin-top:8px;line-height:1.5}
+  .glist{list-style:none;margin:10px 0 0;padding:0}
+  .glist li{padding:10px 0;border-top:1px solid var(--line);font-size:1.02rem}
+  .glist li:first-child{border-top:0}
+  .tag{display:inline-block;font-family:var(--display);font-weight:700;font-size:.72rem;letter-spacing:.05em;
+      text-transform:uppercase;padding:4px 10px;border-radius:999px;background:var(--blue-tint);color:var(--blue);
+      vertical-align:middle;margin-right:8px}
+  .tag.red{background:var(--red-tint);color:#b3151b}
+  .warn{background:#fff8e6;border:1px solid #f3e2b3;color:#6b4f0d;border-radius:14px;padding:20px 22px;margin-bottom:22px}
+  .warn strong{color:#5a4109}
+  .stop{background:var(--red-tint);border:1px solid #f0c9cb;color:#8c1015;border-radius:14px;padding:20px 22px;margin-bottom:22px}
+  .good{background:#e8f6ee;border:1px solid #bfe3cd;color:#14603a;border-radius:14px;padding:20px 22px;margin-bottom:22px}
+  .names{margin:10px 0 0;font-size:1rem;line-height:1.75}
+  .bigbtn{display:block;width:100%;border:0;border-radius:14px;background:var(--red);color:#fff;
+      font-family:var(--display);font-weight:800;font-size:1.3rem;letter-spacing:.01em;
+      padding:22px;cursor:pointer;box-shadow:0 4px 16px rgba(216,38,43,.28)}
+  .bigbtn:hover{background:#c01f24}
+  .bigbtn[disabled]{background:#c9ced9;box-shadow:none;cursor:not-allowed}
+  .backlink{display:inline-block;margin-bottom:18px;font-weight:600}
+  .confirm{border:2px dashed #f0c9cb;border-radius:14px;padding:20px 22px;background:#fffafa}
+  .confirm input{font-size:1.25rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
+  .checkrow{display:flex;align-items:flex-start;gap:12px;margin-top:16px}
+  .checkrow input{width:22px;height:22px;accent-color:var(--blue);margin-top:3px;flex:none}
+  .checkrow label{margin:0;font-weight:500;font-size:1rem;color:var(--text)}
+  .pv-label{font-family:var(--display);font-weight:700;color:var(--blue);font-size:.78rem;
+      letter-spacing:.06em;text-transform:uppercase;margin:0 0 9px}
+  .pv-banner{display:flex;align-items:center;gap:14px;background:#f5c518;color:#16233f;
+      border-radius:10px;padding:16px 18px;font-weight:700;font-size:1.06rem;line-height:1.45}
+  .pv-ic{font-size:1.3rem;flex:none}
+  .pv-mail{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
+  .pv-subj{background:#f4f6fb;border-bottom:1px solid var(--line);padding:13px 16px;
+      font-family:var(--display);font-weight:700;color:var(--navy);font-size:1.02rem}
+  .pv-body{padding:16px;margin:0;font-family:var(--body);font-size:1rem;line-height:1.65;
+      color:var(--text);white-space:pre-wrap;word-wrap:break-word}
+</style>
+
+<a class="backlink" href="{{ url_for('admin_dashboard') }}">&larr; Back to the admin panel</a>
+
+{% set res = session.pop('cancel_result', None) %}
+{% if res %}
+  <div class="{{ 'good' if res.ok else 'stop' }}">
+    <p style="font-size:1.2rem;font-weight:700;margin-bottom:8px">
+      {% if res.ok %}&#10003; Done — the notice is on the website.{% else %}&#9888; The notice did NOT go up.{% endif %}
+    </p>
+    <p><strong>{{ res.emailed }}</strong> {{ 'person was' if res.emailed == 1 else 'people were' }} emailed.</p>
+    {% if res.note %}<p style="margin-top:8px">{{ res.note }}</p>{% endif %}
+    {% if res.missed %}
+      <p style="margin-top:12px"><strong>These {{ res.missed|length }} did NOT get an email</strong> — please have someone phone them:</p>
+      <p class="names">{{ res.missed|join(' · ') }}</p>
+    {% endif %}
+  </div>
+{% endif %}
+
+{% if request.args.get('err') == 'confirm' %}
+  <div class="warn"><strong>Nothing was sent.</strong> You need to type <strong>CANCEL</strong> in the confirmation box before the button will work.</div>
+{% endif %}
+
+{% if error %}
+  <div class="stop"><strong>Couldn't read today's schedule.</strong><p style="margin-top:6px">{{ error }}</p>
+  <p style="margin-top:8px">You can still post a notice by hand from the <a href="{{ url_for('admin_dashboard') }}">admin panel</a>.</p></div>
+
+{% elif plan.already_sent %}
+  <div class="good">
+    <p style="font-size:1.2rem;font-weight:700;margin-bottom:8px">&#10003; Today's games were already called off.</p>
+    <p>Sent at <strong>{{ plan.already_sent.sent_at }}</strong> by <strong>{{ plan.already_sent.sent_by }}</strong>.</p>
+    {% if plan.already_sent.reason %}<p style="margin-top:6px">Reason given: {{ plan.already_sent.reason }}</p>{% endif %}
+    <p style="margin-top:10px">{{ plan.already_sent.result }}</p>
+    <p style="margin-top:12px" class="hint">Nothing more will be sent today — this stops players being emailed twice. If you need to send a second, different message, use
+      <a href="{{ url_for('admin_communications') }}">Email Members</a>.</p>
+  </div>
+
+{% else %}
+
+  {% if not plan.settings.sender_url and plan.settings.emails_enabled %}
+    <div class="warn">
+      <strong>Email isn't switched on yet.</strong>
+      <p style="margin-top:6px">Right now this button will post the website notice but <strong>send no email</strong>.
+        To turn email on, open the control sheet's <strong>&ldquo;Cancellation Settings&rdquo;</strong> tab and paste the
+        sender address into <strong>Sender URL</strong>. Setup steps are in <code>apps-script/README.md</code>.</p>
+    </div>
+  {% endif %}
+
+  {% if plan.settings.test_mode %}
+    <div class="warn">
+      <strong>&#9203; Practice mode is ON.</strong> Here is exactly what will happen if you press the button:
+      <ul style="margin:10px 0 0 20px;line-height:1.9">
+        <li><strong>The email goes only to {{ plan.settings.test_address or 'the test address' }}</strong> —
+            not one of the {{ plan.recipients|length }} scheduled players will be emailed.</li>
+        <li><strong>The website banner goes up for real</strong>, exactly as visitors would see it, so you can
+            check how it looks. Switch it off on the admin panel when you're done.</li>
+        <li><strong>The schedule is not touched</strong> — no game gets marked cancelled during a practice run.</li>
+        <li>You can practise as many times as you like. A practice run never blocks the real one.</li>
+      </ul>
+      <p style="margin-top:12px">When you're ready for real, set <strong>Test mode</strong> to <strong>No</strong>
+        in the control sheet's &ldquo;Cancellation Settings&rdquo; tab.</p>
+    </div>
+  {% endif %}
+
+  <div class="card">
+    <h3>{{ plan.date_label }}</h3>
+    {% if plan.kind == 'NONE' %}
+      <p style="font-size:1.1rem">There are <strong>no games scheduled today</strong> that I can find — no league games on the
+        schedule and no pickup roster posted for today.</p>
+      <p class="hint" style="margin-top:10px">You can still post a website notice below (nobody will be emailed, because there's
+        no one scheduled). If you were expecting games today, check the schedule tab first.</p>
+    {% else %}
+      <div class="who">{{ plan.recipients|length }}
+        <small>
+          {{ 'player' if plan.recipients|length == 1 else 'players' }} will be emailed about
+          {% if plan.kind == 'BOTH' %}today's <strong>league and pickup</strong> games{%
+             elif plan.kind == 'LEAGUE' %}today's <strong>league</strong> games{%
+             else %}today's <strong>pickup</strong> games{% endif %}{% if plan.location %} at <strong>{{ plan.location }}</strong>{% endif %}.
+          {% if plan.people|length != plan.recipients|length %}
+            ({{ plan.people|length }} were scheduled in all.)
+          {% endif %}
+        </small>
+      </div>
+
+      {% if plan.games %}
+        <ul class="glist">
+          {% for g in plan.games %}
+            <li>
+              {% if g.division %}<span class="tag {{ 'red' if g.division == 'RED' }}">{{ g.division }}</span>{% endif %}
+              <strong>{{ g.home }}</strong> vs <strong>{{ g.away }}</strong>
+              {% if g.time %} · {{ g.time }}{% endif %}{% if g.field %} · {{ g.field }}{% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endif %}
+  </div>
+
+  {% if plan.unmatched or plan.over_cap %}
+    <div class="warn">
+      <strong>{{ (plan.unmatched|length) + (plan.over_cap|length) }} scheduled
+        {{ 'player' if (plan.unmatched|length) + (plan.over_cap|length) == 1 else 'players' }} will NOT get an email.</strong>
+      {% if plan.unmatched %}
+        <p style="margin-top:10px">No email address on file (or the name on the roster doesn't match the name on the
+          member list):</p>
+        <p class="names">{{ plan.unmatched|map(attribute='name')|join(' · ') }}</p>
+      {% endif %}
+      {% if plan.over_cap %}
+        <p style="margin-top:10px">Past the {{ plan.cap }}-email limit for one day:</p>
+        <p class="names">{{ plan.over_cap|map(attribute='name')|join(' · ') }}</p>
+      {% endif %}
+      <p style="margin-top:12px">Captains and managers are always emailed first, so every team has someone who knows.
+        Please have someone phone the players listed here.</p>
+    </div>
+  {% endif %}
+
+  <form class="cx" method="post" action="{{ url_for('admin_cancel_send') }}"
+        onsubmit="return confirm('Send the cancellation now? This emails {{ plan.recipients|length }} people and cannot be unsent.')">
+    <div class="row">
+      <label for="reason">Why are the games cancelled?</label>
+      <textarea id="reason" name="reason" placeholder="Fields are flooded from overnight rain."></textarea>
+      <div class="hint">This appears in the website notice and in the email. Keep it short and plain.</div>
+    </div>
+
+    <div class="row">
+      <label for="location">Where were the games?</label>
+      <input type="text" id="location" name="location" value="{{ plan.location }}"
+             placeholder="Jupiter Community Park">
+      <div class="hint">Filled in from today's schedule. Type over it if the games were somewhere else.</div>
+    </div>
+
+    <div class="row">
+      <label for="sent_by">Your name</label>
+      <input type="text" id="sent_by" name="sent_by" placeholder="Tom">
+      <div class="hint">Recorded in the log so the board knows who made the call.</div>
+    </div>
+
+    <div class="confirm">
+      <label for="confirm">Type <strong>CANCEL</strong> to confirm</label>
+      <input type="text" id="confirm" name="confirm" autocomplete="off" autocapitalize="characters"
+             placeholder="CANCEL" required>
+      <div class="hint">A safety step, so this can't happen by a stray tap.</div>
+      <div class="checkrow">
+        <input type="checkbox" id="banner_only" name="banner_only" value="1">
+        <label for="banner_only">Website notice only — don't email anybody</label>
+      </div>
+    </div>
+
+    {% if preview %}
+    <div class="card" style="margin-top:24px;background:#fbfcfe">
+      <h3>&#128065; Preview — what people will see</h3>
+      <p class="hint" style="margin:0 0 14px">Updates as you type above. This is generated by the same code that does
+        the real send, so it can't differ from what actually goes out.</p>
+
+      <div class="pv-label">The banner on the website</div>
+      <div class="pv-banner"><span class="pv-ic">&#128226;</span><span id="pv-headline"></span></div>
+
+      <div class="pv-label" style="margin-top:20px">The email players receive</div>
+      <div class="pv-mail">
+        <div class="pv-subj" id="pv-subject"></div>
+        <pre class="pv-body" id="pv-body"></pre>
+      </div>
+    </div>
+    {% endif %}
+
+    <p style="margin:22px 0 12px" class="hint">This posts the notice on the website, emails the players listed above,
+      marks today's games cancelled on the schedule, and records it in the log. It can't be undone from here — but you can
+      switch the banner off again on the <a href="{{ url_for('admin_dashboard') }}">admin panel</a>.</p>
+
+    <button class="bigbtn" type="submit">&#9888;&#65039; Cancel today's games &amp; notify {{ plan.recipients|length }} players</button>
+  </form>
+{% endif %}
+{% if plan and preview %}
+<script>
+(function () {
+  // The wording comes from the server so the preview always matches the real
+  // send; only the two things being typed are filled in here.
+  var TPL = {{ preview|tojson }};
+  var reason = document.getElementById('reason');
+  var location_ = document.getElementById('location');
+  var out = {
+    headline: document.getElementById('pv-headline'),
+    subject: document.getElementById('pv-subject'),
+    body: document.getElementById('pv-body')
+  };
+
+  function fill(tpl) {
+    var r = (reason.value || '').trim();
+    var l = (location_.value || '').trim();
+    var s = tpl;
+    // No location typed? Drop the " at ..." phrase rather than show a gap.
+    s = l ? s.split('__LOCATION__').join(l) : s.split(' at __LOCATION__').join('');
+    if (r) {
+      s = s.split('__REASON__').join(r);
+    } else {
+      // No reason yet: remove the "Reason:" line and the trailing marker.
+      s = s.replace(/\n*Reason: __REASON__\n?/, '\n');
+      s = s.split(' __REASON__').join('').split('__REASON__').join('');
+    }
+    return s.replace(/[ \t]+\n/g, '\n').trim();
+  }
+
+  function render() {
+    out.headline.textContent = fill(TPL.headline);
+    out.subject.textContent = fill(TPL.subject);
+    out.body.textContent = fill(TPL.body);
+  }
+
+  reason.addEventListener('input', render);
+  location_.addEventListener('input', render);
+  render();
+})();
+</script>
+{% endif %}
+{% endblock %}
+{% block footer_btns %}<a class="btn btn-navy" href="{{ url_for('admin_dashboard') }}">← Back to the admin panel</a>{% endblock %}

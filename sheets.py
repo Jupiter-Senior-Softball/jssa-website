@@ -3453,3 +3453,537 @@ def registered_members(season=None):
     """
     snap = _matrix_snapshot()
     return snap["members"].get(str(season or "").strip(), [])
+
+
+# ----------------------------------------------------------------------------
+# Game-day cancellation — the board's "call off today's games" switch.
+#
+# One action does three things: posts the website banner, emails everyone who
+# was scheduled to play today, and writes a log row so it can't be sent twice.
+#
+# Who gets emailed is worked out from the date, so the board never has to say
+# what kind of day it is:
+#   * League day  — the Control Sheet's Schedule tab says which games are on
+#                   today; every player on those teams is notified.
+#   * Pickup day  — the published Game Day Teams roster is today's assignment;
+#                   every assigned player is notified.
+#   * Both        — a day that has each gets both sets, de-duplicated.
+#
+# Rosters carry names, not addresses, so each name is matched to the master
+# roster for an email. Anyone who can't be matched is REPORTED BACK rather than
+# dropped silently, so a captain can phone them.
+#
+# Sending itself is done by a small Apps Script web app running inside a league
+# Gmail account (see apps-script/game-cancellation-sender.gs) — the same shape
+# as the Email Send Counter. This site never holds a mail password.
+# ----------------------------------------------------------------------------
+CANCEL_SETTINGS_TAB = "Cancellation Settings"
+CANCEL_SETTINGS_HEADERS = ["Setting", "Value", "Notes"]
+CANCEL_SETTINGS_SEED = [
+    ["Sender URL", "",
+     "The .../exec?key=... address of the cancellation sender script. "
+     "Until this is filled in, the button posts the banner but sends no email."],
+    ["Emails enabled", "Yes",
+     "No = post the website banner only and send no email."],
+    ["Email cap", "100",
+     "The most people to email for one cancellation. Gmail stops a free "
+     "account at about 100 a day."],
+    ["Overflow sender URL", "",
+     "Optional. A SECOND league account's sender URL. Anyone past the cap "
+     "above is emailed from this account instead of being missed."],
+    ["Test mode", "No",
+     "Yes = send every email to the test address below instead of to players. "
+     "Use this the first time."],
+    ["Test address", "", "Where test-mode emails go."],
+]
+
+CANCEL_LOG_TAB = "Cancellation Log"
+CANCEL_LOG_HEADERS = ["Date", "Sent at", "Sent by", "Games", "Location",
+                      "Reason", "Emailed", "Not reached", "Result"]
+
+_cancel_settings_cache = {"data": None, "ts": 0.0}
+_CANCEL_SETTINGS_TTL = 30  # short — a board member may edit it mid-morning
+
+
+def _control_tab_rows(tab, headers, seed):
+    """Read one control-sheet tab, creating it (headers + seed rows) the first
+    time. Returns the raw rows, or [] if the sheet isn't reachable."""
+    import gspread
+    try:
+        ws = _control_sheet(readonly=True).worksheet(tab)
+        return ws.get_all_values()
+    except gspread.WorksheetNotFound:
+        sh = _control_sheet(readonly=False)
+        ws = sh.add_worksheet(title=tab, rows=200, cols=max(len(headers), 4))
+        ws.update([headers] + seed, "A1")
+        return [headers] + seed
+
+
+def cancellation_settings():
+    """The Cancellation Settings tab as a dict. Fails safe to sensible values
+    so the button still posts a banner even if the tab is missing."""
+    now = time.time()
+    with _lock:
+        c = _cancel_settings_cache
+        if c["data"] is not None and now - c["ts"] < _CANCEL_SETTINGS_TTL:
+            return c["data"]
+
+    out = {"sender_url": "", "overflow_url": "", "cap": 100,
+           "emails_enabled": True, "test_mode": False, "test_address": ""}
+    try:
+        if CONTROL_SHEET_ID and _SA_JSON:
+            rows = _control_tab_rows(CANCEL_SETTINGS_TAB,
+                                     CANCEL_SETTINGS_HEADERS,
+                                     CANCEL_SETTINGS_SEED)
+            vals = {}
+            for r in rows[1:]:
+                key = _clean(r[0]).lower() if len(r) > 0 else ""
+                val = _clean(r[1]) if len(r) > 1 else ""
+                if key:
+                    vals[key] = val
+            out["sender_url"] = vals.get("sender url", "")
+            out["overflow_url"] = vals.get("overflow sender url", "")
+            out["test_address"] = vals.get("test address", "")
+            out["emails_enabled"] = _is_true(vals.get("emails enabled", "Yes"))
+            out["test_mode"] = _is_true(vals.get("test mode", "No"))
+            try:
+                cap = int(float(vals.get("email cap", "100") or 100))
+                out["cap"] = max(1, cap)
+            except (TypeError, ValueError):
+                out["cap"] = 100
+    except Exception:
+        pass
+
+    with _lock:
+        _cancel_settings_cache["data"] = out
+        _cancel_settings_cache["ts"] = now
+    return out
+
+
+def _cancel_log_rows():
+    try:
+        if not (CONTROL_SHEET_ID and _SA_JSON):
+            return []
+        return _control_tab_rows(CANCEL_LOG_TAB, CANCEL_LOG_HEADERS, [])
+    except Exception:
+        return []
+
+
+def cancellation_already_sent(day=None):
+    """The log row for `day` (default today), or None. This is what stops two
+    board members from both flipping the switch and double-emailing everyone."""
+    day = day or datetime.datetime.now(_EASTERN).date()
+    want = day.isoformat()
+    for r in _cancel_log_rows()[1:]:
+        if len(r) > 0 and _clean(r[0]) == want:
+            # Practice runs are recorded but never block the real thing.
+            if len(r) > 8 and _clean(r[8]).upper().startswith("TEST"):
+                continue
+            return {"date": want,
+                    "sent_at": _clean(r[1]) if len(r) > 1 else "",
+                    "sent_by": _clean(r[2]) if len(r) > 2 else "",
+                    "games": _clean(r[3]) if len(r) > 3 else "",
+                    "location": _clean(r[4]) if len(r) > 4 else "",
+                    "reason": _clean(r[5]) if len(r) > 5 else "",
+                    "emailed": _clean(r[6]) if len(r) > 6 else "",
+                    "missed": _clean(r[7]) if len(r) > 7 else "",
+                    "result": _clean(r[8]) if len(r) > 8 else ""}
+    return None
+
+
+def _email_lookup():
+    """{lowercased full name: email} from the master roster. Also indexes a
+    'first initial + last name' form so a "Bob"/"Robert" style mismatch still
+    finds its address when it's unambiguous."""
+    exact, loose, ambiguous = {}, {}, set()
+    for p in player_directory().get("players", []):
+        email = _clean(p.get("email"))
+        name = _clean(p.get("name"))
+        if not (email and name):
+            continue
+        exact.setdefault(name.lower(), email)
+        parts = name.lower().split()
+        if len(parts) >= 2:
+            key = parts[0][0] + " " + parts[-1]
+            if key in loose and loose[key] != email:
+                ambiguous.add(key)     # two J. Smiths — don't guess
+            else:
+                loose[key] = email
+    for key in ambiguous:
+        loose.pop(key, None)
+    return exact, loose
+
+
+def _find_email(name, exact, loose):
+    n = _clean(name).lower()
+    if not n:
+        return ""
+    if n in exact:
+        return exact[n]
+    parts = n.split()
+    if len(parts) >= 2:
+        return loose.get(parts[0][0] + " " + parts[-1], "")
+    return ""
+
+
+def _todays_league_games(day):
+    """Today's rows from the Control Sheet schedule, skipping anything already
+    played or already called off."""
+    out = []
+    for g in league_season().get("schedule", []):
+        d = _parse_game_date(g.get("date"), day)
+        if d != day:
+            continue
+        if _clean(g.get("status")).lower() in ("final", "cancelled", "canceled"):
+            continue
+        out.append(g)
+    return out
+
+
+def _league_people(games):
+    """Everyone rostered on a team playing today: [{name, team, division,
+    is_lead}] where is_lead marks the team's manager."""
+    rosters = league_season().get("rosters", {})
+    people, seen = [], set()
+    for g in games:
+        div = g.get("division") or ""
+        for team_name in (g.get("home"), g.get("away")):
+            team_name = _clean(team_name)
+            if not team_name:
+                continue
+            for team in rosters.get(div, []):
+                if _clean(team.get("team")).lower() != team_name.lower():
+                    continue
+                manager = _clean(team.get("manager")).lower()
+                for pl in team.get("players", []):
+                    nm = _clean(pl.get("name"))
+                    if not nm or nm.lower() in seen:
+                        continue
+                    seen.add(nm.lower())
+                    people.append({"name": nm, "team": team_name,
+                                   "division": div,
+                                   "is_lead": nm.lower() == manager})
+    return people
+
+
+def _pickup_people(day):
+    """Today's assigned pickup players: [{name, team, division, is_lead}],
+    is_lead marking captains. Returns ([], '', None) when today isn't a
+    published pickup day."""
+    try:
+        block = game_day_teams(enforce_date_window=False)
+    except Exception:
+        block = None
+    if not block:
+        return [], "", None
+    try:
+        posted = datetime.datetime.strptime(
+            _clean(block.get("date")), "%A, %B %d, %Y").date()
+    except ValueError:
+        return [], "", None
+    if posted != day:
+        return [], "", None
+
+    people, seen = [], set()
+    for fld in block.get("fields", []):
+        for side in ("home", "visitor"):
+            for pl in fld.get(side, []):
+                nm = _clean(pl.get("name"))
+                if not nm or nm.lower() in seen:
+                    continue
+                seen.add(nm.lower())
+                people.append({"name": nm, "team": fld.get("name", ""),
+                               "division": "", "is_lead": bool(pl.get("captain"))})
+    return people, _clean(block.get("park")), block
+
+
+def todays_cancellation_plan(day=None):
+    """Everything the admin page needs to show before anything is sent:
+
+        {'date', 'date_label', 'kind', 'games', 'location', 'people',
+         'recipients', 'unmatched', 'over_cap', 'cap', 'settings',
+         'already_sent'}
+
+    `recipients` is capped and ordered captains/managers first, so if the cap
+    bites, every team still has someone who knows. `unmatched` and `over_cap`
+    are the people NOT reached — surfaced on purpose so they can be phoned."""
+    day = day or datetime.datetime.now(_EASTERN).date()
+    settings = cancellation_settings()
+
+    league_games = _todays_league_games(day)
+    league = _league_people(league_games)
+    pickup, pickup_park, _block = _pickup_people(day)
+
+    kind = ("BOTH" if (league and pickup)
+            else "LEAGUE" if league
+            else "PICKUP" if pickup
+            else "NONE")
+
+    # Location: the schedule's own Field column for league games, the live
+    # pickup venue otherwise. Several distinct fields are all listed.
+    places = []
+    for g in league_games:
+        f = _clean(g.get("field"))
+        if f and f not in places:
+            places.append(f)
+    if pickup:
+        venue = pickup_park
+        if not venue:
+            try:
+                venue = pickup_game_venue()
+            except Exception:
+                venue = ""
+        if venue and venue not in places:
+            places.append(venue)
+    location = " and ".join(places)
+
+    # De-duplicate a player who is on both a league team and today's pickup.
+    people, seen = [], set()
+    for p in league + pickup:
+        key = p["name"].lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        people.append(p)
+
+    exact, loose = _email_lookup()
+    reachable, unmatched = [], []
+    for p in people:
+        email = _find_email(p["name"], exact, loose)
+        if email:
+            reachable.append(dict(p, email=email))
+        else:
+            unmatched.append(p)
+
+    # Captains and managers first, then everyone else by last name, so the
+    # order is stable and the cap never silences a whole team.
+    reachable.sort(key=lambda p: (not p["is_lead"],
+                                  p["name"].split()[-1].lower(),
+                                  p["name"].lower()))
+
+    cap = settings["cap"]
+    if settings["overflow_url"]:
+        cap = cap * 2            # a second account doubles what we can reach
+    recipients, over_cap = reachable[:cap], reachable[cap:]
+
+    return {
+        "date": day,
+        "date_label": day.strftime("%A, %B %-d, %Y"),
+        "kind": kind,
+        "games": league_games,
+        "location": location,
+        "people": people,
+        "recipients": recipients,
+        "unmatched": unmatched,
+        "over_cap": over_cap,
+        "cap": cap,
+        "settings": settings,
+        "already_sent": cancellation_already_sent(day),
+    }
+
+
+def _cancellation_message(plan, reason, location):
+    """The subject and body players receive. Plain, direct, and readable on a
+    phone at 7am — the first line says the only thing that matters."""
+    what = {"LEAGUE": "league games", "PICKUP": "pickup games",
+            "BOTH": "league and pickup games"}.get(plan["kind"], "games")
+    where = " at " + location if location else ""
+    subject = "CANCELLED — today's JSSA %s (%s)" % (
+        what, plan["date"].strftime("%a, %b %-d"))
+
+    lines = [
+        "TODAY'S GAMES ARE CANCELLED.",
+        "",
+        "The JSSA %s scheduled for %s%s will not be played."
+        % (what, plan["date_label"], where),
+        "",
+        "Please do not travel to the field.",
+    ]
+    if _clean(reason):
+        lines += ["", "Reason: " + _clean(reason)]
+    if plan["games"]:
+        lines += ["", "Cancelled games:"]
+        for g in plan["games"]:
+            bits = [b for b in (_clean(g.get("time")),
+                                _clean(g.get("division")),
+                                "%s vs %s" % (_clean(g.get("home")),
+                                              _clean(g.get("away"))),
+                                _clean(g.get("field"))) if b]
+            lines.append("  - " + " · ".join(bits))
+    lines += [
+        "",
+        "This notice is also posted on the website: https://jupiterseniorsoftball.com",
+        "",
+        "Jupiter Senior Softball Association",
+    ]
+    return subject, "\n".join(lines)
+
+
+def _post_to_sender(url, subject, body, recipients, test_to=""):
+    """Hand one batch to a league account's sender script. Returns a result
+    dict — never raises, so a mail problem can't stop the banner going up."""
+    import urllib.request
+    payload = json.dumps({
+        "subject": subject, "body": body,
+        "recipients": recipients, "test_to": test_to,
+    }).encode("utf-8")
+    try:
+        req = urllib.request.Request(
+            url, data=payload,
+            headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=60) as r:
+            data = json.loads(r.read().decode("utf-8"))
+        if not isinstance(data, dict):
+            return {"ok": False, "sent": 0, "error": "unexpected reply"}
+        data.setdefault("sent", 0)
+        return data
+    except Exception as e:
+        return {"ok": False, "sent": 0, "error": str(e)}
+
+
+def _mark_league_games_cancelled(day):
+    """Stamp 'Cancelled' on today's games in the schedule so the public
+    schedule page shows it too. Best effort — never blocks the notice."""
+    try:
+        if not (CONTROL_SHEET_ID and _SA_JSON):
+            return 0
+        rows = [g for g in schedule_games_for_scoring()
+                if _parse_game_date(g.get("date"), day) == day
+                and _clean(g.get("status")).lower() not in
+                    ("final", "cancelled", "canceled")]
+        marked = 0
+        for g in rows:
+            if set_game_score(g["row"], g.get("score_home", ""),
+                              g.get("score_away", ""), status="Cancelled"):
+                marked += 1
+        return marked
+    except Exception:
+        return 0
+
+
+def _log_cancellation(plan, reason, location, sent_by, emailed, missed, result):
+    try:
+        if not (CONTROL_SHEET_ID and _SA_JSON):
+            return
+        _control_tab_rows(CANCEL_LOG_TAB, CANCEL_LOG_HEADERS, [])
+        ws = _control_sheet(readonly=False).worksheet(CANCEL_LOG_TAB)
+        ws.append_row([
+            plan["date"].isoformat(),
+            datetime.datetime.now(_EASTERN).strftime("%-I:%M %p"),
+            sent_by or "Admin",
+            plan["kind"],
+            location,
+            reason,
+            str(emailed),
+            ", ".join(missed) if missed else "",
+            result,
+        ], value_input_option="USER_ENTERED")
+    except Exception:
+        pass
+
+
+def send_cancellation(reason, location, sent_by, plan=None, banner_only=False):
+    """Call off today's games. Posts the website banner, emails today's
+    scheduled players, marks the league games cancelled, and logs it.
+
+    Returns a summary dict: {'ok', 'emailed', 'missed', 'banner', 'note'}.
+    The banner is posted FIRST and independently of email — if mail fails, the
+    website still tells people, which is the outcome that matters most."""
+    plan = plan or todays_cancellation_plan()
+    settings = plan["settings"]
+    reason = _clean(reason)
+    location = _clean(location) or plan["location"]
+
+    already = cancellation_already_sent(plan["date"])
+    if already:
+        return {"ok": False, "emailed": 0, "missed": [], "banner": False,
+                "note": "Already sent today at %s by %s — nothing was sent "
+                        "again." % (already["sent_at"] or "earlier",
+                                    already["sent_by"] or "a board member")}
+
+    subject, body = _cancellation_message(plan, reason, location)
+
+    # 1. The website banner — always, first.
+    banner_ok = False
+    where = " at " + location if location else ""
+    headline = "CANCELLED — no games today, %s%s." % (
+        plan["date"].strftime("%A"), where)
+    if reason:
+        headline += " " + reason
+        if not headline.endswith((".", "!", "?")):
+            headline += "."
+    try:
+        add_notice("weather", headline, sent_by or "Admin")
+        banner_ok = True
+    except Exception:
+        pass
+
+    # 2. The emails.
+    emailed, notes = 0, []
+    addresses = [p["email"] for p in plan["recipients"]]
+    if banner_only:
+        notes.append("Banner only — no email was sent.")
+    elif not settings["emails_enabled"]:
+        notes.append('Emails are switched off in the "Cancellation Settings" tab.')
+    elif not settings["sender_url"]:
+        notes.append('No sender address is set up yet, so no email went out. '
+                     'Add one to the "Cancellation Settings" tab.')
+    elif not addresses:
+        notes.append("Nobody was scheduled today, so there was no one to email.")
+    else:
+        test_to = settings["test_address"] if settings["test_mode"] else ""
+        cap = settings["cap"]
+        first, overflow = addresses[:cap], addresses[cap:]
+
+        res = _post_to_sender(settings["sender_url"], subject, body,
+                              first, test_to)
+        emailed += int(res.get("sent") or 0)
+        if not res.get("ok"):
+            notes.append("Email problem: %s" % res.get("error", "unknown"))
+
+        if overflow and settings["overflow_url"]:
+            res2 = _post_to_sender(settings["overflow_url"], subject, body,
+                                   overflow, test_to)
+            emailed += int(res2.get("sent") or 0)
+            if not res2.get("ok"):
+                notes.append("Second account problem: %s"
+                             % res2.get("error", "unknown"))
+        if settings["test_mode"]:
+            notes.append("TEST MODE — everything went to %s, not to players."
+                         % (settings["test_address"] or "the test address"))
+
+    # 3. Mark the league games cancelled on the schedule. Skipped on a practice
+    #    run — a test must never touch the real schedule.
+    if plan["games"] and not settings["test_mode"]:
+        marked = _mark_league_games_cancelled(plan["date"])
+        if marked:
+            notes.append("%d game%s marked cancelled on the schedule."
+                         % (marked, "" if marked == 1 else "s"))
+
+    missed = [p["name"] for p in plan["unmatched"]] + \
+             [p["name"] for p in plan["over_cap"]]
+
+    result = "Banner posted" if banner_ok else "BANNER FAILED"
+    result += " · %d emailed" % emailed
+    if settings["test_mode"]:
+        result = "TEST RUN — " + result
+    if missed:
+        result += " · %d not reached" % len(missed)
+
+    _log_cancellation(plan, reason, location, sent_by, emailed, missed, result)
+    _invalidate()
+    return {"ok": banner_ok, "emailed": emailed, "missed": missed,
+            "banner": banner_ok, "note": " ".join(notes)}
+
+
+def cancellation_preview(plan=None):
+    """The exact banner headline and email that WOULD go out, with the reason
+    and location left as markers the page fills in live as they're typed. Built
+    by the same code that does the real send, so the preview can never drift
+    from what actually gets sent."""
+    plan = plan or todays_cancellation_plan()
+    subject, body = _cancellation_message(plan, "__REASON__", "__LOCATION__")
+    where = " at __LOCATION__"
+    headline = "CANCELLED — no games today, %s%s. __REASON__" % (
+        plan["date"].strftime("%A"), where)
+    return {"subject": subject, "body": body, "headline": headline}
