@@ -21,3 +21,4 @@ What they cover:
 | `test_cancellation_logging.py` | Every reason an email didn't go out writes a different, readable line to the log |
 | `test_sender_url.py` | A wrong sender address is caught before the button is pressed, and a 405 explains itself |
 | `test_roster_button.py` | The "rosters are posted" button hides under a cancellation banner |
+| `test_rehearsal.py` | A practice run reports the real headcount and warns when the quota wouldn't cover it |
