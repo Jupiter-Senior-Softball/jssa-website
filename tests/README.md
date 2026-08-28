@@ -18,3 +18,6 @@ What they cover:
 | `test_cancellation_page.py` | The `/admin/cancel` page: sign-in required, correct counts, and that nothing sends unless CANCEL is typed |
 | `test_cancellation_practice.py` | Practice mode: email goes to one address, banner is real, schedule untouched, practising never blocks the real send |
 | `test_cancellation_preview.py` | The on-page preview matches the real email exactly, and reads correctly before anything is typed |
+| `test_cancellation_logging.py` | Every reason an email didn't go out writes a different, readable line to the log |
+| `test_sender_url.py` | A wrong sender address is caught before the button is pressed, and a 405 explains itself |
+| `test_roster_button.py` | The "rosters are posted" button hides under a cancellation banner |

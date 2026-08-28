@@ -96,6 +96,16 @@
     </div>
   {% endif %}
 
+  {% if plan.settings.url_problem %}
+    <div class="stop">
+      <strong>&#9888; The sender address looks wrong — email will not go out.</strong>
+      <p style="margin-top:8px">{{ plan.settings.url_problem }}</p>
+      <p style="margin-top:8px">Fix the <strong>Sender URL</strong> row in the control sheet&rsquo;s
+        &ldquo;Cancellation Settings&rdquo; tab. The banner will still post if you press the button, but nobody
+        will be emailed.</p>
+    </div>
+  {% endif %}
+
   {% if plan.settings.test_mode %}
     <div class="warn">
       <strong>&#9203; Practice mode is ON.</strong> Here is exactly what will happen if you press the button:
