@@ -41,6 +41,12 @@ var SECRET = 'PUT_A_LONG_RANDOM_PHRASE_HERE';
 // A backstop against a mistake somewhere else emailing the whole league.
 var MAX_PER_CALL = 150;
 
+// Gmail refuses a message addressed to more than 50 people (a separate limit
+// from the ~100-a-day one) and answers "Limit Exceeded: Email Recipients Per
+// Message". So a big roster goes out as several messages of this size. 45
+// leaves room for the copy the account sends itself.
+var BATCH_SIZE = 45;
+
 
 // Run this ONCE from the editor to grant permission. Harmless to leave here.
 function authorizeNow() {
@@ -97,20 +103,24 @@ function doPost(e) {
     // Only the recipient list is swapped for the single test address.
     if (testTo) {
       var warning = '';
-      if (remaining < realCount) {
+      if (remaining < realCount + Math.ceil(realCount / BATCH_SIZE)) {
         warning = 'The REAL send would be blocked right now: it needs ' +
-                  realCount + ' sends but only ' + remaining +
+                  (realCount + Math.ceil(realCount / BATCH_SIZE)) +
+                  ' sends but only ' + remaining +
                   ' are left today on ' + Session.getEffectiveUser().getEmail() +
                   '. Set up the backup account, or wait until tomorrow.';
       }
 
+      var testBatches = Math.ceil(realCount / BATCH_SIZE);
       MailApp.sendEmail({
         to: Session.getEffectiveUser().getEmail(),
         bcc: testTo,
         subject: '[TEST] ' + subject,
         body: 'TEST — this is exactly the message that would go by BCC to ' +
               realCount + ' player' + (realCount === 1 ? '' : 's') +
-              ', from this account.\n' +
+              ', from this account, in ' + testBatches + ' message' +
+              (testBatches === 1 ? '' : 's') + ' of up to ' + BATCH_SIZE +
+              ' (Gmail refuses more than 50 on one message).\n' +
               (warning ? '\n*** ' + warning + ' ***\n' : '') +
               '\n----------------------------------------\n\n' + text
       });
@@ -118,31 +128,53 @@ function doPost(e) {
       return _json({
         ok: true, sent: 0, test: true,
         would_send: realCount,
+        batches: testBatches,
         remaining: remaining,
         warning: warning
       });
     }
 
-    if (remaining < realCount) {
+    // Each message also costs one recipient for the copy sent to this account.
+    var batches = Math.ceil(realCount / BATCH_SIZE);
+    if (remaining < realCount + batches) {
       return _json({
         ok: false, sent: 0, remaining: remaining,
-        error: 'daily email limit too low — needed ' + realCount +
+        error: 'daily email limit too low — needed ' + (realCount + batches) +
                ', only ' + remaining + ' left on this account'
       });
     }
 
-    // One BCC message: nobody sees anyone else's address, and it counts as a
-    // single send against the account's message count.
-    MailApp.sendEmail({
-      to: Session.getEffectiveUser().getEmail(),
-      bcc: to.join(','),
-      subject: subject,
-      body: text
-    });
+    // BCC, so nobody sees anyone else's address, in batches of BATCH_SIZE so
+    // no single message trips Gmail's recipients-per-message limit. A batch
+    // that fails does not stop the rest: better that most people hear than
+    // nobody does, and the ones missed are reported back by name.
+    var sent = 0;
+    var missed = [];
+    var firstError = '';
+
+    for (var start = 0; start < to.length; start += BATCH_SIZE) {
+      var batch = to.slice(start, start + BATCH_SIZE);
+      try {
+        MailApp.sendEmail({
+          to: Session.getEffectiveUser().getEmail(),
+          bcc: batch.join(','),
+          subject: subject,
+          body: text
+        });
+        sent += batch.length;
+      } catch (err) {
+        missed = missed.concat(batch);
+        if (!firstError) firstError = String(err);
+      }
+      Utilities.sleep(200);
+    }
 
     return _json({
-      ok: true,
-      sent: realCount,
+      ok: sent > 0 && missed.length === 0,
+      sent: sent,
+      missed: missed,
+      batches: batches,
+      error: firstError,
       remaining: MailApp.getRemainingDailyQuota()
     });
 

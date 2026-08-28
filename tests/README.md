@@ -6,6 +6,9 @@ Plain Python scripts — no test framework needed. They feed fake sheet data to
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 for t in tests/test_*.py; do .venv/bin/python "$t" || break; done
+
+# The Apps Script sender, run under Node with a fake MailApp:
+node tests/sender/test_sender_script.js
 ```
 
 What they cover:
@@ -22,3 +25,5 @@ What they cover:
 | `test_sender_url.py` | A wrong sender address is caught before the button is pressed, and a 405 explains itself |
 | `test_roster_button.py` | The "rosters are posted" button hides under a cancellation banner |
 | `test_rehearsal.py` | A practice run reports the real headcount and warns when the quota wouldn't cover it |
+| `test_partial_send.py` | A failed send names everyone missed and does not lock out the day; a successful one still does |
+| `sender/test_sender_script.js` | The Apps Script itself: batching under Gmail's 50-per-message limit, partial failure, quota refusal |
