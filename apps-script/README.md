@@ -166,6 +166,7 @@ In practice mode:
 | | What happens |
 |---|---|
 | **The email** | Goes **only to you**. Not one scheduled player is emailed. |
+| **The route** | The **same one the real send uses** — same quota check, same BCC — so a green practice run genuinely proves the real send, not a lookalike. The email tells you how many players it would have reached, and warns you if today's remaining quota wouldn't cover them. |
 | **The website banner** | Goes up **for real**, exactly as visitors see it — that's the point, so you can check how it looks. Switch it off on the admin panel when you're done. |
 | **The schedule** | **Not touched.** No game is marked cancelled during a practice run. |
 | **Doing it again** | Allowed, as often as you like. A practice run never blocks the real one. |
@@ -195,6 +196,13 @@ count, type the reason, type `CANCEL`, and press the button.
 Every cancellation is recorded on the **"Cancellation Log"** tab of the control
 sheet: date, time, who sent it, the reason, how many were emailed, and the names
 of anyone not reached.
+
+## Updating the script later
+
+If you ever change `game-cancellation-sender.gs`, pasting the new code and
+saving is **not** enough — the deployed web app keeps running the old version.
+You must also do **Deploy → Manage deployments → ✏️ (pencil) → Version: New
+version → Deploy**. The URL stays the same, so nothing in the sheet changes.
 
 ## Undoing it
 The emails can't be unsent. Everything else is reversible:

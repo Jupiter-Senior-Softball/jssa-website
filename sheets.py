@@ -3963,6 +3963,18 @@ def send_cancellation(reason, location, sent_by, plan=None, banner_only=False):
         if settings["test_mode"]:
             notes.append("TEST MODE — everything went to %s, not to players."
                          % (settings["test_address"] or "the test address"))
+            # A practice run takes the same route as the real send, so it can
+            # report what the real send WOULD do — including whether today's
+            # remaining quota is enough to cover everyone.
+            would = res.get("would_send")
+            if would:
+                notes.append("Rehearsed the real route for %d player%s."
+                             % (int(would), "" if int(would) == 1 else "s"))
+            if res.get("warning"):
+                notes.append("\u26a0 " + str(res["warning"]))
+            elif res.get("remaining") is not None and would:
+                notes.append("%s sends left today — enough for all %d."
+                             % (res["remaining"], int(would)))
 
     # 3. Mark the league games cancelled on the schedule. Skipped on a practice
     #    run — a test must never touch the real schedule.

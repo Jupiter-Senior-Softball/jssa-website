@@ -80,26 +80,53 @@ function doPost(e) {
       to = to.slice(0, MAX_PER_CALL);
     }
 
-    // Test mode: everything goes to one address instead of the players.
-    if (testTo) {
-      MailApp.sendEmail({
-        to: testTo,
-        subject: '[TEST] ' + subject,
-        body: 'TEST — this would have gone to ' + to.length + ' players.\n\n' + text
-      });
-      return _json({ ok: true, sent: 0, test: true, would_send: to.length });
-    }
+    // How many real players this message is for. Kept even in test mode, so a
+    // practice run can report what the real send would do.
+    var realCount = to.length;
 
-    if (!to.length) {
+    if (!realCount) {
       return _json({ ok: true, sent: 0, error: 'no valid addresses' });
     }
 
     // Gmail counts PEOPLE, not messages, so check before starting.
     var remaining = MailApp.getRemainingDailyQuota();
-    if (remaining < to.length) {
+
+    // TEST MODE. Deliberately takes the SAME route as the real send below -
+    // same quota check, same BCC assembly, same call - so a practice run is a
+    // true rehearsal rather than a different code path that happens to work.
+    // Only the recipient list is swapped for the single test address.
+    if (testTo) {
+      var warning = '';
+      if (remaining < realCount) {
+        warning = 'The REAL send would be blocked right now: it needs ' +
+                  realCount + ' sends but only ' + remaining +
+                  ' are left today on ' + Session.getEffectiveUser().getEmail() +
+                  '. Set up the backup account, or wait until tomorrow.';
+      }
+
+      MailApp.sendEmail({
+        to: Session.getEffectiveUser().getEmail(),
+        bcc: testTo,
+        subject: '[TEST] ' + subject,
+        body: 'TEST — this is exactly the message that would go by BCC to ' +
+              realCount + ' player' + (realCount === 1 ? '' : 's') +
+              ', from this account.\n' +
+              (warning ? '\n*** ' + warning + ' ***\n' : '') +
+              '\n----------------------------------------\n\n' + text
+      });
+
+      return _json({
+        ok: true, sent: 0, test: true,
+        would_send: realCount,
+        remaining: remaining,
+        warning: warning
+      });
+    }
+
+    if (remaining < realCount) {
       return _json({
         ok: false, sent: 0, remaining: remaining,
-        error: 'daily email limit too low — needed ' + to.length +
+        error: 'daily email limit too low — needed ' + realCount +
                ', only ' + remaining + ' left on this account'
       });
     }
@@ -115,7 +142,7 @@ function doPost(e) {
 
     return _json({
       ok: true,
-      sent: to.length,
+      sent: realCount,
       remaining: MailApp.getRemainingDailyQuota()
     });
 
