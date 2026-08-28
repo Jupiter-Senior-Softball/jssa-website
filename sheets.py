@@ -3579,6 +3579,15 @@ def cancellation_already_sent(day=None):
             # Practice runs are recorded but never block the real thing.
             if len(r) > 8 and _clean(r[8]).upper().startswith("TEST"):
                 continue
+            # Neither does a run that reached nobody. This guard exists to stop
+            # players being emailed twice — if not one email got out, there is
+            # nothing to protect and blocking a retry only strands the board
+            # with a failure they have since fixed.
+            try:
+                if int(float(_clean(r[6]) or 0)) <= 0:
+                    continue
+            except (ValueError, TypeError, IndexError):
+                pass
             return {"date": want,
                     "sent_at": _clean(r[1]) if len(r) > 1 else "",
                     "sent_by": _clean(r[2]) if len(r) > 2 else "",
@@ -3931,6 +3940,7 @@ def send_cancellation(reason, location, sent_by, plan=None, banner_only=False):
     # 2. The emails.
     emailed, notes = 0, []
     attempted = False        # did we actually reach the sender script?
+    send_failures = []       # addresses a failed batch never reached
     addresses = [p["email"] for p in plan["recipients"]]
     if banner_only:
         notes.append("Banner only — no email was sent.")
@@ -3952,6 +3962,10 @@ def send_cancellation(reason, location, sent_by, plan=None, banner_only=False):
         emailed += int(res.get("sent") or 0)
         if not res.get("ok"):
             notes.append("Email problem: %s" % res.get("error", "unknown"))
+        # A big roster goes out in several messages. If one of them fails the
+        # others still go, so the people it left out have to be named — an
+        # unreported gap here is somebody driving to a cancelled game.
+        send_failures.extend(res.get("missed") or [])
 
         if overflow and settings["overflow_url"]:
             res2 = _post_to_sender(settings["overflow_url"], subject, body,
@@ -3960,6 +3974,19 @@ def send_cancellation(reason, location, sent_by, plan=None, banner_only=False):
             if not res2.get("ok"):
                 notes.append("Second account problem: %s"
                              % res2.get("error", "unknown"))
+            send_failures.extend(res2.get("missed") or [])
+
+        # When the sender says WHICH addresses it missed, that list is exact and
+        # is used as-is above. Only when it cannot say — a transport error, so
+        # nothing came back at all — do we fall back to assuming the batch got
+        # through to nobody. Guessing beyond that would bury the real names in
+        # a list of people who were in fact emailed.
+        if not test_to and res.get("missed") is None and not res.get("ok"):
+            if not int(res.get("sent") or 0):
+                send_failures.extend(first)
+            else:
+                notes.append("Some of this batch may not have gone through — "
+                             "check the sending account's Sent mail.")
         if settings["test_mode"]:
             notes.append("TEST MODE — everything went to %s, not to players."
                          % (settings["test_address"] or "the test address"))
@@ -3984,8 +4011,12 @@ def send_cancellation(reason, location, sent_by, plan=None, banner_only=False):
             notes.append("%d game%s marked cancelled on the schedule."
                          % (marked, "" if marked == 1 else "s"))
 
+    # Everyone who will NOT have heard: no address on file, past the cap, or
+    # in a batch that failed. Named, so somebody can phone them.
+    by_email = {p["email"].lower(): p["name"] for p in plan["recipients"]}
     missed = [p["name"] for p in plan["unmatched"]] + \
-             [p["name"] for p in plan["over_cap"]]
+             [p["name"] for p in plan["over_cap"]] + \
+             [by_email.get(str(a).lower(), str(a)) for a in send_failures]
 
     result = "Banner posted" if banner_ok else "BANNER FAILED"
     result += " · %d emailed" % emailed

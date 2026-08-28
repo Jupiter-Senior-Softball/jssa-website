@@ -111,8 +111,15 @@ website never holds a mail password.**
 | `jssagames@gmail.com` | **Main sender** — the first 100 people |
 | `jssaadmin@gmail.com` | **Backup** — anyone past the first 100 |
 
-Gmail stops a free account at about **100 recipients a day**, so a busy winter
-day with 130 league players needs the backup. With both installed the button
+Gmail enforces **two separate limits** on a free account, and both matter:
+
+- **~100 recipients a day** — the total across everything the account sends
+- **50 recipients on any one message** — so the roster goes out as several
+  BCC messages of 45 rather than one big one. The script handles this itself;
+  if one message fails the others still go, and anyone missed is named back
+  to you on screen.
+
+A busy winter day with 130 league players needs the backup account. With both installed the button
 reaches 200. Anyone still past that is **named on screen** after sending so a
 captain can phone them — nobody is dropped silently.
 
