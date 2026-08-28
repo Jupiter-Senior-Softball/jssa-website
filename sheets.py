@@ -3576,6 +3576,9 @@ def cancellation_already_sent(day=None):
     want = day.isoformat()
     for r in _cancel_log_rows()[1:]:
         if len(r) > 0 and _clean(r[0]) == want:
+            # Practice runs are recorded but never block the real thing.
+            if len(r) > 8 and _clean(r[8]).upper().startswith("TEST"):
+                continue
             return {"date": want,
                     "sent_at": _clean(r[1]) if len(r) > 1 else "",
                     "sent_by": _clean(r[2]) if len(r) > 2 else "",
@@ -3949,8 +3952,9 @@ def send_cancellation(reason, location, sent_by, plan=None, banner_only=False):
             notes.append("TEST MODE — everything went to %s, not to players."
                          % (settings["test_address"] or "the test address"))
 
-    # 3. Mark the league games cancelled on the schedule.
-    if plan["games"]:
+    # 3. Mark the league games cancelled on the schedule. Skipped on a practice
+    #    run — a test must never touch the real schedule.
+    if plan["games"] and not settings["test_mode"]:
         marked = _mark_league_games_cancelled(plan["date"])
         if marked:
             notes.append("%d game%s marked cancelled on the schedule."
@@ -3961,6 +3965,8 @@ def send_cancellation(reason, location, sent_by, plan=None, banner_only=False):
 
     result = "Banner posted" if banner_ok else "BANNER FAILED"
     result += " · %d emailed" % emailed
+    if settings["test_mode"]:
+        result = "TEST RUN — " + result
     if missed:
         result += " · %d not reached" % len(missed)
 
@@ -3968,3 +3974,16 @@ def send_cancellation(reason, location, sent_by, plan=None, banner_only=False):
     _invalidate()
     return {"ok": banner_ok, "emailed": emailed, "missed": missed,
             "banner": banner_ok, "note": " ".join(notes)}
+
+
+def cancellation_preview(plan=None):
+    """The exact banner headline and email that WOULD go out, with the reason
+    and location left as markers the page fills in live as they're typed. Built
+    by the same code that does the real send, so the preview can never drift
+    from what actually gets sent."""
+    plan = plan or todays_cancellation_plan()
+    subject, body = _cancellation_message(plan, "__REASON__", "__LOCATION__")
+    where = " at __LOCATION__"
+    headline = "CANCELLED — no games today, %s%s. __REASON__" % (
+        plan["date"].strftime("%A"), where)
+    return {"subject": subject, "body": body, "headline": headline}

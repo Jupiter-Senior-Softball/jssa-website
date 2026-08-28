@@ -885,9 +885,13 @@ def admin_cancel():
         plan = sheets.todays_cancellation_plan()
     except Exception as e:
         return render_template("admin/cancel.html", plan=None, error=str(e),
-                               page_title="Cancel Today's Games")
+                               preview=None, page_title="Cancel Today's Games")
+    try:
+        preview = sheets.cancellation_preview(plan)
+    except Exception:
+        preview = None
     return render_template("admin/cancel.html", plan=plan, error=None,
-                           page_title="Cancel Today's Games")
+                           preview=preview, page_title="Cancel Today's Games")
 
 
 @app.route("/admin/cancel/send", methods=["POST"])

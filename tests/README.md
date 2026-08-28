@@ -16,3 +16,5 @@ What they cover:
 | `test_cancellation_pickup.py` | Pickup game day, and that yesterday's roster is never mistaken for today's |
 | `test_cancellation_send.py` | The 100-then-backup split, the website banner, and the no-sending-twice guard |
 | `test_cancellation_page.py` | The `/admin/cancel` page: sign-in required, correct counts, and that nothing sends unless CANCEL is typed |
+| `test_cancellation_practice.py` | Practice mode: email goes to one address, banner is real, schedule untouched, practising never blocks the real send |
+| `test_cancellation_preview.py` | The on-page preview matches the real email exactly, and reads correctly before anything is typed |

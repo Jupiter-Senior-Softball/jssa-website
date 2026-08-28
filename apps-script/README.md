@@ -146,11 +146,26 @@ time the page is opened, pre-filled:
 | **Test mode** | `Yes` while testing, then `No` |
 | **Test address** | your own email, for testing |
 
-### 3. Try it safely
-Set **Test mode** to `Yes` and put your own address in **Test address**. Open
-**Admin → Cancel Today's Games**. The page shows exactly who *would* be emailed
-before anything happens. Send it: the notice goes on the website for real, but
-every email comes only to you. When you're happy, set Test mode back to `No`.
+### 3. Try it safely — the practice run
+
+Set **Test mode** to `Yes` and put your own address in **Test address**. Then
+open **Admin → Cancel Today's Games** and press the button.
+
+In practice mode:
+
+| | What happens |
+|---|---|
+| **The email** | Goes **only to you**. Not one scheduled player is emailed. |
+| **The website banner** | Goes up **for real**, exactly as visitors see it — that's the point, so you can check how it looks. Switch it off on the admin panel when you're done. |
+| **The schedule** | **Not touched.** No game is marked cancelled during a practice run. |
+| **Doing it again** | Allowed, as often as you like. A practice run never blocks the real one. |
+
+You don't have to send anything to see how it reads: the page has a **live
+preview** showing the banner and the full email, updating as you type. It's
+built by the same code that does the real send, so it can't differ from what
+actually goes out.
+
+When you're happy, set **Test mode** back to `No`.
 
 ## Day-to-day
 
