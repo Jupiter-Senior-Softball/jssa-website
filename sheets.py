@@ -3766,6 +3766,9 @@ def todays_cancellation_plan(day=None):
         cap = cap * 2            # a second account doubles what we can reach
     recipients, over_cap = reachable[:cap], reachable[cap:]
 
+    settings = dict(settings,
+                    url_problem=sender_url_problem(settings["sender_url"]))
+
     return {
         "date": day,
         "date_label": day.strftime("%A, %B %-d, %Y"),
@@ -3838,7 +3841,14 @@ def _post_to_sender(url, subject, body, recipients, test_to=""):
         data.setdefault("sent", 0)
         return data
     except Exception as e:
-        return {"ok": False, "sent": 0, "error": str(e)}
+        msg = str(e)
+        hint = sender_url_problem(url)
+        if not hint and "405" in msg:
+            hint = ("The address answered but refused to accept a message — "
+                    "it is almost always the wrong address. Use the Web app "
+                    "URL ending in /exec from Deploy \u2192 Manage deployments.")
+        return {"ok": False, "sent": 0,
+                "error": msg + ((" — " + hint) if hint else "")}
 
 
 def _mark_league_games_cancelled(day):
@@ -4008,3 +4018,39 @@ def notice_is_cancellation(notice):
     if not notice:
         return False
     return "cancel" in str(notice.get("message") or "").lower()
+
+
+def sender_url_problem(url):
+    """A plain-English problem with a sender URL, or "" if it looks usable.
+
+    By far the commonest mistake is pasting the address the BROWSER ends up on
+    after testing the script — a script.googleusercontent.com "/macros/echo"
+    address. That one answers a read just fine (which is why the browser test
+    passes) but refuses a message with "405 Method Not Allowed", so email
+    silently never goes out. Worth catching before the button is pressed
+    rather than after."""
+    u = str(url or "").strip()
+    if not u:
+        return ""
+    low = u.lower()
+    path = low.split("?", 1)[0]
+    if "googleusercontent.com" in low or "/macros/echo" in path:
+        return ('That is the address your browser landed on after you tested '
+                'the script — not the script\'s own address. In the script, '
+                'choose Deploy \u2192 Manage deployments and copy the Web app '
+                'URL that ends in /exec.')
+    if not low.startswith("https://"):
+        return "The address should start with https://"
+    if "script.google.com/macros/" not in low:
+        return ('That does not look like an Apps Script address. It should '
+                'look like https://script.google.com/macros/s/..../exec')
+    if path.endswith("/dev"):
+        return ('That is the script\'s private test address (it ends in /dev) '
+                'and only works while you are signed in. Use the deployed '
+                'address ending in /exec.')
+    if not path.endswith("/exec"):
+        return "The address should end in /exec, before the ?key= part."
+    if "key=" not in low:
+        return ('The address is missing the ?key=... part with your secret '
+                'phrase on the end.')
+    return ""

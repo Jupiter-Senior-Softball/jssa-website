@@ -132,6 +132,16 @@ https://script.google.com/macros/s/BBBB.../exec?key=YOUR_SECRET     <- jssaadmin
 To check one is working, paste its URL into a browser. A healthy script replies
 with its account name and how many sends it has left today.
 
+> ⚠️ **Copy the address from the Deploy screen, not from the browser bar.**
+> When you test the URL, the browser bounces you to a long
+> `script.googleusercontent.com/macros/echo?user_content_key=...` address. That
+> is the *answer*, not the script. Pasting it into the settings tab looks fine
+> — it even passes the browser test — but the website gets
+> **"405 Method Not Allowed"** and no email ever goes out.
+>
+> The address you want ends in **`/exec`**. If you lose it: in the script,
+> **Deploy → Manage deployments** shows the Web app URL.
+
 ### 2. Tell the website about them (Google Sheet — no Render needed)
 Open the **control sheet** ("JSSA website control sheet_live") and find the
 **"Cancellation Settings"** tab. The website creates it automatically the first
