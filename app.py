@@ -874,6 +874,48 @@ def admin_email_usage_json():
     return jsonify({"ok": True, "configured": True, "accounts": accounts})
 
 
+# ----------------------------------------------------------------------------
+# Cancel today's games — the board's one-switch weather call
+# ----------------------------------------------------------------------------
+@app.route("/admin/cancel")
+@login_required
+def admin_cancel():
+    """Show who would be notified BEFORE anything is sent. Nothing here sends."""
+    try:
+        plan = sheets.todays_cancellation_plan()
+    except Exception as e:
+        return render_template("admin/cancel.html", plan=None, error=str(e),
+                               page_title="Cancel Today's Games")
+    return render_template("admin/cancel.html", plan=plan, error=None,
+                           page_title="Cancel Today's Games")
+
+
+@app.route("/admin/cancel/send", methods=["POST"])
+@login_required
+def admin_cancel_send():
+    # Typing CANCEL is the deliberate step — no one calls off a game by
+    # brushing a button on their phone.
+    if (request.form.get("confirm") or "").strip().upper() != "CANCEL":
+        return redirect(url_for("admin_cancel", err="confirm"))
+    reason = (request.form.get("reason") or "").strip()
+    location = (request.form.get("location") or "").strip()
+    sent_by = (request.form.get("sent_by") or "").strip()
+    banner_only = request.form.get("banner_only") == "1"
+    try:
+        result = sheets.send_cancellation(reason, location, sent_by,
+                                          banner_only=banner_only)
+    except Exception as e:
+        result = {"ok": False, "emailed": 0, "missed": [], "banner": False,
+                  "note": "Something went wrong: %s" % e}
+    session["cancel_result"] = {
+        "ok": bool(result.get("ok")),
+        "emailed": int(result.get("emailed") or 0),
+        "missed": list(result.get("missed") or [])[:60],
+        "note": str(result.get("note") or ""),
+    }
+    return redirect(url_for("admin_cancel", sent="1"))
+
+
 @app.route("/admin/notices/add", methods=["POST"])
 @login_required
 def admin_add():

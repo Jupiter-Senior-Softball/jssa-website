@@ -90,3 +90,91 @@ gets its own row per day.
   "sends left today" number uses recipients, since that's what Gmail limits.
 - To change the daily limit, edit `DAILY_LIMIT` at the top of the script in each
   account.
+
+---
+
+# Cancel Today's Games — setup (one-time)
+
+This powers the **Cancel Today's Games** button in the admin panel. One switch
+posts the website notice, emails everyone who was scheduled to play today, marks
+the games cancelled on the schedule, and writes a log row.
+
+The website works out *who* to email. The sending is done by a small script
+inside a league Gmail account — [`game-cancellation-sender.gs`](./game-cancellation-sender.gs) —
+because only code running in an account can send mail as that account. **The
+website never holds a mail password.**
+
+## Accounts
+
+| Account | Role |
+|---|---|
+| `jssagames@gmail.com` | **Main sender** — the first 100 people |
+| `jssaadmin@gmail.com` | **Backup** — anyone past the first 100 |
+
+Gmail stops a free account at about **100 recipients a day**, so a busy winter
+day with 130 league players needs the backup. With both installed the button
+reaches 200. Anyone still past that is **named on screen** after sending so a
+captain can phone them — nobody is dropped silently.
+
+## Steps
+
+### 1. Install the script in both accounts
+Follow the instructions at the top of
+[`game-cancellation-sender.gs`](./game-cancellation-sender.gs). Do it once
+signed in as `jssagames@`, then again as `jssaadmin@`. Use the **same secret
+phrase** both times. You'll end up with two URLs like:
+
+```
+https://script.google.com/macros/s/AAAA.../exec?key=YOUR_SECRET     <- jssagames@
+https://script.google.com/macros/s/BBBB.../exec?key=YOUR_SECRET     <- jssaadmin@
+```
+
+To check one is working, paste its URL into a browser. A healthy script replies
+with its account name and how many sends it has left today.
+
+### 2. Tell the website about them (Google Sheet — no Render needed)
+Open the **control sheet** ("JSSA website control sheet_live") and find the
+**"Cancellation Settings"** tab. The website creates it automatically the first
+time the page is opened, pre-filled:
+
+| Setting | What to put |
+|---|---|
+| **Sender URL** | the `jssagames@` URL |
+| **Overflow sender URL** | the `jssaadmin@` URL |
+| **Emails enabled** | `Yes` |
+| **Email cap** | `100` |
+| **Test mode** | `Yes` while testing, then `No` |
+| **Test address** | your own email, for testing |
+
+### 3. Try it safely
+Set **Test mode** to `Yes` and put your own address in **Test address**. Open
+**Admin → Cancel Today's Games**. The page shows exactly who *would* be emailed
+before anything happens. Send it: the notice goes on the website for real, but
+every email comes only to you. When you're happy, set Test mode back to `No`.
+
+## Day-to-day
+
+Open the admin panel on your phone, tap **Cancel Today's Games**, check the
+count, type the reason, type `CANCEL`, and press the button.
+
+- The page figures out by itself whether today is a **league** day, a **pickup**
+  day, or both — you don't have to tell it.
+- The **location** is filled in from today's schedule; type over it if the games
+  were somewhere else.
+- **Captains and managers are always emailed first**, so if the cap ever bites,
+  every team still has someone who knows.
+- It **won't send twice** in one day. If another board member already made the
+  call, the page says who and when, and sends nothing.
+- Tick **"Website notice only"** to post the banner without emailing anyone.
+
+Every cancellation is recorded on the **"Cancellation Log"** tab of the control
+sheet: date, time, who sent it, the reason, how many were emailed, and the names
+of anyone not reached.
+
+## Undoing it
+The emails can't be unsent. Everything else is reversible:
+- **The banner** — switch it off on the admin panel, same as any other notice.
+- **The schedule** — the cancelled games are marked `Cancelled` in the Status
+  column of the Schedule tab; clear that cell to put a game back.
+- **To send again the same day** (say the reason changed) — delete that day's
+  row from the "Cancellation Log" tab and the button unlocks.
