@@ -1,11 +1,12 @@
 {% extends "page_base.html" %}
 {% block eyebrow %}Admin{% endblock %}
-{% block sub %}<p class="sub">Add a brother to the <strong>In Memoriam</strong> page. The 13 names already on the page stay as they are &mdash; anything you add here appears with them. Changes show on the site within about a minute.</p>{% endblock %}
+{% block sub %}<p class="sub">Add a brother to the <strong>In Memoriam</strong> page, or write a tribute for one already there. Type a name that is already on the page and it fills in <em>his</em> card &mdash; he won't be listed twice. Changes show on the site within about a minute.</p>{% endblock %}
 {% block body %}
 <style>
   html{font-size:112.5%}  /* larger, easier-to-read text site-wide */
   .adm label{display:block;font-family:var(--display);font-weight:600;color:var(--navy);margin:0 0 7px}
   .adm input[type=text]{width:100%;font-family:var(--body);font-size:1.05rem;padding:12px 14px;border:1px solid var(--line);border-radius:10px}
+  .adm textarea{width:100%;font-family:var(--body);font-size:1.05rem;line-height:1.6;padding:12px 14px;border:1px solid var(--line);border-radius:10px;resize:vertical}
   .adm .row{margin-bottom:18px}
   .adm .two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
   @media(max-width:560px){.adm .two{grid-template-columns:1fr}}
@@ -17,6 +18,13 @@
   table.posts{width:100%;border-collapse:collapse;margin-top:8px}
   table.posts th{text-align:left;font-family:var(--display);font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:8px 10px;border-bottom:2px solid var(--line)}
   table.posts td{padding:12px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  table.posts .c-order{width:1%;white-space:nowrap}
+  table.posts .c-photo,table.posts .c-status,table.posts .c-act{width:1%;white-space:nowrap}
+  /* the tribute gets the full width of the row, under the name */
+  table.posts tr.entry > td{border-bottom:none;padding-bottom:6px}
+  table.posts tr.trib > td{padding:0 10px 14px;border-bottom:1px solid var(--line)}
+  .post-trib{color:var(--text);font-size:.95rem;line-height:1.6;max-width:60ch}
+  .post-trib.none{color:var(--muted);font-style:italic}
   .post-title{font-family:var(--display);font-weight:700;color:var(--navy)}
   .post-when{color:var(--muted);font-size:.85rem;margin-top:2px}
   .status-on{color:#1a7f4b;font-weight:700}
@@ -65,6 +73,12 @@
                value="{{ editing.image if editing else '' }}">
         <div class="hint">In Google Drive: right-click the photo → Share → "Anyone with the link" → Copy link, then paste it here.</div>
       </div>
+      <div class="row">
+        <label for="tribute">Tribute <span style="font-weight:400;color:var(--muted)">(optional — leave blank if you're not ready)</span></label>
+        <textarea id="tribute" name="tribute" rows="4"
+                  placeholder="Played third base in the Blue division for eleven years. Never missed a Tuesday.">{{ editing.tribute if editing else '' }}</textarea>
+        <div class="hint">A sentence or two about him — what he played, what he was like, how long he was with us. It appears under his name on the page. Leave a blank line between paragraphs if you write more than one.</div>
+      </div>
       {% if editing %}<input type="hidden" name="order" value="{{ editing.order }}">{% endif %}
       <button class="btn btn-navy" type="submit">{% if editing %}Save changes{% else %}Add to page{% endif %}</button>
       {% if editing %}<a class="mini" style="margin-left:10px" href="{{ url_for('admin_memoriam') }}">Cancel</a>{% endif %}
@@ -76,21 +90,21 @@
     <div class="note">Couldn't load entries: {{ error }}</div>
   {% elif entries %}
     <table class="posts">
-      <thead><tr><th>Order</th><th>Name</th><th>Photo</th><th>Status</th><th></th></tr></thead>
+      <thead><tr><th class="c-order">Order</th><th class="c-name">Name &amp; tribute</th><th class="c-photo">Photo</th><th class="c-status">Status</th><th class="c-act"></th></tr></thead>
       <tbody>
         {% for p in entries %}
-        <tr>
-          <td>{{ p.order }}</td>
-          <td>
+        <tr class="entry">
+          <td class="c-order">{{ p.order }}</td>
+          <td class="c-name">
             <div class="post-title">{{ p.name }}</div>
             {% if p.when %}<div class="post-when">{{ p.when }}</div>{% endif %}
           </td>
-          <td>{{ 'Yes' if p.image else '—' }}</td>
-          <td>
+          <td class="c-photo">{{ 'Yes' if p.image else '—' }}</td>
+          <td class="c-status">
             {% set is_on = (p.active|string|upper) in ['TRUE','1','YES'] %}
             {% if is_on %}<span class="status-on">● Showing</span>{% else %}<span class="status-off">○ Hidden</span>{% endif %}
           </td>
-          <td style="white-space:nowrap">
+          <td class="c-act">
             <a class="mini edit" href="{{ url_for('admin_memoriam') }}?edit={{ p.id }}">Edit</a>
             <form class="inline" method="post" action="{{ url_for('admin_mem_toggle', eid=p.id) }}">
               <input type="hidden" name="active" value="{{ 0 if is_on else 1 }}">
@@ -101,12 +115,19 @@
             </form>
           </td>
         </tr>
+        <tr class="trib">
+          <td></td>
+          <td colspan="4">
+            {% if p.tribute %}<div class="post-trib">{{ p.tribute[:220] }}{% if p.tribute|length > 220 %}&hellip;{% endif %}</div>
+            {% else %}<div class="post-trib none">No tribute written yet &mdash; use <strong>Edit</strong> to add one.</div>{% endif %}
+          </td>
+        </tr>
         {% endfor %}
       </tbody>
     </table>
-    <p class="hint" style="margin-top:14px">These appear after the names already built into the page, lowest <strong>Order</strong> number first.</p>
+    <p class="hint" style="margin-top:14px">Everyone on the page is sorted into the year he passed, newest year first — you don't need to worry about <strong>Order</strong>. An entry whose name matches a man already on the page adds his photo, date or tribute to the card that is already there.</p>
   {% else %}
-    <p style="color:var(--muted)">You haven't added anyone yet. The 13 names already on the page are still there. Use the form above to add a brother.</p>
+    <p style="color:var(--muted)">You haven't added anything yet. The 13 names already on the page are still there. Use the form above to add a brother — or, to write a tribute for one of the 13, type his name exactly as it appears on the page and fill in the tribute box.</p>
   {% endif %}
 
 {% endif %}

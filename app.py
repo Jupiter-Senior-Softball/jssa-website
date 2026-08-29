@@ -684,6 +684,86 @@ PAGES = {
 }
 
 
+# ---------------------------------------------------------------------------
+# In Memoriam
+# ---------------------------------------------------------------------------
+# The brothers remembered on /in-memoriam. They are built into the site so the
+# page still stands if Google Sheets is unreachable. Anything added through
+# /admin/memoriam is merged in on top: a new name joins the page, and a name
+# that matches a man already here fills in his photo, date or tribute rather
+# than listing him twice.
+IN_MEMORIAM_ROSTER = [
+    {"name": "Ron Seely",         "when": "September 2025"},
+    {"name": "Sheldon Notgarnie", "when": "December 2023"},
+    {"name": "Walter Sparks",     "when": "May 2023",
+     "image": "/static/memoriam/walter-sparks.jpg"},
+    {"name": "Joe Lipinsky",      "when": "February 2023",
+     "image": "/static/memoriam/joe-lipinsky.jpg"},
+    {"name": "Rick Hendee",       "when": "May 2022"},
+    {"name": "Gerry Elias",       "when": "February 2022"},
+    {"name": "George Farnworth",  "when": "February 2022"},
+    {"name": "Dick Nucci",        "when": "February 2021"},
+    {"name": "Mark Starr",        "when": "February 2021"},
+    {"name": "James Rae",         "when": "September 2020", "nick": "JayRae"},
+    {"name": "Jim Gassman",       "when": "June 2020",      "nick": "Gas Man"},
+    {"name": "Ted Battistone",    "when": "April 2020",     "nick": "Teddy"},
+    {"name": "Vinnie Lombardo",   "when": "August 2019"},
+]
+
+# What an admin entry may fill in or override on a man already on the page.
+MEM_MERGE_FIELDS = ("when", "image", "tribute")
+
+
+def _mem_key(name):
+    """Match names forgivingly: case and spacing shouldn't make a duplicate."""
+    return " ".join(str(name or "").split()).lower()
+
+
+def _mem_year(when):
+    """The year out of 'September 2025'. Blank if there isn't one to find."""
+    parts = str(when or "").strip().split()
+    if parts and len(parts[-1]) == 4 and parts[-1].isdigit():
+        return parts[-1]
+    return ""
+
+
+def memoriam_years(entries):
+    """The roster with admin entries merged in, grouped by year, newest first.
+
+    Returns [(year, [man, ...]), ...]. Men with no readable date collect under
+    a final "Remembered" group rather than dropping off the page.
+    """
+    men, by_name = [], {}
+    for man in IN_MEMORIAM_ROSTER:
+        row = dict(man)
+        men.append(row)
+        by_name[_mem_key(row["name"])] = row
+
+    for entry in entries or []:
+        name = str(entry.get("name") or "").strip()
+        if not name:
+            continue
+        row = by_name.get(_mem_key(name))
+        if row is None:
+            row = {"name": name}
+            men.append(row)
+            by_name[_mem_key(name)] = row
+        for field in MEM_MERGE_FIELDS:
+            value = str(entry.get(field) or "").strip()
+            if value:
+                row[field] = value
+
+    groups = {}
+    for row in men:
+        groups.setdefault(_mem_year(row.get("when")), []).append(row)
+
+    out = [(year, groups[year])
+           for year in sorted((y for y in groups if y), reverse=True)]
+    if "" in groups:
+        out.append(("Remembered", groups[""]))
+    return out
+
+
 @app.route("/<slug>")
 def page(slug):
     title = PAGES.get(slug)
@@ -692,9 +772,10 @@ def page(slug):
     ctx = {"page_title": title}
     if slug == "in-memoriam":
         try:
-            ctx["entries"] = sheets.in_memoriam_entries()
+            added = sheets.in_memoriam_entries()
         except Exception:
-            ctx["entries"] = []
+            added = []
+        ctx["mem_years"] = memoriam_years(added)
     elif slug == "hall-of-fame":
         try:
             ctx["inductees"] = sheets.hof_entries()
