@@ -1384,12 +1384,15 @@ def highlights_debug():
 # In Memoriam + Hall of Fame — admin-managed entries appended to those pages
 # ----------------------------------------------------------------------------
 # Each lives on its own tab in the same JSSA Website Content sheet, auto-created
-# if missing. The hardcoded entries already on the pages stay as they are; these
-# admin entries render in addition to them. Same graceful-fallback behavior as
+# if missing, and older tabs grow any newly added column on their own (see
+# _ensure_headers). Hall of Fame entries render in addition to the ones built
+# into that page. In Memoriam merges instead: an entry whose name matches a man
+# already on the page fills in his photo, date or tribute rather than listing
+# him twice (see memoriam_years in app.py). Same graceful-fallback behavior as
 # the Blackboard: if the sheet/API hiccups, the pages still show their built-ins.
 
 MEMORIAM_TAB = "InMemoriam"
-MEM_HEADERS = ["id", "name", "when", "image", "order", "active"]
+MEM_HEADERS = ["id", "name", "when", "image", "order", "active", "tribute"]
 HOF_TAB = "HallOfFame"
 HOF_HEADERS = ["id", "year", "name", "body", "image", "order", "active"]
 
@@ -1407,6 +1410,7 @@ def _simple_worksheet(tab, headers):
     sh = gc.open_by_key(SHEET_ID)
     try:
         ws = sh.worksheet(tab)
+        _ensure_headers(ws, headers)
     except gspread.WorksheetNotFound:
         ws = sh.add_worksheet(title=tab, rows=200, cols=len(headers))
         ws.update([headers], "A1")
@@ -1453,6 +1457,7 @@ def in_memoriam_entries():
                     "name": name,
                     "when": str(r.get("when") or "").strip(),
                     "image": _img_url(str(r.get("image") or "")),
+                    "tribute": str(r.get("tribute") or "").strip(),
                     "order": _to_int(r.get("order")),
                 })
             out.sort(key=lambda e: e["order"])
@@ -1479,13 +1484,17 @@ def add_mem_entry(fields):
     records = ws.get_all_records(expected_headers=MEM_HEADERS)
     order = fields.get("order")
     order = _to_int(order) if str(order or "").strip() else _next_order(records)
-    ws.append_row([
-        uuid.uuid4().hex[:8],
-        (fields.get("name") or "").strip(),
-        (fields.get("when") or "").strip(),
-        (fields.get("image") or "").strip(),
-        order, "TRUE",
-    ], value_input_option="USER_ENTERED")
+    row = {
+        "id": uuid.uuid4().hex[:8],
+        "name": (fields.get("name") or "").strip(),
+        "when": (fields.get("when") or "").strip(),
+        "image": (fields.get("image") or "").strip(),
+        "order": order,
+        "active": "TRUE",
+        "tribute": (fields.get("tribute") or "").strip(),
+    }
+    ws.append_row([row[h] for h in MEM_HEADERS],
+                  value_input_option="USER_ENTERED")
     _mem_invalidate()
 
 
@@ -1497,6 +1506,7 @@ def update_mem_entry(entry_id, fields):
                 "name": (fields.get("name") or "").strip(),
                 "when": (fields.get("when") or "").strip(),
                 "image": (fields.get("image") or "").strip(),
+                "tribute": (fields.get("tribute") or "").strip(),
             }
             if str(fields.get("order") or "").strip():
                 vals["order"] = _to_int(fields.get("order"))

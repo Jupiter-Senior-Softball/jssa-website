@@ -23,7 +23,7 @@
 
   /* ---- the wall of cards ---- */
   .mem-grid{list-style:none;margin:0;padding:0;
-    display:flex;flex-wrap:wrap;justify-content:center;gap:18px}
+    display:flex;flex-wrap:wrap;justify-content:center;align-items:flex-start;gap:18px}
   .mem-card{flex:0 1 300px;min-width:0;background:#fff;border:1px solid var(--line);
     border-radius:16px;padding:22px 18px 24px;text-align:center;
     box-shadow:0 4px 18px rgba(22,35,63,.07)}
@@ -42,6 +42,11 @@
     font-size:1.02rem;margin-top:5px}
   .mem-dt{margin-top:9px;font-family:var(--display);font-weight:600;color:var(--muted);
     font-size:.8rem;letter-spacing:.15em;text-transform:uppercase}
+
+  /* a sentence or two about him, written in the admin panel */
+  .mem-tribute{margin:16px 0 0;padding-top:16px;border-top:1px solid var(--line)}
+  .mem-tribute p{color:#3d4a63;font-size:.95rem;line-height:1.65;margin:0 0 9px}
+  .mem-tribute p:last-child{margin-bottom:0}
 
   .mem-close{text-align:center;margin:44px auto 0;max-width:540px;
     padding-top:32px;border-top:1px solid var(--line)}
@@ -65,38 +70,6 @@
 </svg>
 {% endset %}
 
-{#- The men remembered here. Newest first; the page groups them by year on its own.
-    Names added through the admin panel (/admin/memoriam) are merged in below. -#}
-{% set builtin = [
-  {'name':'Ron Seely',        'when':'September 2025'},
-  {'name':'Sheldon Notgarnie','when':'December 2023'},
-  {'name':'Walter Sparks',    'when':'May 2023',      'image':url_for('static', filename='memoriam/walter-sparks.jpg')},
-  {'name':'Joe Lipinsky',     'when':'February 2023', 'image':url_for('static', filename='memoriam/joe-lipinsky.jpg')},
-  {'name':'Rick Hendee',      'when':'May 2022'},
-  {'name':'Gerry Elias',      'when':'February 2022'},
-  {'name':'George Farnworth', 'when':'February 2022'},
-  {'name':'Dick Nucci',       'when':'February 2021'},
-  {'name':'Mark Starr',       'when':'February 2021'},
-  {'name':'James Rae',        'when':'September 2020','nick':'JayRae'},
-  {'name':'Jim Gassman',      'when':'June 2020',     'nick':'Gas Man'},
-  {'name':'Ted Battistone',   'when':'April 2020',    'nick':'Teddy'},
-  {'name':'Vinnie Lombardo',  'when':'August 2019'}
-] %}
-
-{#- Tag every man with the year he passed, so the page can group them. -#}
-{% set ns = namespace(rows=[]) %}
-{% for e in builtin + (entries|default([])) %}
-  {% set when = (e.when|default('')|string)|trim %}
-  {% set tail = when.split()|last if when else '' %}
-  {% set _ = ns.rows.append({
-       'name':  (e.name|default('')|string)|trim,
-       'nick':  (e.nick|default('')|string)|trim,
-       'when':  when,
-       'image': e.image|default(''),
-       'year':  tail if tail|length == 4 and tail.isdigit() else ''
-     }) %}
-{% endfor %}
-
 <div class="mem">
   <p class="mem-intro">These men were teammates, opponents, and above all friends. Once a JSSA brother, always a JSSA brother.</p>
 
@@ -112,15 +85,15 @@
     </defs>
   </svg>
 
-  {#- groupby sorts the years oldest-first, so reverse it: newest losses lead. -#}
-  {% for year, people in ns.rows|groupby('year')|reverse %}
+  {#- Grouped by year in app.py (memoriam_years), newest first. -#}
+  {% for year, men in mem_years|default([]) %}
   <section class="mem-year">
     <div class="yr-rail">
-      <span class="yr">{{ year if year else 'Remembered' }}</span>
+      <span class="yr">{{ year }}</span>
       <span class="ln"></span>
     </div>
     <ul class="mem-grid">
-      {% for e in people %}
+      {% for e in men %}
       <li class="mem-card">
         <div class="mem-photo">
           {% if e.image %}
@@ -137,6 +110,11 @@
         <div class="mem-nm">{{ e.name }}</div>
         {% if e.nick %}<div class="mem-nick">&ldquo;{{ e.nick }}&rdquo;</div>{% endif %}
         {% if e.when %}<div class="mem-dt">{{ e.when }}</div>{% endif %}
+        {% if e.tribute %}
+        <div class="mem-tribute">
+          {% for para in e.tribute.split('\n') %}{% if para.strip() %}<p>{{ para.strip() }}</p>{% endif %}{% endfor %}
+        </div>
+        {% endif %}
       </li>
       {% endfor %}
     </ul>
