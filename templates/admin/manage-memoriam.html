@@ -1,6 +1,6 @@
 {% extends "page_base.html" %}
 {% block eyebrow %}Admin{% endblock %}
-{% block sub %}<p class="sub">Add a brother to the <strong>In Memoriam</strong> page, or write a tribute for one already there. Type a name that is already on the page and it fills in <em>his</em> card &mdash; he won't be listed twice. Changes show on the site within about a minute.</p>{% endblock %}
+{% block sub %}<p class="sub">Add a brother to the <strong>In Memoriam</strong> page, or write a tribute for one already there &mdash; the 13 men already on the page are listed below, each with a button that fills his name in for you. Changes show on the site within about a minute.</p>{% endblock %}
 {% block body %}
 <style>
   html{font-size:112.5%}  /* larger, easier-to-read text site-wide */
@@ -25,6 +25,17 @@
   table.posts tr.trib > td{padding:0 10px 14px;border-bottom:1px solid var(--line)}
   .post-trib{color:var(--text);font-size:.95rem;line-height:1.6;max-width:60ch}
   .post-trib.none{color:var(--muted);font-style:italic}
+  /* the 13 brothers already on the page */
+  .roster{list-style:none;margin:10px 0 0;padding:0;border-top:1px solid var(--line)}
+  .roster li{display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;
+    padding:14px 2px;border-bottom:1px solid var(--line)}
+  .roster .who{flex:1 1 240px;min-width:0}
+  .roster .nm{font-family:var(--display);font-weight:700;color:var(--navy);font-size:1.06rem}
+  .roster .when{color:var(--muted);font-size:.85rem;margin-top:2px}
+  .roster .trib{color:var(--text);font-size:.95rem;line-height:1.6;margin-top:6px;max-width:62ch}
+  .roster .trib.none{color:var(--muted);font-style:italic}
+  .roster .act{flex:none;padding-top:2px}
+  .tick{color:#1a7f4b;font-weight:700}
   .post-title{font-family:var(--display);font-weight:700;color:var(--navy)}
   .post-when{color:var(--muted);font-size:.85rem;margin-top:2px}
   .status-on{color:#1a7f4b;font-weight:700}
@@ -52,9 +63,17 @@
 {% else %}
 
   <div class="formcard">
-    <h2>{% if editing %}Edit entry{% else %}Add a brother{% endif %}</h2>
+    {% set is_edit = editing and editing.id %}
+    <h2>{% if prefill_man %}Write a tribute for {{ prefill_man.name }}
+        {% elif is_edit %}Edit entry
+        {% else %}Add a brother{% endif %}</h2>
+    {% if prefill_man %}
+      <p class="hint" style="margin:-8px 0 16px">He is already on the page, listed under
+        <strong>{{ prefill_man.when }}</strong>. Just fill in the tribute below and press save
+        &mdash; leave the date and photo blank and his card keeps what it already has.</p>
+    {% endif %}
     <form class="adm" method="post"
-          action="{% if editing %}{{ url_for('admin_mem_update', eid=editing.id) }}{% else %}{{ url_for('admin_mem_add') }}{% endif %}">
+          action="{% if is_edit %}{{ url_for('admin_mem_update', eid=editing.id) }}{% else %}{{ url_for('admin_mem_add') }}{% endif %}">
       <div class="row two">
         <div>
           <label for="name">Name</label>
@@ -79,13 +98,35 @@
                   placeholder="Played third base in the Blue division for eleven years. Never missed a Tuesday.">{{ editing.tribute if editing else '' }}</textarea>
         <div class="hint">A sentence or two about him — what he played, what he was like, how long he was with us. It appears under his name on the page. Leave a blank line between paragraphs if you write more than one.</div>
       </div>
-      {% if editing %}<input type="hidden" name="order" value="{{ editing.order }}">{% endif %}
-      <button class="btn btn-navy" type="submit">{% if editing %}Save changes{% else %}Add to page{% endif %}</button>
+      {% if is_edit %}<input type="hidden" name="order" value="{{ editing.order }}">{% endif %}
+      <button class="btn btn-navy" type="submit">{% if is_edit or prefill_man %}Save{% else %}Add to page{% endif %}</button>
       {% if editing %}<a class="mini" style="margin-left:10px" href="{{ url_for('admin_memoriam') }}">Cancel</a>{% endif %}
     </form>
   </div>
 
-  <h2>Entries you've added</h2>
+  <h2>The 13 brothers already on the page</h2>
+  <p class="hint" style="margin-top:6px">Press <strong>Write tribute</strong> beside a man and his name is filled in for you &mdash; you don't need to type it.</p>
+  <ul class="roster">
+    {% for m in roster|default([]) %}
+    <li>
+      <div class="who">
+        <div class="nm">{{ m.name }}{% if m.has_photo %} <span class="tick" title="has a photo">&#10003; photo</span>{% endif %}</div>
+        <div class="when">{{ m.when }}</div>
+        {% if m.tribute %}<div class="trib">{{ m.tribute[:220] }}{% if m.tribute|length > 220 %}&hellip;{% endif %}</div>
+        {% else %}<div class="trib none">No tribute yet</div>{% endif %}
+      </div>
+      <div class="act">
+        {% if m.entry_id %}
+          <a class="mini edit" href="{{ url_for('admin_memoriam', edit=m.entry_id) }}">Edit tribute</a>
+        {% else %}
+          <a class="mini edit" href="{{ url_for('admin_memoriam', add=m.name) }}">Write tribute</a>
+        {% endif %}
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+
+  <h2 style="margin-top:34px">Entries you've added</h2>
   {% if error %}
     <div class="note">Couldn't load entries: {{ error }}</div>
   {% elif entries %}
@@ -98,6 +139,7 @@
           <td class="c-name">
             <div class="post-title">{{ p.name }}</div>
             {% if p.when %}<div class="post-when">{{ p.when }}</div>{% endif %}
+            {% if p.fills_in %}<div class="post-when">fills in the card for {{ p.fills_in }} above</div>{% endif %}
           </td>
           <td class="c-photo">{{ 'Yes' if p.image else '—' }}</td>
           <td class="c-status">
