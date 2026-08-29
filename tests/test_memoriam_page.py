@@ -1,5 +1,6 @@
 """In Memoriam: tributes, and a name typed twice must not become two men."""
-import os, sys
+import os, re, sys
+from urllib.parse import quote
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 os.environ["SECRET_KEY"] = "t"; os.environ["ADMIN_PASSWORD"] = "t"
 import sheets, app as webapp
@@ -126,5 +127,52 @@ col = sheets.MEM_HEADERS.index("tribute") + 1
 saved = [c for c in sheet.cells if c[0] == 2 and c[1] == col]
 print("editing saves the tribute to his row     :", saved == [(2, col, "Never missed a Tuesday.")])
 assert saved == [(2, col, "Never missed a Tuesday.")], sheet.cells
+
+
+# --- the admin panel lists the 13 with a link each --------------------------
+sheets.is_configured = lambda: True
+SAVED = [
+    {"id": "a1", "name": "Ron Seely", "when": "", "image": "", "order": 1,
+     "active": "TRUE", "tribute": "Never missed a Tuesday."},
+    {"id": "c3", "name": "  walter   SPARKS ", "when": "", "image": "http://x/p.jpg",
+     "order": 3, "active": "TRUE", "tribute": "Played until he was eighty-one."},
+]
+sheets.list_mem_entries = lambda: [dict(r) for r in SAVED]
+c.post("/admin/login", data={"password": "t"})
+html = c.get("/admin/memoriam").get_data(as_text=True)
+
+absent = [m["name"] for m in webapp.IN_MEMORIAM_ROSTER if m["name"] not in html]
+print("\nall 13 listed in the admin panel         :", not absent)
+assert not absent, absent
+
+# a man with nothing saved gets a "write" link that fills his name in
+assert "add=Rick+Hendee" in html or "add=Rick%20Hendee" in html, "no prefill link"
+# a man who already has a row is sent to that row instead
+assert "edit=a1" in html, "should edit Ron Seely's saved row"
+print("no-tribute man gets a prefill link       : True")
+print("man with one gets an edit link to his row: True")
+
+# the prefill form knows his name, and adds rather than updates
+form = c.get("/admin/memoriam?add=Rick+Hendee").get_data(as_text=True)
+assert 'value="Rick Hendee"' in form, "name not filled in"
+assert 'action="/admin/memoriam/add"' in form, "prefill must add, not update"
+print("prefill form carries his name            : True")
+# his date is left blank so the built-in one survives the merge
+assert re.search(r'id="when"[^>]*value=""', form), "date should start blank"
+print("and leaves his date blank to keep it     : True")
+
+# asking to "add" a man who already has a row edits that row instead
+r = c.get("/admin/memoriam?add=Ron+Seely")
+assert r.status_code == 302 and "edit=a1" in r.headers["Location"], r.headers.get("Location")
+# even typed sloppily
+r = c.get("/admin/memoriam?add=" + quote("  ron   seely "))
+assert r.status_code == 302 and "edit=a1" in r.headers["Location"], r.headers.get("Location")
+print("never offers a second row for one man    : True")
+
+# a saved row that fills in a built-in man says so
+assert "fills in the card for Ron Seely" in html
+assert "fills in the card for Walter Sparks" in html   # matched despite the sloppy casing
+print("saved rows say which card they fill in   : True")
+
 
 print("\nIN MEMORIAM CHECKS PASSED")

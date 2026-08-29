@@ -1140,6 +1140,31 @@ def admin_memoriam():
             entries = sheets.list_mem_entries()
         except Exception as e:
             error = str(e)
+
+    # Which saved entry, if any, belongs to each man. First one wins, so a
+    # name entered twice edits the same row rather than making a second.
+    saved_by_name = {}
+    for e in entries:
+        saved_by_name.setdefault(_mem_key(e.get("name")), e)
+
+    # The 13 built-in brothers, each with whatever has been saved for him, so
+    # the panel can offer a direct "write his tribute" link per man.
+    roster = []
+    for man in IN_MEMORIAM_ROSTER:
+        saved = saved_by_name.get(_mem_key(man["name"])) or {}
+        roster.append({
+            "name": man["name"],
+            "when": saved.get("when") or man.get("when", ""),
+            "tribute": saved.get("tribute", ""),
+            "has_photo": bool(saved.get("image") or man.get("image")),
+            "entry_id": saved.get("id", ""),
+        })
+
+    # Mark the saved entries that fill in a built-in man rather than adding one.
+    roster_names = {_mem_key(m["name"]): m["name"] for m in IN_MEMORIAM_ROSTER}
+    for e in entries:
+        e["fills_in"] = roster_names.get(_mem_key(e.get("name")), "")
+
     editing = None
     edit_id = request.args.get("edit")
     if edit_id:
@@ -1147,9 +1172,26 @@ def admin_memoriam():
             if str(e.get("id")) == str(edit_id):
                 editing = e
                 break
+
+    # "Write his tribute" on a built-in man: start the form with his name in
+    # it. If he already has a saved row, edit that one instead of making a second.
+    prefill_man = None
+    add_name = (request.args.get("add") or "").strip()
+    if add_name and editing is None:
+        saved = saved_by_name.get(_mem_key(add_name))
+        if saved:
+            return redirect(url_for("admin_memoriam", edit=saved.get("id")))
+        for man in IN_MEMORIAM_ROSTER:
+            if _mem_key(man["name"]) == _mem_key(add_name):
+                prefill_man = man
+                break
+        editing = {"id": "", "name": prefill_man["name"] if prefill_man else add_name,
+                   "when": "", "image": "", "tribute": "", "order": ""}
+
     return render_template("admin/manage-memoriam.html",
                            configured=configured, entries=entries,
-                           error=error, editing=editing)
+                           error=error, editing=editing,
+                           roster=roster, prefill_man=prefill_man)
 
 
 @app.route("/admin/memoriam/add", methods=["POST"])
