@@ -14,8 +14,8 @@
   .roll{list-style:none;margin:0;padding:0}
   .roll li{text-align:center;padding:30px 16px;position:relative}
   .roll li + li{border-top:1px solid var(--line)}
-  .roll .portrait{width:158px;max-width:48vw;margin:0 auto 16px;border-radius:14px;overflow:hidden;box-shadow:0 8px 22px rgba(22,35,63,.20);border:1px solid var(--line)}
-  .roll .portrait img{display:block;width:100%;height:auto}
+  .roll .portrait{width:158px;max-width:48vw;aspect-ratio:3/4;margin:0 auto 16px;border-radius:14px;overflow:hidden;box-shadow:0 8px 22px rgba(22,35,63,.20);border:1px solid var(--line)}
+  .roll .portrait img{display:block;width:100%;height:100%;object-fit:cover}
   .roll .nm{font-family:var(--display);font-weight:800;color:var(--navy);
     font-size:clamp(1.55rem,3.4vw,2rem);letter-spacing:-.01em;line-height:1.2}
   .roll .nm .nick{color:var(--blue);font-weight:700}
