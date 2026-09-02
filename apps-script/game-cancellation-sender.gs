@@ -17,8 +17,8 @@
  * HOW TO INSTALL (do this signed in as the account, for each of the two):
  *   1. Go to  https://script.google.com  and click  New project.
  *   2. Delete the sample code, paste ALL of this file, and Save.
- *   3. Change SECRET below to a long random phrase — the SAME phrase in both
- *      accounts.
+ *   3. Change CANCEL_SENDER_SECRET below to a long random phrase — the SAME
+ *      phrase in both accounts.
  *   4. Pick  authorizeNow  in the function dropdown and click Run once, then
  *      approve the permissions (on the "unverified app" screen choose
  *      Advanced -> Go to ... -> Allow). Skipping this makes the web app fail.
@@ -35,7 +35,16 @@
 
 // Use a long random phrase. The SAME phrase in both accounts, and in each URL
 // you paste into the settings tab (the ?key=... part).
-var SECRET = 'PUT_A_LONG_RANDOM_PHRASE_HERE';
+//
+// Named CANCEL_SENDER_SECRET (not just SECRET) on purpose: this script often
+// ends up pasted into the same shared project as other league scripts (like
+// the Email Send Counter's email-usage.gs), which also defines its own
+// "SECRET". Apps Script runs every file in a project in one shared space, so
+// two files both using the plain name "SECRET" silently overwrite each
+// other — whichever loads last wins, and the other one's password stops
+// working with no visible error beyond "unauthorized". Keeping this name
+// unique to this file avoids that collision entirely.
+var CANCEL_SENDER_SECRET = 'PUT_A_LONG_RANDOM_PHRASE_HERE';
 
 // Never email more than this many people in one call, whatever is asked for.
 // A backstop against a mistake somewhere else emailing the whole league.
@@ -57,7 +66,7 @@ function authorizeNow() {
 function doPost(e) {
   try {
     var key = (e && e.parameter && e.parameter.key) || '';
-    if (key !== SECRET) {
+    if (key !== CANCEL_SENDER_SECRET) {
       return _json({ ok: false, sent: 0, error: 'unauthorized' });
     }
 
@@ -187,7 +196,7 @@ function doPost(e) {
 // A plain GET is only ever used to check the script is alive and authorized.
 function doGet(e) {
   var key = (e && e.parameter && e.parameter.key) || '';
-  if (key !== SECRET) {
+  if (key !== CANCEL_SENDER_SECRET) {
     return _json({ ok: false, error: 'unauthorized' });
   }
   return _json({
