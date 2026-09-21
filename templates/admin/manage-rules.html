@@ -8,7 +8,7 @@
   .adm textarea,.adm input[type=text],.adm select{width:100%;font-family:var(--body);font-size:1.05rem;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:#fff}
   .adm textarea{min-height:420px;resize:vertical;line-height:1.6}
   .adm .row{margin-bottom:18px}
-  .adm .two{display:grid;grid-template-columns:200px 1fr;gap:16px}
+  .adm .two{display:grid;grid-template-columns:270px 1fr;gap:20px}
   @media(max-width:560px){.adm .two{grid-template-columns:1fr}}
   .hint{color:var(--muted);font-size:.9rem;margin-top:6px}
   .note{background:#fff8e6;border:1px solid #f3e2b3;color:#7a5b12;border-radius:12px;padding:18px 20px;margin-bottom:24px}
@@ -16,7 +16,10 @@
   .good{background:#e8f6ee;border:1px solid #bfe3cd;color:#1a7f4b;border-radius:12px;padding:14px 20px;margin-bottom:24px;font-weight:600}
   .bad{background:#fdeceD;border:1px solid #f0c9cb;color:#b3151b;border-radius:12px;padding:14px 20px;margin-bottom:24px;font-weight:600}
   .formcard{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 24px;margin-bottom:30px}
-  .formcard h2{margin:0 0 16px}
+  .formcard h2{margin:0 0 10px}
+  .startline{background:var(--blue-tint);border:1px solid #cfe0ff;border-radius:10px;
+    padding:12px 16px;margin:0 0 20px;font-size:1rem;color:var(--navy)}
+  .adm select{font-weight:600}
   .pick{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:6px}
   .pick label{display:flex;align-items:center;gap:9px;border:2px solid var(--line);border-radius:12px;
     padding:14px 18px;cursor:pointer;font-weight:600;margin:0;background:#fff;flex:1 1 260px}
@@ -55,19 +58,23 @@
 {% else %}
 
   <div class="formcard">
-    <h2>{% if editing %}Edit the {{ editing.division }} Division rules{% else %}Post a division's rules{% endif %}</h2>
+    <h2>{% if editing %}Edit the {{ editing.division }} Division rules &mdash; {{ editing.season }}{% else %}Post a division's rules{% endif %}</h2>
     <form class="adm" method="post" action="{{ url_for('admin_rules_save') }}">
       {% if editing %}<input type="hidden" name="id" value="{{ editing.id }}">
       <input type="hidden" name="status" value="{{ editing.status }}">{% endif %}
 
+      {% if not editing %}
+      <p class="startline"><strong>Start here:</strong> choose your division, name the season, then write or paste your rules.</p>
+      {% endif %}
       <div class="row two">
         <div>
-          <label for="division">Division</label>
+          <label for="division">Which division are these rules for?</label>
           <select id="division" name="division">
             {% for d in divisions %}
-              <option value="{{ d }}"{% if editing and editing.division == d %} selected{% endif %}>{{ d }}</option>
+              <option value="{{ d }}"{% if editing and editing.division == d %} selected{% endif %}>{{ d }} Division</option>
             {% endfor %}
           </select>
+          <div class="hint">Each division keeps its own rules. Whichever one you pick here is the one you're posting to.</div>
         </div>
         <div>
           <label for="season">Season</label>
