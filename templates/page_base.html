@@ -101,6 +101,16 @@
   .menubar .navmenu a{color:var(--navy);font-size:1.02rem;font-weight:600;padding:12px 14px;
     border-radius:8px;white-space:nowrap}
   .menubar .navmenu a:hover{background:var(--blue-tint);color:var(--blue)}
+  /* On a phone the menu bar wraps onto two or three lines, so a drop-down
+     anchored to its own button can hang off the right edge and clip its longer
+     items. Below 900px the drop-downs span the bar instead, and long names wrap
+     onto a second line rather than being cut off. */
+  @media(max-width:900px){
+    .menubar-inner{position:relative}
+    .navgroup{position:static}
+    .navmenu{left:10px;right:10px;min-width:0;max-width:none}
+    .menubar .navmenu a{white-space:normal}
+  }
   @media(max-width:640px){.menubar-inner{gap:2px;padding:6px 10px}.menubar a,.navgroup>summary{font-size:.95rem;padding:9px 11px}}
 </style>
 </head>
