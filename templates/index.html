@@ -240,6 +240,13 @@
   .res a{display:flex;justify-content:space-between;align-items:center;padding:13px 4px;color:var(--navy);font-family:var(--display);font-weight:600}
   .res a:hover{color:var(--blue)}
   .res a .arr{color:var(--muted)}
+  .div-links{display:flex;flex-wrap:wrap;gap:8px;padding:0 4px 13px}
+  .res .div-links a,.res .div-links span{display:inline-flex;align-items:center;min-height:38px;padding:0 14px;
+    border:2px solid var(--line);border-radius:999px;font-family:var(--display);font-weight:700;font-size:.92rem}
+  .res .div-links a{color:var(--navy)}
+  .res .div-links .dv-red{border-color:var(--red);color:var(--red)}
+  .res .div-links .dv-blue{border-color:var(--blue);color:var(--blue)}
+  .res .div-links .is-soon{color:var(--muted);background:#f7f9fd}
 
   .btn-navy{background:var(--navy);color:#fff}
   .btn-navy:hover{background:var(--navy-2)}
@@ -626,7 +633,13 @@
         <ul>
           <li><a href="/bylaws">JSSA Bylaws <span class="arr">→</span></a></li>
           <li><a href="https://script.google.com/macros/s/AKfycbzLLz9E-qjJwXbgAkaGjhH0PT_3oa13uzrl9T5dT1omGCL6Ocw1lYELg8xFBM7zuapN7g/exec?page=minutes" target="_blank" rel="noopener">Board Meeting Minutes <span class="arr">→</span></a></li>
-          <li><a href="/playing-rules">Playing Rules <span class="arr">→</span></a></li>
+          <li><a href="/playing-rules">Playing Rules <span class="arr">→</span></a>
+            <div class="div-links">
+              <a class="dv-red" href="https://docs.google.com/document/d/18d2eR_xltBHWH73hkXPlk0U1iLTpmqY1S8ZK8L-gktg/edit?usp=sharing" target="_blank" rel="noopener">Red Division rules</a>
+              <span class="is-soon">White · soon</span>
+              <span class="is-soon">Blue · soon</span>
+            </div>
+          </li>
           <li><a href="/code-of-conduct">Code of Conduct <span class="arr">→</span></a></li>
           <li><a href="/hall-of-fame">Hall of Fame <span class="arr">→</span></a></li>
           <li><a href="/pickup-games">Pickup Games Explained <span class="arr">→</span></a></li>
