@@ -22,7 +22,7 @@
   .past-seasons{margin:0;padding-left:1.3em}
   @media(max-width:760px){.div-rules{grid-template-columns:1fr}}
 </style>
-<p class="lead">The JSSA is governed by the rules of <strong>Senior Softball USA</strong>. On top of that foundation, specific exceptions and adjustments have been approved for each JSSA playing division to fit our members and our field.</p>
+<p class="lead">Each division writes its own playing rules. Anything a division's rules don't cover falls back to <strong>Senior Softball USA</strong> rules, which the JSSA plays by.</p>
 
 <h2>Division playing rules</h2>
 <p>Click your division below to read its complete rules and procedures.</p>
@@ -45,6 +45,8 @@
   {% endfor %}
 </div>
 
+<p>If you have a question about a specific rule or how it's applied in your division, your team manager and division directors are the best first point of contact.</p>
+
 {% if archived_rules %}
   <h2>Past seasons</h2>
   <p>Earlier seasons' rules are kept here for reference.</p>
@@ -55,11 +57,5 @@
   </ul>
 {% endif %}
 
-<h2>League-wide rules sheet</h2>
-<p>The league's official uniform and division rules sheet is also kept online:</p>
-<p><a href="https://docs.google.com/spreadsheets/d/1ZDVIqbPTWYn4ZYWg6cSPN3zxCxFlF3r2GAVJBPch6pw/edit#gid=1504740933">JSSA Uniform &amp; Division Playing Rules →</a></p>
-
-<p>If you have a question about a specific rule or how it's applied in your division, your team manager and division directors are the best first point of contact.</p>
-
-<p style="color:var(--muted);font-size:.95rem;margin-top:28px">Division rules managers: <a href="/admin/rules">sign in to update your division's rules</a>.</p>
+<p style="color:var(--muted);font-size:.95rem;margin-top:28px">Board members: division rules are written and updated in the <a href="/admin/rules">Board Portal</a>.</p>
 {% endblock %}

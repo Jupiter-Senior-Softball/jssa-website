@@ -20,11 +20,6 @@ Environment variables (set in Render):
     ADMIN_PASSWORD               — shared password for the admin area
     GOOGLE_SERVICE_ACCOUNT_JSON  — full service-account key JSON
     SHEET_ID                     — id of the JSSA Website Content sheet
-    RULES_CODE_RED / _WHITE / _BLUE
-                                 — optional per-division codes. Each opens only
-                                   that division's playing rules at /rules-login
-                                   and nothing else in the portal, so a division
-                                   manager never needs ADMIN_PASSWORD.
 """
 
 import os
@@ -1529,73 +1524,14 @@ def admin_sponsor_delete(sid):
 
 
 # ----------------------------------------------------------------------------
-# Division rules admin — the one page a division's rules manager signs into.
-#
-# The main admin password opens every division. Each division can also be given
-# its own code (RULES_CODE_RED / RULES_CODE_WHITE / RULES_CODE_BLUE in Render),
-# which opens ONLY that division's rules and nothing else in the portal — so a
-# division manager never needs the master admin password.
+# Division rules admin — reached from the Board Portal like every other content
+# page. Any board member who can sign into the portal can write or update any
+# division's rules; the divisions sort out among themselves who writes what.
 # ----------------------------------------------------------------------------
-def _division_code(division):
-    return os.environ.get("RULES_CODE_%s" % str(division or "").upper(), "")
-
-
-def editable_divisions():
-    """Which divisions the person signed in right now may edit."""
-    if session.get("admin"):
-        return list(sheets.DIVISIONS)
-    one = session.get("rules_division")
-    return [one] if one in sheets.DIVISIONS else []
-
-
-def rules_editor_required(view):
-    @functools.wraps(view)
-    def wrapped(*args, **kwargs):
-        if not editable_divisions():
-            return redirect(url_for("rules_login", next=request.path))
-        return view(*args, **kwargs)
-    return wrapped
-
-
-def _may_edit(division):
-    return str(division or "") in editable_divisions()
-
-
-@app.route("/rules-login", methods=["GET", "POST"])
-def rules_login():
-    """The division managers' door. One box: their division's code. The master
-    admin password works here too and opens all three divisions."""
-    error = None
-    if request.method == "POST":
-        code = _normalize_password(request.form.get("password", ""))
-        if ADMIN_PASSWORD and hmac.compare_digest(
-                code, _normalize_password(ADMIN_PASSWORD)):
-            session["admin"] = True
-            return redirect(request.args.get("next") or url_for("admin_rules"))
-        for division in sheets.DIVISIONS:
-            configured = _division_code(division)
-            if configured and hmac.compare_digest(
-                    code, _normalize_password(configured)):
-                session["rules_division"] = division
-                return redirect(request.args.get("next") or url_for("admin_rules"))
-        error = "That code didn't match any division."
-    configured = [d for d in sheets.DIVISIONS if _division_code(d)]
-    return render_template("admin/rules-login.html", error=error,
-                           page_title="Division Rules",
-                           configured=configured,
-                           admin_ready=bool(ADMIN_PASSWORD))
-
-
-@app.route("/rules-logout")
-def rules_logout():
-    session.clear()
-    return redirect(url_for("rules_login"))
-
-
 @app.route("/admin/rules")
-@rules_editor_required
+@login_required
 def admin_rules():
-    mine = editable_divisions()
+    mine = list(sheets.DIVISIONS)
     configured = sheets.is_configured()
     rows, error = [], None
     if configured:
@@ -1616,7 +1552,6 @@ def admin_rules():
                            page_title="Division Rules",
                            configured=configured, rows=rows, error=error,
                            editing=editing, divisions=mine,
-                           is_admin=bool(session.get("admin")),
                            saved=request.args.get("saved"),
                            problem=request.args.get("problem"),
                            max_chars=sheets.RULES_MAX_CHARS)
@@ -1625,8 +1560,8 @@ def admin_rules():
 def _rules_problem(form):
     """Plain-English reason the form can't be saved, or '' if it's fine."""
     division = (form.get("division") or "").strip()
-    if not _may_edit(division):
-        return "You can only edit your own division's rules."
+    if division not in sheets.DIVISIONS:
+        return "Please choose a division."
     if not (form.get("season") or "").strip():
         return "Please give the rules a season name, such as Fall 2026."
     source = (form.get("source") or "written").strip()
@@ -1646,21 +1581,13 @@ def _rules_problem(form):
 
 
 @app.route("/admin/rules/save", methods=["POST"])
-@rules_editor_required
+@login_required
 def admin_rules_save():
     problem = _rules_problem(request.form)
     if problem:
         return redirect(url_for("admin_rules", problem=problem,
                                 edit=request.form.get("id") or None))
     rule_id = (request.form.get("id") or "").strip()
-    if rule_id:
-        # Editing an existing set of rules: the row being changed must belong to
-        # this editor too, not just the division named on the form — otherwise a
-        # hand-made form post could re-label another division's rules.
-        existing = sheets.find_division_rules(rule_id)
-        if not existing or not _may_edit(existing.get("division")):
-            return redirect(url_for("admin_rules",
-                                    problem="You can only edit your own division's rules."))
     try:
         if rule_id:
             sheets.update_division_rules(rule_id, request.form)
@@ -1672,11 +1599,8 @@ def admin_rules_save():
 
 
 @app.route("/admin/rules/<rid>/status", methods=["POST"])
-@rules_editor_required
+@login_required
 def admin_rules_status(rid):
-    row = sheets.find_division_rules(rid)
-    if not row or not _may_edit(row.get("division")):
-        return redirect(url_for("admin_rules"))
     try:
         sheets.set_division_rules_status(rid, request.form.get("status", "archived"))
     except Exception:
@@ -1685,13 +1609,10 @@ def admin_rules_status(rid):
 
 
 @app.route("/admin/rules/<rid>/new-season", methods=["POST"])
-@rules_editor_required
+@login_required
 def admin_rules_new_season(rid):
     """Copy this season's rules into a new season to amend — the workflow the
     divisions actually use each year."""
-    row = sheets.find_division_rules(rid)
-    if not row or not _may_edit(row.get("division")):
-        return redirect(url_for("admin_rules"))
     season = (request.form.get("season") or "").strip()
     if not season:
         return redirect(url_for("admin_rules",
@@ -1705,11 +1626,8 @@ def admin_rules_new_season(rid):
 
 
 @app.route("/admin/rules/<rid>/delete", methods=["POST"])
-@rules_editor_required
+@login_required
 def admin_rules_delete(rid):
-    row = sheets.find_division_rules(rid)
-    if not row or not _may_edit(row.get("division")):
-        return redirect(url_for("admin_rules"))
     try:
         sheets.delete_division_rules(rid)
     except Exception:

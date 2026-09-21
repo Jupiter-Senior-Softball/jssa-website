@@ -1,6 +1,6 @@
 {% extends "page_base.html" %}
 {% block eyebrow %}Division Rules{% endblock %}
-{% block sub %}<p class="sub">Write, update and archive your division's playing rules. Changes show on the website within about a minute.</p>{% endblock %}
+{% block sub %}<p class="sub">Write, update and archive each division's playing rules. Changes show on the website within about a minute.</p>{% endblock %}
 {% block body %}
 <style>
   html{font-size:112.5%}  /* larger, easier-to-read text */
@@ -40,8 +40,8 @@
 </style>
 
 <div class="adminbar">
-  {% if is_admin %}<a href="{{ url_for('admin_dashboard') }}">&larr; Admin home</a>{% else %}<a href="/playing-rules">&larr; Back to the website</a>{% endif %}
-  <a href="{{ url_for('admin_logout') if is_admin else url_for('rules_logout') }}">Sign out</a>
+  <a href="{{ url_for('admin_dashboard') }}">&larr; Admin home</a>
+  <a href="{{ url_for('admin_logout') }}">Sign out</a>
 </div>
 
 {% if saved %}<div class="good">Saved. The website updates within about a minute.</div>{% endif %}
@@ -55,7 +55,7 @@
 {% else %}
 
   <div class="formcard">
-    <h2>{% if editing %}Edit the {{ editing.division }} Division rules{% else %}Post a set of rules{% endif %}</h2>
+    <h2>{% if editing %}Edit the {{ editing.division }} Division rules{% else %}Post a division's rules{% endif %}</h2>
     <form class="adm" method="post" action="{{ url_for('admin_rules_save') }}">
       {% if editing %}<input type="hidden" name="id" value="{{ editing.id }}">
       <input type="hidden" name="status" value="{{ editing.status }}">{% endif %}
@@ -63,16 +63,11 @@
       <div class="row two">
         <div>
           <label for="division">Division</label>
-          {% if divisions|length == 1 %}
-            <input type="text" value="{{ divisions[0] }}" disabled>
-            <input type="hidden" name="division" value="{{ divisions[0] }}">
-          {% else %}
-            <select id="division" name="division">
-              {% for d in divisions %}
-                <option value="{{ d }}"{% if editing and editing.division == d %} selected{% endif %}>{{ d }}</option>
-              {% endfor %}
-            </select>
-          {% endif %}
+          <select id="division" name="division">
+            {% for d in divisions %}
+              <option value="{{ d }}"{% if editing and editing.division == d %} selected{% endif %}>{{ d }}</option>
+            {% endfor %}
+          </select>
         </div>
         <div>
           <label for="season">Season</label>
@@ -125,7 +120,7 @@
     </form>
   </div>
 
-  <h2>Your division's rules</h2>
+  <h2>Rules posted so far</h2>
   {% if error %}
     <div class="note">Couldn't load the rules: {{ error }}</div>
   {% elif rows %}
@@ -173,7 +168,7 @@
       </tbody>
     </table>
   {% else %}
-    <p>No rules posted yet for your division. Use the form above — that's all it takes.</p>
+    <p>No rules posted yet. Use the form above — that's all it takes.</p>
   {% endif %}
 {% endif %}
 
