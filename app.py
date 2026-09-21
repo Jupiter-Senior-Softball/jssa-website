@@ -20,10 +20,16 @@ Environment variables (set in Render):
     ADMIN_PASSWORD               — shared password for the admin area
     GOOGLE_SERVICE_ACCOUNT_JSON  — full service-account key JSON
     SHEET_ID                     — id of the JSSA Website Content sheet
+    RULES_CODE_RED / _WHITE / _BLUE
+                                 — optional per-division codes. Each opens only
+                                   that division's playing rules at /rules-login
+                                   and nothing else in the portal, so a division
+                                   manager never needs ADMIN_PASSWORD.
 """
 
 import os
 import hmac
+import datetime
 import functools
 import re
 import json
@@ -781,7 +787,94 @@ def page(slug):
             ctx["inductees"] = sheets.hof_entries()
         except Exception:
             ctx["inductees"] = []
+    elif slug == "playing-rules":
+        ctx.update(division_rules_context())
     return render_template(f"pages/{slug}.html", **ctx)
+
+
+# ----------------------------------------------------------------------------
+# Division playing rules — the public side. Each division's current rules are
+# either written in the portal (rendered here as a page) or a link to the
+# division's own Google Doc. Archived seasons stay reachable under "Past
+# seasons" so no season's rules are ever lost.
+# ----------------------------------------------------------------------------
+def pretty_date(iso):
+    """2026-09-21 -> September 21, 2026. Left alone if it isn't a plain date."""
+    try:
+        d = datetime.date.fromisoformat(str(iso or "").strip())
+    except Exception:
+        return str(iso or "")
+    return "%s %d, %d" % (d.strftime("%B"), d.day, d.year)
+
+
+def division_rules_context():
+    """Current rules per division plus the archived seasons, ready for the
+    Playing Rules page. Never raises — an empty list just means no cards."""
+    try:
+        rows = sheets.division_rules()
+    except Exception:
+        rows = []
+    current, archived = [], []
+    for row in rows:
+        entry = dict(row)
+        entry["slug"] = sheets.division_slug(row.get("division"))
+        entry["updated_display"] = pretty_date(row.get("updated_at"))
+        is_current = row.get("status") == "current"
+        if row.get("source") == "link":
+            entry["href"] = row.get("url")
+        elif is_current:
+            entry["href"] = url_for("division_rules_page", div=entry["slug"])
+        else:
+            # A past season keeps its own address so it stays readable.
+            entry["href"] = url_for("division_rules_archive", div=entry["slug"],
+                                    season_id=row.get("id"))
+        (current if is_current else archived).append(entry)
+    by_division = {r["division"].lower(): r for r in current}
+    divisions = [{"name": d, "slug": sheets.division_slug(d),
+                  "rules": by_division.get(d.lower())}
+                 for d in sheets.DIVISIONS]
+    return {"divisions": divisions, "archived_rules": archived}
+
+
+@app.route("/playing-rules/<div>")
+def division_rules_page(div):
+    """One division's current rules. A division that keeps its rules in a
+    Google Doc sends the reader straight there instead."""
+    row = None
+    try:
+        row = sheets.current_division_rules(div)
+    except Exception:
+        row = None
+    if not row:
+        abort(404)
+    if row.get("source") == "link" and row.get("url"):
+        return redirect(row["url"])
+    return render_template("pages/division-rules.html",
+                           page_title="%s Division Rules" % row["division"],
+                           rules=row,
+                           blocks=sheets.rules_blocks(row.get("body")),
+                           updated_display=pretty_date(row.get("updated_at")),
+                           slug=sheets.division_slug(row["division"]))
+
+
+@app.route("/playing-rules/<div>/<season_id>")
+def division_rules_archive(div, season_id):
+    """An archived season's rules, reached from "Past seasons"."""
+    row = None
+    try:
+        row = sheets.find_division_rules(season_id)
+    except Exception:
+        row = None
+    if not row or sheets.division_slug(row.get("division")) != sheets.division_slug(div):
+        abort(404)
+    if row.get("source") == "link" and row.get("url"):
+        return redirect(row["url"])
+    return render_template("pages/division-rules.html",
+                           page_title="%s Division Rules" % row["division"],
+                           rules=row,
+                           blocks=sheets.rules_blocks(row.get("body")),
+                           updated_display=pretty_date(row.get("updated_at")),
+                           slug=sheets.division_slug(row["division"]))
 
 
 # ----------------------------------------------------------------------------
@@ -1433,6 +1526,195 @@ def admin_sponsor_delete(sid):
     except Exception:
         pass
     return redirect(url_for("admin_sponsors"))
+
+
+# ----------------------------------------------------------------------------
+# Division rules admin — the one page a division's rules manager signs into.
+#
+# The main admin password opens every division. Each division can also be given
+# its own code (RULES_CODE_RED / RULES_CODE_WHITE / RULES_CODE_BLUE in Render),
+# which opens ONLY that division's rules and nothing else in the portal — so a
+# division manager never needs the master admin password.
+# ----------------------------------------------------------------------------
+def _division_code(division):
+    return os.environ.get("RULES_CODE_%s" % str(division or "").upper(), "")
+
+
+def editable_divisions():
+    """Which divisions the person signed in right now may edit."""
+    if session.get("admin"):
+        return list(sheets.DIVISIONS)
+    one = session.get("rules_division")
+    return [one] if one in sheets.DIVISIONS else []
+
+
+def rules_editor_required(view):
+    @functools.wraps(view)
+    def wrapped(*args, **kwargs):
+        if not editable_divisions():
+            return redirect(url_for("rules_login", next=request.path))
+        return view(*args, **kwargs)
+    return wrapped
+
+
+def _may_edit(division):
+    return str(division or "") in editable_divisions()
+
+
+@app.route("/rules-login", methods=["GET", "POST"])
+def rules_login():
+    """The division managers' door. One box: their division's code. The master
+    admin password works here too and opens all three divisions."""
+    error = None
+    if request.method == "POST":
+        code = _normalize_password(request.form.get("password", ""))
+        if ADMIN_PASSWORD and hmac.compare_digest(
+                code, _normalize_password(ADMIN_PASSWORD)):
+            session["admin"] = True
+            return redirect(request.args.get("next") or url_for("admin_rules"))
+        for division in sheets.DIVISIONS:
+            configured = _division_code(division)
+            if configured and hmac.compare_digest(
+                    code, _normalize_password(configured)):
+                session["rules_division"] = division
+                return redirect(request.args.get("next") or url_for("admin_rules"))
+        error = "That code didn't match any division."
+    configured = [d for d in sheets.DIVISIONS if _division_code(d)]
+    return render_template("admin/rules-login.html", error=error,
+                           page_title="Division Rules",
+                           configured=configured,
+                           admin_ready=bool(ADMIN_PASSWORD))
+
+
+@app.route("/rules-logout")
+def rules_logout():
+    session.clear()
+    return redirect(url_for("rules_login"))
+
+
+@app.route("/admin/rules")
+@rules_editor_required
+def admin_rules():
+    mine = editable_divisions()
+    configured = sheets.is_configured()
+    rows, error = [], None
+    if configured:
+        try:
+            rows = [dict(r, updated_display=pretty_date(r.get("updated_at")))
+                    for r in sheets.list_division_rules()
+                    if r["division"] in mine]
+        except Exception as e:
+            error = str(e)
+    editing = None
+    edit_id = request.args.get("edit")
+    if edit_id:
+        for r in rows:
+            if r["id"] == str(edit_id):
+                editing = r
+                break
+    return render_template("admin/manage-rules.html",
+                           page_title="Division Rules",
+                           configured=configured, rows=rows, error=error,
+                           editing=editing, divisions=mine,
+                           is_admin=bool(session.get("admin")),
+                           saved=request.args.get("saved"),
+                           problem=request.args.get("problem"),
+                           max_chars=sheets.RULES_MAX_CHARS)
+
+
+def _rules_problem(form):
+    """Plain-English reason the form can't be saved, or '' if it's fine."""
+    division = (form.get("division") or "").strip()
+    if not _may_edit(division):
+        return "You can only edit your own division's rules."
+    if not (form.get("season") or "").strip():
+        return "Please give the rules a season name, such as Fall 2026."
+    source = (form.get("source") or "written").strip()
+    if source == "link":
+        url = (form.get("url") or "").strip()
+        if not url.lower().startswith("https://"):
+            return "Please paste the document's full web address, starting with https://"
+    else:
+        body = (form.get("body") or "").strip()
+        if not body:
+            return "Please type or paste the rules before saving."
+        if len(body) > sheets.RULES_MAX_CHARS:
+            return ("These rules are too long to store (%s characters, limit %s). "
+                    "Split them up, or keep them in a Google Doc and paste the "
+                    "link instead." % (len(body), sheets.RULES_MAX_CHARS))
+    return ""
+
+
+@app.route("/admin/rules/save", methods=["POST"])
+@rules_editor_required
+def admin_rules_save():
+    problem = _rules_problem(request.form)
+    if problem:
+        return redirect(url_for("admin_rules", problem=problem,
+                                edit=request.form.get("id") or None))
+    rule_id = (request.form.get("id") or "").strip()
+    if rule_id:
+        # Editing an existing set of rules: the row being changed must belong to
+        # this editor too, not just the division named on the form — otherwise a
+        # hand-made form post could re-label another division's rules.
+        existing = sheets.find_division_rules(rule_id)
+        if not existing or not _may_edit(existing.get("division")):
+            return redirect(url_for("admin_rules",
+                                    problem="You can only edit your own division's rules."))
+    try:
+        if rule_id:
+            sheets.update_division_rules(rule_id, request.form)
+        else:
+            sheets.add_division_rules(request.form)
+    except Exception as e:
+        return redirect(url_for("admin_rules", problem="Couldn't save: %s" % e))
+    return redirect(url_for("admin_rules", saved="1"))
+
+
+@app.route("/admin/rules/<rid>/status", methods=["POST"])
+@rules_editor_required
+def admin_rules_status(rid):
+    row = sheets.find_division_rules(rid)
+    if not row or not _may_edit(row.get("division")):
+        return redirect(url_for("admin_rules"))
+    try:
+        sheets.set_division_rules_status(rid, request.form.get("status", "archived"))
+    except Exception:
+        pass
+    return redirect(url_for("admin_rules", saved="1"))
+
+
+@app.route("/admin/rules/<rid>/new-season", methods=["POST"])
+@rules_editor_required
+def admin_rules_new_season(rid):
+    """Copy this season's rules into a new season to amend — the workflow the
+    divisions actually use each year."""
+    row = sheets.find_division_rules(rid)
+    if not row or not _may_edit(row.get("division")):
+        return redirect(url_for("admin_rules"))
+    season = (request.form.get("season") or "").strip()
+    if not season:
+        return redirect(url_for("admin_rules",
+                                problem="Please name the new season, such as Fall 2026."))
+    try:
+        new_id = sheets.start_new_season(rid, season,
+                                         request.form.get("updated_by", ""))
+    except Exception as e:
+        return redirect(url_for("admin_rules", problem="Couldn't start the season: %s" % e))
+    return redirect(url_for("admin_rules", edit=new_id, saved="1"))
+
+
+@app.route("/admin/rules/<rid>/delete", methods=["POST"])
+@rules_editor_required
+def admin_rules_delete(rid):
+    row = sheets.find_division_rules(rid)
+    if not row or not _may_edit(row.get("division")):
+        return redirect(url_for("admin_rules"))
+    try:
+        sheets.delete_division_rules(rid)
+    except Exception:
+        pass
+    return redirect(url_for("admin_rules", saved="1"))
 
 
 if __name__ == "__main__":

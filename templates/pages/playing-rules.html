@@ -9,19 +9,17 @@
     padding:22px 20px;text-align:center;transition:transform .12s,border-color .15s,box-shadow .15s}
   a.div-card{color:var(--navy);border-bottom:none}
   a.div-card:hover{transform:translateY(-2px);box-shadow:var(--shadow);border-bottom:none}
-  .div-card .div-name{font-family:var(--display);font-weight:800;font-size:1.45rem;letter-spacing:-.02em;line-height:1.15}
-  .div-card .div-note{font-size:.98rem;color:var(--muted);margin-top:8px}
+  .div-card .div-name{display:block;font-family:var(--display);font-weight:800;font-size:1.32rem;letter-spacing:-.02em;line-height:1.15}
+  .div-card .div-note{display:block;font-size:.98rem;color:var(--muted);margin-top:8px}
   .div-card .div-go{display:block;font-family:var(--display);font-weight:700;font-size:1.02rem;margin-top:12px}
   .div-red{border-color:var(--red)}
   .div-red .div-name,.div-red .div-go{color:var(--red)}
-  a.div-red:hover{border-color:var(--red)}
   .div-white{border-color:#9aa6bd}
   .div-white .div-name{color:var(--navy)}
-  a.div-white:hover{border-color:var(--navy)}
   .div-blue{border-color:var(--blue)}
   .div-blue .div-name,.div-blue .div-go{color:var(--blue)}
-  a.div-blue:hover{border-color:var(--blue)}
   .div-soon{background:#f7f9fd}
+  .past-seasons{margin:0;padding-left:1.3em}
   @media(max-width:760px){.div-rules{grid-template-columns:1fr}}
 </style>
 <p class="lead">The JSSA is governed by the rules of <strong>Senior Softball USA</strong>. On top of that foundation, specific exceptions and adjustments have been approved for each JSSA playing division to fit our members and our field.</p>
@@ -30,25 +28,38 @@
 <p>Click your division below to read its complete rules and procedures.</p>
 
 <div class="div-rules">
-  <a class="div-card div-red" href="https://docs.google.com/document/d/18d2eR_xltBHWH73hkXPlk0U1iLTpmqY1S8ZK8L-gktg/edit?usp=sharing" target="_blank" rel="noopener">
-    <span class="div-name">Red Division</span>
-    <span class="div-note">Rules &amp; Procedures — Winter 2026</span>
-    <span class="div-go">Read the rules →</span>
-  </a>
-  <div class="div-card div-white div-soon">
-    <span class="div-name">White Division</span>
-    <span class="div-note">Rules coming soon</span>
-  </div>
-  <div class="div-card div-blue div-soon">
-    <span class="div-name">Blue Division</span>
-    <span class="div-note">Rules coming soon</span>
-  </div>
+  {% for d in divisions %}
+    {% if d.rules %}
+      <a class="div-card div-{{ d.slug }}" href="{{ d.rules.href }}"
+         {% if d.rules.source == 'link' %}target="_blank" rel="noopener"{% endif %}>
+        <span class="div-name">{{ d.name }} Division</span>
+        <span class="div-note">{{ d.rules.season }}</span>
+        <span class="div-go">Read the rules →</span>
+      </a>
+    {% else %}
+      <div class="div-card div-{{ d.slug }} div-soon">
+        <span class="div-name">{{ d.name }} Division</span>
+        <span class="div-note">Rules coming soon</span>
+      </div>
+    {% endif %}
+  {% endfor %}
 </div>
+
+{% if archived_rules %}
+  <h2>Past seasons</h2>
+  <p>Earlier seasons' rules are kept here for reference.</p>
+  <ul class="past-seasons">
+    {% for r in archived_rules %}
+      <li><a href="{{ r.href }}"{% if r.source == 'link' %} target="_blank" rel="noopener"{% endif %}>{{ r.division }} Division — {{ r.season }}</a></li>
+    {% endfor %}
+  </ul>
+{% endif %}
 
 <h2>League-wide rules sheet</h2>
 <p>The league's official uniform and division rules sheet is also kept online:</p>
 <p><a href="https://docs.google.com/spreadsheets/d/1ZDVIqbPTWYn4ZYWg6cSPN3zxCxFlF3r2GAVJBPch6pw/edit#gid=1504740933">JSSA Uniform &amp; Division Playing Rules →</a></p>
 
 <p>If you have a question about a specific rule or how it's applied in your division, your team manager and division directors are the best first point of contact.</p>
+
+<p style="color:var(--muted);font-size:.95rem;margin-top:28px">Division rules managers: <a href="/admin/rules">sign in to update your division's rules</a>.</p>
 {% endblock %}
-{% block extra_btns %}<a class="btn btn-ghost" href="https://docs.google.com/document/d/18d2eR_xltBHWH73hkXPlk0U1iLTpmqY1S8ZK8L-gktg/edit?usp=sharing" target="_blank" rel="noopener">Red Division rules</a>{% endblock %}

@@ -1,0 +1,199 @@
+{% extends "page_base.html" %}
+{% block eyebrow %}Division Rules{% endblock %}
+{% block sub %}<p class="sub">Write, update and archive your division's playing rules. Changes show on the website within about a minute.</p>{% endblock %}
+{% block body %}
+<style>
+  html{font-size:112.5%}  /* larger, easier-to-read text */
+  .adm label{display:block;font-family:var(--display);font-weight:600;color:var(--navy);margin:0 0 7px}
+  .adm textarea,.adm input[type=text],.adm select{width:100%;font-family:var(--body);font-size:1.05rem;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:#fff}
+  .adm textarea{min-height:420px;resize:vertical;line-height:1.6}
+  .adm .row{margin-bottom:18px}
+  .adm .two{display:grid;grid-template-columns:200px 1fr;gap:16px}
+  @media(max-width:560px){.adm .two{grid-template-columns:1fr}}
+  .hint{color:var(--muted);font-size:.9rem;margin-top:6px}
+  .note{background:#fff8e6;border:1px solid #f3e2b3;color:#7a5b12;border-radius:12px;padding:18px 20px;margin-bottom:24px}
+  .note code{background:#fff;border:1px solid #eadfbf;border-radius:5px;padding:1px 6px;font-size:.92em}
+  .good{background:#e8f6ee;border:1px solid #bfe3cd;color:#1a7f4b;border-radius:12px;padding:14px 20px;margin-bottom:24px;font-weight:600}
+  .bad{background:#fdeceD;border:1px solid #f0c9cb;color:#b3151b;border-radius:12px;padding:14px 20px;margin-bottom:24px;font-weight:600}
+  .formcard{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 24px;margin-bottom:30px}
+  .formcard h2{margin:0 0 16px}
+  .pick{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:6px}
+  .pick label{display:flex;align-items:center;gap:9px;border:2px solid var(--line);border-radius:12px;
+    padding:14px 18px;cursor:pointer;font-weight:600;margin:0;background:#fff;flex:1 1 260px}
+  .pick input{width:20px;height:20px}
+  table.posts{width:100%;border-collapse:collapse;margin-top:8px}
+  table.posts th{text-align:left;font-family:var(--display);font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:8px 10px;border-bottom:2px solid var(--line)}
+  table.posts td{padding:12px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  .post-title{font-family:var(--display);font-weight:700;color:var(--navy)}
+  .post-when{color:var(--muted);font-size:.85rem;margin-top:2px}
+  .status-on{color:#1a7f4b;font-weight:700}
+  .status-off{color:var(--muted);font-weight:600}
+  .mini{display:inline-flex;align-items:center;gap:6px;font-family:var(--display);font-weight:600;font-size:.86rem;padding:7px 13px;border-radius:8px;border:1px solid var(--line);background:#fff;cursor:pointer;text-decoration:none;color:var(--navy);margin:2px 0}
+  .mini.on{background:#e8f6ee;border-color:#bfe3cd;color:#1a7f4b}
+  .mini.edit{background:#eef3ff;border-color:#cfe0ff;color:var(--blue)}
+  .mini.del{color:#b3151b;border-color:#f0c9cb}
+  .inline{display:inline}
+  .adminbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px}
+  .adminbar a{font-weight:600}
+  .season-form{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
+  .season-form input[type=text]{width:180px;font-size:.95rem;padding:8px 11px;border:1px solid var(--line);border-radius:8px}
+</style>
+
+<div class="adminbar">
+  {% if is_admin %}<a href="{{ url_for('admin_dashboard') }}">&larr; Admin home</a>{% else %}<a href="/playing-rules">&larr; Back to the website</a>{% endif %}
+  <a href="{{ url_for('admin_logout') if is_admin else url_for('rules_logout') }}">Sign out</a>
+</div>
+
+{% if saved %}<div class="good">Saved. The website updates within about a minute.</div>{% endif %}
+{% if problem %}<div class="bad">{{ problem }}</div>{% endif %}
+
+{% if not configured %}
+  <div class="note">
+    <p style="margin-bottom:8px"><strong>The content sheet isn't connected yet.</strong></p>
+    <p>Once <code>GOOGLE_SERVICE_ACCOUNT_JSON</code> and <code>SHEET_ID</code> are in place, this page saves your rules. Until then the website shows the Red Division's Winter 2026 rules that are built in.</p>
+  </div>
+{% else %}
+
+  <div class="formcard">
+    <h2>{% if editing %}Edit the {{ editing.division }} Division rules{% else %}Post a set of rules{% endif %}</h2>
+    <form class="adm" method="post" action="{{ url_for('admin_rules_save') }}">
+      {% if editing %}<input type="hidden" name="id" value="{{ editing.id }}">
+      <input type="hidden" name="status" value="{{ editing.status }}">{% endif %}
+
+      <div class="row two">
+        <div>
+          <label for="division">Division</label>
+          {% if divisions|length == 1 %}
+            <input type="text" value="{{ divisions[0] }}" disabled>
+            <input type="hidden" name="division" value="{{ divisions[0] }}">
+          {% else %}
+            <select id="division" name="division">
+              {% for d in divisions %}
+                <option value="{{ d }}"{% if editing and editing.division == d %} selected{% endif %}>{{ d }}</option>
+              {% endfor %}
+            </select>
+          {% endif %}
+        </div>
+        <div>
+          <label for="season">Season</label>
+          <input type="text" id="season" name="season" placeholder="Fall 2026" required
+                 value="{{ editing.season if editing else '' }}">
+          <div class="hint">For example <strong>Fall 2026</strong>. This is what members see on the website.</div>
+        </div>
+      </div>
+
+      <div class="row">
+        <label>How do you want to keep these rules?</label>
+        <div class="pick">
+          <label><input type="radio" name="source" value="written" data-pick="written"
+                        {% if not editing or editing.source != 'link' %}checked{% endif %}>
+            ✍️ Write them here on this page</label>
+          <label><input type="radio" name="source" value="link" data-pick="link"
+                        {% if editing and editing.source == 'link' %}checked{% endif %}>
+            🔗 Link to a Google Doc instead</label>
+        </div>
+        <div class="hint">Writing them here means members read them right on the website and you can edit any time — nothing else to keep track of.</div>
+      </div>
+
+      <div class="row" id="box-written">
+        <label for="body">The rules</label>
+        <textarea id="body" name="body" placeholder="## SECTION I — TEAMS&#10;&#10;A. Teams will be selected by a draft...">{{ editing.body if editing else '' }}</textarea>
+        <div class="hint">
+          <strong>Two things to know about the formatting:</strong>
+          leave a <strong>blank line</strong> between paragraphs, and start a section heading with
+          <code>##</code> — so <code>## SECTION I — TEAMS</code> becomes a heading on the page.
+          That's all there is to it. You can paste straight from Word or Google Docs.
+          Up to {{ "{:,}".format(max_chars) }} characters.
+        </div>
+      </div>
+
+      <div class="row" id="box-link">
+        <label for="url">Link to your Google Doc</label>
+        <input type="text" id="url" name="url" placeholder="https://docs.google.com/document/d/..."
+               value="{{ editing.url if editing else '' }}">
+        <div class="hint">In the Doc: <strong>Share</strong> → change <em>Restricted</em> to <strong>Anyone with the link</strong> → <strong>Viewer</strong> → Copy link, then paste it here. Without that step members will see a "request access" screen.</div>
+      </div>
+
+      <div class="row">
+        <label for="updated_by">Your name</label>
+        <input type="text" id="updated_by" name="updated_by" placeholder="e.g. Gary"
+               value="{{ editing.updated_by if editing else '' }}">
+      </div>
+
+      <button class="btn btn-navy" type="submit">{% if editing %}Save changes{% else %}Post these rules{% endif %}</button>
+      {% if editing %}<a class="mini" style="margin-left:10px" href="{{ url_for('admin_rules') }}">Cancel</a>{% endif %}
+    </form>
+  </div>
+
+  <h2>Your division's rules</h2>
+  {% if error %}
+    <div class="note">Couldn't load the rules: {{ error }}</div>
+  {% elif rows %}
+    <table class="posts">
+      <thead><tr><th>Season</th><th>Kept as</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td>
+            <div class="post-title">{{ r.division }} Division</div>
+            <div class="post-when">{{ r.season }}{% if r.updated_at %} · updated {{ r.updated_display }}{% if r.updated_by %} by {{ r.updated_by }}{% endif %}{% endif %}</div>
+          </td>
+          <td>{% if r.source == 'link' %}Google Doc{% else %}Written on the site{% endif %}</td>
+          <td>{% if r.status == 'current' %}<span class="status-on">Current</span>{% else %}<span class="status-off">Past season</span>{% endif %}</td>
+          <td>
+            <a class="mini edit" href="{{ url_for('admin_rules', edit=r.id) }}">Edit</a>
+            <a class="mini" target="_blank" rel="noopener"
+               href="{% if r.source == 'link' and r.url %}{{ r.url }}{% elif r.status == 'current' %}/playing-rules/{{ r.division|lower }}{% else %}/playing-rules/{{ r.division|lower }}/{{ r.id }}{% endif %}">View</a>
+            {% if r.status == 'current' %}
+              <form class="inline" method="post" action="{{ url_for('admin_rules_status', rid=r.id) }}">
+                <input type="hidden" name="status" value="archived">
+                <button class="mini" type="submit">Archive</button>
+              </form>
+            {% else %}
+              <form class="inline" method="post" action="{{ url_for('admin_rules_status', rid=r.id) }}">
+                <input type="hidden" name="status" value="current">
+                <button class="mini on" type="submit">Make current</button>
+              </form>
+            {% endif %}
+            <form class="inline" method="post" action="{{ url_for('admin_rules_delete', rid=r.id) }}"
+                  onsubmit="return confirm('Delete the {{ r.season }} rules for good? Archiving keeps them on the site under Past seasons instead.')">
+              <button class="mini del" type="submit">Delete</button>
+            </form>
+            {% if r.status == 'current' %}
+            <form class="season-form" method="post" action="{{ url_for('admin_rules_new_season', rid=r.id) }}">
+              <input type="text" name="season" placeholder="Fall 2026" required>
+              <input type="hidden" name="updated_by" value="{{ r.updated_by }}">
+              <button class="mini on" type="submit">Start this season from a copy</button>
+            </form>
+            <div class="hint">Copies these rules into the new season for you to amend, and files this season under "Past seasons."</div>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>No rules posted yet for your division. Use the form above — that's all it takes.</p>
+  {% endif %}
+{% endif %}
+
+<script>
+  /* Show only the field that matches the chosen way of keeping the rules.
+     With JavaScript off both boxes simply stay visible, which still works. */
+  (function () {
+    var picks = document.querySelectorAll('input[name="source"]');
+    var boxes = {written: document.getElementById('box-written'),
+                 link: document.getElementById('box-link')};
+    function sync() {
+      var chosen = 'written';
+      picks.forEach(function (p) { if (p.checked) { chosen = p.dataset.pick; } });
+      Object.keys(boxes).forEach(function (k) {
+        if (boxes[k]) { boxes[k].style.display = (k === chosen) ? '' : 'none'; }
+      });
+    }
+    picks.forEach(function (p) { p.addEventListener('change', sync); });
+    sync();
+  })();
+</script>
+{% endblock %}
+{% block footer_btns %}{% endblock %}
