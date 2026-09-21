@@ -1402,12 +1402,7 @@ _hof_cache = {"data": None, "ts": 0.0}
 
 def _simple_worksheet(tab, headers):
     import gspread
-    from google.oauth2.service_account import Credentials
-    info = json.loads(_SA_JSON)
-    scopes = ["https://www.googleapis.com/auth/spreadsheets"]
-    creds = Credentials.from_service_account_info(info, scopes=scopes)
-    gc = gspread.authorize(creds)
-    sh = gc.open_by_key(SHEET_ID)
+    sh = _open_content_spreadsheet()
     try:
         ws = sh.worksheet(tab)
         _ensure_headers(ws, headers)
@@ -4107,3 +4102,300 @@ def sender_url_problem(url):
         return ('The address is missing the ?key=... part with your secret '
                 'phrase on the end.')
     return ""
+
+
+# ----------------------------------------------------------------------------
+# Division Playing Rules — each division writes and keeps its own rules.
+#
+# One row per division per season on the "DivisionRules" tab. A row is either
+#   source = "written"  the rules text itself lives in the `body` cell and the
+#                       website renders it as a page, or
+#   source = "link"     the rules live in a Google Doc and `url` points at it.
+# status is "current" (shown on /playing-rules) or "archived" (kept under
+# "Past seasons" so no season's rules are ever lost).
+#
+# The tab is created and seeded with the Red Division's Winter 2026 rules the
+# first time this runs, so Red is a working example the other divisions copy.
+# Everything fails safe: with no sheet configured the public pages fall back to
+# the built-in Red rules in seeds/.
+# ----------------------------------------------------------------------------
+RULES_TAB = "DivisionRules"
+RULES_HEADERS = ["id", "division", "season", "status", "source", "url", "body",
+                 "updated_at", "updated_by"]
+
+# The divisions, in the order they appear on the site.
+DIVISIONS = ["Red", "White", "Blue"]
+
+# Google caps a single cell at 50,000 characters. Leave headroom and tell the
+# editor plainly rather than silently truncating a season's rules.
+RULES_MAX_CHARS = 45000
+
+_SEED_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "seeds")
+_RED_SEED_FILE = "red-division-rules-winter-2026.txt"
+_RED_SEED_SEASON = "Winter 2026"
+
+_rules_cache = {"data": None, "ts": 0.0}
+_RULES_TTL = 60  # seconds — an edit shows on the site within about a minute
+
+
+def _seed_rules_text():
+    """The Red Division's Winter 2026 rules, kept in the repo so the site can
+    still show them if Sheets is unreachable. Empty string if the file is gone."""
+    try:
+        with open(os.path.join(_SEED_DIR, _RED_SEED_FILE), encoding="utf-8") as fh:
+            return fh.read().strip()
+    except Exception:
+        return ""
+
+
+def division_slug(division):
+    """'Red' -> 'red'. The slug used in /playing-rules/<slug> addresses."""
+    return "".join(str(division or "").split()).lower()
+
+
+def _col_letter(n):
+    """1 -> A, 26 -> Z, 27 -> AA. Keeps the update range correct if a column is
+    ever added to RULES_HEADERS."""
+    out = ""
+    while n > 0:
+        n, rem = divmod(n - 1, 26)
+        out = chr(ord("A") + rem) + out
+    return out
+
+
+def _rules_row(rec):
+    return {k: str(rec.get(k, "") or "").strip() for k in RULES_HEADERS}
+
+
+def _rules_worksheet():
+    """The DivisionRules tab, seeded with Red's Winter 2026 rules on creation."""
+    import gspread
+    sh = _open_content_spreadsheet()
+    try:
+        ws = sh.worksheet(RULES_TAB)
+        _ensure_headers(ws, RULES_HEADERS)
+        return ws
+    except gspread.WorksheetNotFound:
+        pass
+    ws = sh.add_worksheet(title=RULES_TAB, rows=200, cols=len(RULES_HEADERS))
+    ws.update([RULES_HEADERS], "A1")
+    body = _seed_rules_text()
+    if body:
+        ws.append_row([uuid.uuid4().hex[:8], "Red", _RED_SEED_SEASON,
+                       "current", "written", "", body,
+                       datetime.date.today().isoformat(), "JSSA website"],
+                      value_input_option="RAW")
+    return ws
+
+
+def _open_content_spreadsheet():
+    import gspread
+    from google.oauth2.service_account import Credentials
+    info = json.loads(_SA_JSON)
+    scopes = ["https://www.googleapis.com/auth/spreadsheets"]
+    creds = Credentials.from_service_account_info(info, scopes=scopes)
+    return gspread.authorize(creds).open_by_key(SHEET_ID)
+
+
+def _rules_invalidate():
+    with _lock:
+        _rules_cache["data"] = None
+        _rules_cache["ts"] = 0.0
+
+
+def _fallback_rules():
+    """What the public pages show when Sheets isn't available: the Red rules
+    built into the repo, so the season's rules are never simply missing."""
+    body = _seed_rules_text()
+    if not body:
+        return []
+    return [{"id": "seed", "division": "Red", "season": _RED_SEED_SEASON,
+             "status": "current", "source": "written", "url": "", "body": body,
+             "updated_at": "", "updated_by": ""}]
+
+
+def list_division_rules():
+    """Every row, newest-looking first: current before archived. Admin view."""
+    if not is_configured():
+        return []
+    ws = _rules_worksheet()
+    rows = [_rules_row(r) for r in ws.get_all_records(expected_headers=RULES_HEADERS)]
+    order = {d: i for i, d in enumerate(DIVISIONS)}
+    rows.sort(key=lambda r: (order.get(r["division"], 99),
+                             r["status"] != "current", r["season"]))
+    return rows
+
+
+def division_rules():
+    """Cached rows for the public pages. Falls back to the built-in Red rules."""
+    now = time.time()
+    with _lock:
+        c = _rules_cache
+        if c["data"] is not None and now - c["ts"] < _RULES_TTL:
+            return c["data"]
+    read_ok = False
+    rows = []
+    try:
+        if is_configured():
+            rows = list_division_rules()
+            read_ok = True
+    except Exception:
+        rows, read_ok = [], False
+    if not read_ok:
+        # No sheet, or it couldn't be read — show the rules built into the repo
+        # rather than an empty page. An empty sheet that DID read stays empty:
+        # a division that deletes a row means it.
+        rows = _fallback_rules()
+    with _lock:
+        _rules_cache["data"] = rows
+        _rules_cache["ts"] = now
+    return rows
+
+
+def current_division_rules(division):
+    """The one current row for a division, or None."""
+    for r in division_rules():
+        if r["division"].lower() == str(division or "").lower() and r["status"] == "current":
+            return r
+    return None
+
+
+def find_division_rules(rule_id):
+    for r in division_rules():
+        if r["id"] == str(rule_id):
+            return r
+    return None
+
+
+def _rules_values(fields, rule_id, existing=None):
+    """Build a row from a submitted form. A 'link' row keeps no body and a
+    'written' row keeps no url, so a row is never ambiguous about where the
+    rules actually live."""
+    existing = existing or {}
+    source = (fields.get("source") or existing.get("source") or "written").strip()
+    source = "link" if source == "link" else "written"
+    body = (fields.get("body") or "").replace("\r\n", "\n").strip()
+    url = (fields.get("url") or "").strip()
+    return {
+        "id": rule_id,
+        "division": (fields.get("division") or existing.get("division") or "").strip(),
+        "season": (fields.get("season") or existing.get("season") or "").strip(),
+        "status": (fields.get("status") or existing.get("status") or "current").strip(),
+        "source": source,
+        "url": url if source == "link" else "",
+        "body": body if source == "written" else "",
+        "updated_at": datetime.date.today().isoformat(),
+        "updated_by": (fields.get("updated_by") or "").strip(),
+    }
+
+
+def add_division_rules(fields):
+    ws = _rules_worksheet()
+    vals = _rules_values(fields, uuid.uuid4().hex[:8])
+    if vals["status"] == "current":
+        _archive_others(ws, vals["division"], keep_id=None)
+    ws.append_row([vals[k] for k in RULES_HEADERS], value_input_option="RAW")
+    _rules_invalidate()
+    return vals["id"]
+
+
+def update_division_rules(rule_id, fields):
+    ws = _rules_worksheet()
+    for i, rec in enumerate(ws.get_all_records(expected_headers=RULES_HEADERS)):
+        if str(rec.get("id")) == str(rule_id):
+            existing = _rules_row(rec)
+            vals = _rules_values(fields, str(rule_id), existing)
+            row_no = i + 2
+            ws.update([[vals[k] for k in RULES_HEADERS]],
+                      "A%d:%s%d" % (row_no, _col_letter(len(RULES_HEADERS)), row_no),
+                      value_input_option="RAW")
+            break
+    _rules_invalidate()
+
+
+def set_division_rules_status(rule_id, status):
+    """Archive a season's rules, or bring an archived season back as current.
+    A division has at most one current season, so making one current archives
+    whatever was current before."""
+    status = "current" if status == "current" else "archived"
+    ws = _rules_worksheet()
+    col = RULES_HEADERS.index("status") + 1
+    target = None
+    for i, rec in enumerate(ws.get_all_records(expected_headers=RULES_HEADERS)):
+        if str(rec.get("id")) == str(rule_id):
+            target = (i + 2, _rules_row(rec))
+            break
+    if not target:
+        return
+    row_no, rec = target
+    if status == "current":
+        _archive_others(ws, rec["division"], keep_id=str(rule_id))
+    ws.update_cell(row_no, col, status)
+    _rules_invalidate()
+
+
+def _archive_others(ws, division, keep_id=None):
+    """Keep one current season per division."""
+    col = RULES_HEADERS.index("status") + 1
+    for i, rec in enumerate(ws.get_all_records(expected_headers=RULES_HEADERS)):
+        row = _rules_row(rec)
+        if (row["division"].lower() == str(division or "").lower()
+                and row["status"] == "current"
+                and (keep_id is None or row["id"] != str(keep_id))):
+            ws.update_cell(i + 2, col, "archived")
+
+
+def start_new_season(rule_id, season, updated_by=""):
+    """Copy a season's rules into a new season, archive the old one, and make
+    the copy current — the 'copy last season and amend it' workflow."""
+    season = str(season or "").strip()
+    if not season:
+        return None
+    ws = _rules_worksheet()
+    source_row = None
+    for rec in ws.get_all_records(expected_headers=RULES_HEADERS):
+        if str(rec.get("id")) == str(rule_id):
+            source_row = _rules_row(rec)
+            break
+    if not source_row:
+        return None
+    new_id = uuid.uuid4().hex[:8]
+    _archive_others(ws, source_row["division"], keep_id=None)
+    ws.append_row([new_id, source_row["division"], season, "current",
+                   source_row["source"], source_row["url"], source_row["body"],
+                   datetime.date.today().isoformat(), str(updated_by or "").strip()],
+                  value_input_option="RAW")
+    _rules_invalidate()
+    return new_id
+
+
+def delete_division_rules(rule_id):
+    ws = _rules_worksheet()
+    for i, rec in enumerate(ws.get_all_records(expected_headers=RULES_HEADERS)):
+        if str(rec.get("id")) == str(rule_id):
+            ws.delete_rows(i + 2)
+            break
+    _rules_invalidate()
+
+
+def rules_blocks(body):
+    """Turn the editor's plain text into blocks the page can render:
+        a line starting with '## '  -> {"h": "Section heading"}
+        anything else               -> {"p": "paragraph text"}
+    Blank lines separate paragraphs. That's the whole format — deliberately
+    small enough to explain in two lines on the edit page."""
+    out = []
+    for para in _paras(body):
+        lines = [ln.strip() for ln in para.split("\n") if ln.strip()]
+        buf = []
+        for ln in lines:
+            if ln.startswith("##"):
+                if buf:
+                    out.append({"p": " ".join(buf)})
+                    buf = []
+                out.append({"h": ln.lstrip("#").strip()})
+            else:
+                buf.append(ln)
+        if buf:
+            out.append({"p": " ".join(buf)})
+    return out

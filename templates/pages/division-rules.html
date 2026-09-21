@@ -1,0 +1,30 @@
+{% extends "page_base.html" %}
+{% block eyebrow %}League Governance{% endblock %}
+{% block sub %}<p class="sub">{{ rules.season }}{% if rules.status == 'archived' %} &middot; past season{% endif %}{% if rules.updated_at %} &middot; last updated {{ updated_display }}{% endif %}</p>{% endblock %}
+{% block body %}
+{% if rules.status == 'archived' %}
+  <div class="rules-flag"><strong>These are past-season rules ({{ rules.season }}).</strong>
+    For the rules in effect now, see <a href="/playing-rules">Playing Rules</a>.</div>
+{% endif %}
+
+{% for b in blocks %}
+  {% if b.h %}<h2>{{ b.h }}</h2>{% else %}<p>{{ b.p }}</p>{% endif %}
+{% endfor %}
+
+{% if not blocks %}
+  <p>These rules haven't been posted yet. Please check back, or contact your division manager.</p>
+{% endif %}
+
+<p class="rules-note">The JSSA plays by <strong>Senior Softball USA</strong> rules except where these division rules modify them. Questions about a rule or how it's applied go to your team manager or division director first.</p>
+<style>
+  .rules-flag{background:#fff8e6;border:1px solid #f3e2b3;color:#7a5b12;border-radius:12px;
+    padding:16px 20px;margin-bottom:26px;font-size:1.02rem}
+  .rules-note{color:var(--muted);font-size:1rem;margin-top:30px;padding-top:18px;border-top:1px solid var(--line)}
+  @media print{
+    header,footer,.doc-btns,.page-head .eyebrow{display:none!important}
+    .article{border:none;box-shadow:none;padding:0}
+  }
+</style>
+{% endblock %}
+{% block extra_btns %}<a class="btn btn-ghost" href="/playing-rules">All division rules</a>
+<button class="btn btn-ghost" type="button" onclick="window.print()">Print these rules</button>{% endblock %}
