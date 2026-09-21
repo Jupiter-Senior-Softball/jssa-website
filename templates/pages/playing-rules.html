@@ -20,6 +20,15 @@
   .div-blue .div-name,.div-blue .div-go{color:var(--blue)}
   .div-soon{background:#f7f9fd}
   .past-seasons{margin:0;padding-left:1.3em}
+  .ssusa-btn{margin:6px 0 10px}
+  .ssusa-note{color:var(--muted);font-size:.97rem}
+  .find-how{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:18px 0 8px}
+  .find-card{background:#f7f9fd;border:1px solid var(--line);border-radius:14px;padding:20px 22px}
+  .find-card h4{font-family:var(--display);font-weight:800;font-size:1.1rem;color:var(--navy);margin:0 0 10px}
+  .find-card ol{margin:0;padding-left:1.25em}
+  .find-card li{margin:0 0 10px;font-size:1.04rem}
+  .find-card .muted-line{color:var(--muted);font-size:.96rem}
+  @media(max-width:760px){.find-how{grid-template-columns:1fr}}
   @media(max-width:760px){.div-rules{grid-template-columns:1fr}}
 </style>
 <p class="lead">Each division writes its own playing rules. Anything a division's rules don't cover falls back to <strong>Senior Softball USA</strong> rules, which the JSSA plays by.</p>
@@ -46,6 +55,37 @@
 </div>
 
 <p>If you have a question about a specific rule or how it's applied in your division, your team manager and division directors are the best first point of contact.</p>
+
+<h2>Senior Softball USA rulebook</h2>
+<p>The JSSA plays by <strong>Senior Softball USA</strong> rules except where a division's own rules change them. Senior Softball USA keeps the current rulebook on their website, so the link below is always the latest edition:</p>
+
+<p><a class="btn btn-navy ssusa-btn" href="https://seniorsoftball.com/?page=7" target="_blank" rel="noopener">Open the SSUSA rulebook &rarr;</a></p>
+<p class="ssusa-note">This opens Senior Softball USA's own website in a new tab. The rulebook is their publication, so we link to it rather than keep a copy that would fall out of date.</p>
+
+<h3>Looking for one rule? Search instead of reading</h3>
+<p>Once the rulebook is open, you can jump straight to a word &mdash; <em>courtesy runner</em>, <em>commitment line</em>, <em>bat</em> &mdash; without reading the whole book.</p>
+
+<div class="find-how">
+  <div class="find-card">
+    <h4>On a computer</h4>
+    <ol>
+      <li>Hold <strong>Ctrl</strong> and press <strong>F</strong>.<br>
+          <span class="muted-line">On a Mac, hold <strong>&#8984; Command</strong> and press <strong>F</strong>.</span></li>
+      <li>A small search box appears, usually at the top or bottom corner.</li>
+      <li>Type the word you want and press <strong>Enter</strong>.</li>
+      <li>Use the little <strong>&uarr;</strong> and <strong>&darr;</strong> arrows in that box to step through every place the word appears.</li>
+    </ol>
+  </div>
+  <div class="find-card">
+    <h4>On a phone or tablet</h4>
+    <ol>
+      <li>Tap the <strong>menu</strong> button in your browser &mdash; the three dots <strong>&#8942;</strong> or the share icon.</li>
+      <li>Choose <strong>Find in page</strong> (on some phones it's a magnifying glass <strong>&#128269;</strong>).</li>
+      <li>Type the word you want.</li>
+      <li>Tap the arrows to move between each place it appears.</li>
+    </ol>
+  </div>
+</div>
 
 {% if archived_rules %}
   <h2>Past seasons</h2>
