@@ -1,6 +1,6 @@
 {% extends "page_base.html" %}
 {% block eyebrow %}Admin{% endblock %}
-{% block sub %}<p class="sub">Post a game-day weather update or an announcement. Anything you turn on shows in the banner at the top of the website.</p>{% endblock %}
+{% block sub %}<p class="sub">Cancelling today's games? Use the red button below. Everything else — announcements and site content — is on this page.</p>{% endblock %}
 {% block body %}
 <style>
   html{font-size:112.5%}  /* larger, easier-to-read text site-wide */
@@ -8,10 +8,16 @@
   .adm textarea,.adm input[type=text]{width:100%;font-family:var(--body);font-size:1.05rem;padding:12px 14px;border:1px solid var(--line);border-radius:10px}
   .adm textarea{min-height:84px;resize:vertical}
   .adm .row{margin-bottom:18px}
-  .typepick{display:flex;gap:10px;flex-wrap:wrap}
-  .typepick label{display:flex;align-items:center;gap:9px;border:1px solid var(--line);border-radius:10px;padding:12px 16px;cursor:pointer;font-weight:600;flex:1;min-width:200px}
-  .typepick input{accent-color:var(--blue);width:18px;height:18px}
   .hint{color:var(--muted);font-size:.9rem;margin-top:6px}
+  /* Game-day cancellations have their own tool (it emails the players too), so
+     it gets the top spot and the only red button on the page. */
+  .cancelcall{border:2px solid #f0c9cb;background:#fffafa;border-radius:14px;padding:20px 22px;margin:4px 0 30px}
+  .cancelcall h2{font-size:1.4rem;margin:0 0 6px;color:#b3151b}
+  .cancelcall p{margin:0 0 16px;color:var(--navy);font-size:1.02rem;line-height:1.5}
+  .cancelbtn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:64px;padding:14px 20px;
+             font-family:var(--display);font-weight:700;font-size:1.15rem;color:#fff;background:#b3151b;
+             border-radius:12px;text-decoration:none;text-align:center}
+  .cancelbtn:hover{background:#8f1016}
   .note{background:#fff8e6;border:1px solid #f3e2b3;color:#7a5b12;border-radius:12px;padding:18px 20px}
   .note code{background:#fff;border:1px solid #eadfbf;border-radius:5px;padding:1px 6px;font-size:.92em}
   table.notices{width:100%;border-collapse:collapse;margin-top:8px}
@@ -55,19 +61,21 @@
   </div>
 {% else %}
 
+  <div class="cancelcall">
+    <h2>&#9888;&#65039; Cancelling today's games?</h2>
+    <p>Use this button — <strong>not</strong> the announcement form below. It posts the notice on the website
+      <strong>and emails every player scheduled to play today</strong>. Posting an announcement by itself
+      does not email anyone, so players show up at the field.</p>
+    <a class="cancelbtn" href="{{ url_for('admin_cancel') }}">&#9888;&#65039; Cancel Today's Games &amp; Notify Players</a>
+  </div>
+
   <h2 class="form-h">📣 Make an announcement</h2>
-  <p class="form-sub">Post a game-day weather note or a quick announcement. It shows in the banner at the top of the website.</p>
+  <p class="form-sub">For news and reminders — banquet dates, sign-ups, field changes. It shows in the banner at the
+    top of the website. <strong>No email is sent.</strong> For a game-day cancellation, use the red button above.</p>
   <form class="adm" method="post" action="{{ url_for('admin_add') }}">
     <div class="row">
-      <label>What kind of update?</label>
-      <div class="typepick">
-        <label><input type="radio" name="type" value="weather" checked> 🌧️ Game-day / weather</label>
-        <label><input type="radio" name="type" value="announcement"> 📣 Announcement</label>
-      </div>
-    </div>
-    <div class="row">
       <label for="message">Message</label>
-      <textarea id="message" name="message" placeholder="No games today — fields are wet from overnight rain. Check back tomorrow." required></textarea>
+      <textarea id="message" name="message" placeholder="Opening day is Monday, October 6 — see you at the park." required></textarea>
       <div class="hint">Keep it short — this shows in the banner across the top of the site.</div>
     </div>
     <div class="row">
