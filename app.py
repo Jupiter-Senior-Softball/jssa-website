@@ -1100,7 +1100,10 @@ def admin_cancel_send():
 @app.route("/admin/notices/add", methods=["POST"])
 @login_required
 def admin_add():
-    ntype = request.form.get("type", "announcement")
+    # This form only posts announcements now. Game-day cancellations go through
+    # /admin/cancel, which posts the weather banner AND emails the players —
+    # posting a weather notice by hand here skipped the emails.
+    ntype = "announcement"
     message = request.form.get("message", "").strip()
     created_by = request.form.get("created_by", "").strip()
     url = request.form.get("url", "").strip()
