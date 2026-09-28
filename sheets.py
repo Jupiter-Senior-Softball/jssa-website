@@ -2065,6 +2065,222 @@ def player_directory():
         return result
     except Exception:
         return _dir_cache["data"] or blank
+
+
+# ----------------------------------------------------------------------------
+# Member divisions — the board's one safe way to move a player RED/WHITE/BLUE
+# ----------------------------------------------------------------------------
+# The master list lives in the "JSSA Players" tab of the Pickup Game Management
+# workbook (ROSTER_SHEET_ID). That workbook is full of protected tabs, formulas
+# and Apps Script, so the board must NEVER be given edit access to it directly.
+# Instead the website writes ONE cell — the Division column on one player's row
+# — through the service account, and logs every change to the control sheet.
+#
+# Two things worth knowing about how that change travels:
+#   1. Editing the cell by hand in the sheet fires the pickup project's onEdit
+#      trigger, which re-syncs "JSSA Players" into "Master_Backend". An API
+#      write (what we do here) does NOT fire onEdit — but the project's
+#      scheduledImportAndSyncPlayers_ trigger runs every 15 minutes and does
+#      the same sync, so the change reaches team-building on its own.
+#   2. The renewal import only writes a division when the cell is BLANK, so a
+#      change made here is not clobbered the next time a member renews.
+
+# Note: there is a separate DIVISIONS list further down for the Division Rules
+# pages ("Red"/"White"/"Blue", title case). Keep this one under its own name —
+# the roster sheet stores divisions upper case.
+MEMBER_DIVISIONS = ("RED", "WHITE", "BLUE")
+
+DIVISION_LOG_TAB = "Division Changes"
+DIVISION_LOG_HEADERS = ["Date", "Time", "Player", "Email",
+                        "From", "To", "Changed by"]
+
+
+def _roster_sheet(readonly=True):
+    """Open the Pickup Game Management workbook. Ask for the read-only scope
+    unless we are actually writing, so a bug can't scribble on it."""
+    import gspread
+    from google.oauth2.service_account import Credentials
+    info = json.loads(_SA_JSON)
+    scope = "spreadsheets.readonly" if readonly else "spreadsheets"
+    creds = Credentials.from_service_account_info(
+        info, scopes=["https://www.googleapis.com/auth/" + scope])
+    gc = gspread.authorize(creds)
+    return gc.open_by_key(ROSTER_SHEET_ID)
+
+
+def _players_worksheet(sh):
+    """Find the tab holding the player list, and where its columns are.
+    Returns (worksheet, header_row_number, {column name: 0-based index}) or
+    (None, None, None). We look for the header row rather than hard-coding
+    "JSSA Players" so a renamed tab doesn't break the page."""
+    for ws in sh.worksheets():
+        vals = ws.get_all_values()
+        for i, r in enumerate(vals):
+            low = [_clean(c).lower() for c in r]
+            if "first name" in low and "last name" in low and "division" in low:
+                return ws, i + 1, {name: ci for ci, name in enumerate(low)}
+    return None, None, None
+
+
+def member_divisions():
+    """Every active member with their current division, for the admin page.
+    Returns {'players': [{'name','email','div','row'}], 'error': ''}.
+    'row' is the spreadsheet row number, used to write the change back."""
+    out = {"players": [], "error": ""}
+    if not (ROSTER_SHEET_ID and _SA_JSON):
+        out["error"] = "The roster sheet isn't connected yet."
+        return out
+    try:
+        ws, header_row, cols = _players_worksheet(_roster_sheet(readonly=True))
+        if ws is None:
+            out["error"] = ("Couldn't find the player list — no tab has "
+                            "First Name, Last Name and Division headers.")
+            return out
+
+        vals = ws.get_all_values()
+        fi, li = cols.get("first name"), cols.get("last name")
+        di, ei, ai = cols.get("division"), cols.get("email"), cols.get("active")
+
+        def cell(r, ci):
+            return _clean(r[ci]) if ci is not None and len(r) > ci else ""
+
+        players = []
+        for offset, r in enumerate(vals[header_row:]):
+            name = (cell(r, fi) + " " + cell(r, li)).strip()
+            if not name:
+                continue
+            # Skip anyone not marked Active, same rule the public pages use.
+            if ai is not None and len(r) > ai and not _is_true(r[ai]):
+                continue
+            players.append({
+                "name": name,
+                "last": cell(r, li).lower(),
+                "email": cell(r, ei),
+                "div": _norm_div(cell(r, di)),
+                "row": header_row + offset + 1,
+            })
+        players.sort(key=lambda p: (p["last"], p["name"].lower()))
+        out["players"] = players
+        return out
+    except Exception as e:
+        out["error"] = str(e)
+        return out
+
+
+def set_member_division(row, email, name, new_div, changed_by):
+    """Move one member to another division. Writes a single cell and logs it.
+    Returns (ok, message). Everything is re-checked against the sheet before
+    writing, so a stale page can't move the wrong person."""
+    new_div = _norm_div(new_div)
+    changed_by = _clean(changed_by)
+    if new_div not in MEMBER_DIVISIONS:
+        return False, "Pick RED, WHITE or BLUE."
+    if not changed_by:
+        return False, "Please choose your name before saving."
+    if not (ROSTER_SHEET_ID and _SA_JSON):
+        return False, "The roster sheet isn't connected."
+
+    try:
+        row = int(row)
+    except (TypeError, ValueError):
+        return False, "Couldn't tell which member to change."
+
+    try:
+        sh = _roster_sheet(readonly=False)
+        ws, header_row, cols = _players_worksheet(sh)
+        if ws is None:
+            return False, "Couldn't find the player list in the roster sheet."
+
+        di, ei = cols.get("division"), cols.get("email")
+        fi, li = cols.get("first name"), cols.get("last name")
+        if di is None:
+            return False, "The player list has no Division column."
+        if row <= header_row:
+            return False, "Couldn't tell which member to change."
+
+        current = ws.row_values(row)
+
+        def cell(ci):
+            return _clean(current[ci]) if ci is not None and len(current) > ci else ""
+
+        # Guard: the row must still be the person the page showed. If the sheet
+        # was re-sorted while the page sat open, we stop instead of guessing.
+        sheet_email = cell(ei)
+        sheet_name = (cell(fi) + " " + cell(li)).strip()
+        if email and sheet_email and sheet_email.lower() != email.strip().lower():
+            return False, ("That member has moved on the sheet — reload the page "
+                           "and try again. Nothing was changed.")
+        if not sheet_email and name and sheet_name.lower() != name.strip().lower():
+            return False, ("That member has moved on the sheet — reload the page "
+                           "and try again. Nothing was changed.")
+
+        old_div = _norm_div(cell(di))
+        if old_div == new_div:
+            return True, "%s is already in %s — nothing to change." % (
+                sheet_name or name, new_div)
+
+        # The single write: one cell, on one row, in the Division column.
+        # _col_letter() counts from 1, our column index counts from 0.
+        ws.update_acell("%s%d" % (_col_letter(di + 1), row), new_div)
+        _log_division_change(sheet_name or name, sheet_email or email,
+                             old_div, new_div, changed_by)
+        _roster_invalidate()
+        return True, "%s moved from %s to %s." % (
+            sheet_name or name, old_div or "no division", new_div)
+    except Exception as e:
+        return False, "Couldn't save that change: %s" % e
+
+
+def _roster_invalidate():
+    """Drop the cached rosters so the website shows the change right away."""
+    with _lock:
+        _roster_cache["ts"] = 0.0
+        _dir_cache["ts"] = 0.0
+
+
+def _log_division_change(name, email, old_div, new_div, changed_by):
+    """Append one line to the control sheet's Division Changes tab. Never
+    raises — a logging problem must not undo a change that already saved."""
+    try:
+        if not (CONTROL_SHEET_ID and _SA_JSON):
+            return
+        _control_tab_rows(DIVISION_LOG_TAB, DIVISION_LOG_HEADERS, [])
+        ws = _control_sheet(readonly=False).worksheet(DIVISION_LOG_TAB)
+        now = datetime.datetime.now(_EASTERN)
+        ws.append_row([
+            now.date().isoformat(),
+            now.strftime("%-I:%M %p"),
+            name,
+            email,
+            old_div or "(none)",
+            new_div,
+            changed_by,
+        ], value_input_option="USER_ENTERED")
+    except Exception:
+        pass
+
+
+def division_change_log(limit=25):
+    """The most recent division changes, newest first, for the admin page."""
+    try:
+        if not (CONTROL_SHEET_ID and _SA_JSON):
+            return []
+        rows = _control_tab_rows(DIVISION_LOG_TAB, DIVISION_LOG_HEADERS, [])
+        out = []
+        for r in rows[1:]:
+            if not any(_clean(c) for c in r):
+                continue
+            vals = [_clean(c) if len(r) > i else ""
+                    for i, c in enumerate(r[:len(DIVISION_LOG_HEADERS)])]
+            vals += [""] * (len(DIVISION_LOG_HEADERS) - len(vals))
+            out.append(dict(zip(
+                ["date", "time", "player", "email", "from", "to", "by"], vals)))
+        out.reverse()
+        return out[:limit]
+    except Exception:
+        return []
+
+
 # ----------------------------------------------------------------------------
 # All of this lives in tabs inside the league's "Website Control Sheet" (the
 # same spreadsheet that runs the prediction contest and catches form

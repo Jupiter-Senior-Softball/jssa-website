@@ -1,0 +1,224 @@
+{% extends "page_base.html" %}
+{% block eyebrow %}Admin{% endblock %}
+{% block sub %}<p class="sub">Move a member between the RED, WHITE and BLUE divisions. Every change is recorded below with the date and who made it.</p>{% endblock %}
+{% block body %}
+<style>
+  html{font-size:112.5%}
+  .adminbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+  .adminbar a{font-weight:600}
+
+  .step{margin-bottom:22px}
+  .step label.lead{display:block;font-family:var(--display);font-weight:700;color:var(--navy);
+    font-size:1.05rem;margin:0 0 8px}
+  .step select{width:100%;font-family:var(--body);font-size:1.05rem;padding:13px 14px;
+    border:1.5px solid var(--line);border-radius:10px;background:#fff;color:var(--navy)}
+  .step select:focus{outline:none;border-color:var(--blue)}
+  .hint{color:var(--muted);font-size:.9rem;margin-top:6px}
+
+  .divpick{display:flex;gap:10px;flex-wrap:wrap}
+  .divpick label{display:flex;align-items:center;justify-content:center;gap:9px;flex:1;min-width:150px;
+    border:2px solid var(--line);border-radius:12px;padding:16px 14px;cursor:pointer;
+    font-family:var(--display);font-weight:700;font-size:1.05rem;color:var(--navy);background:#fff}
+  .divpick input{accent-color:var(--blue);width:20px;height:20px}
+  .divpick label:hover{border-color:var(--blue)}
+
+  .savebtn{display:block;width:100%;min-height:62px;margin-top:6px;padding:14px 20px;
+    font-family:var(--display);font-weight:700;font-size:1.12rem;color:#fff;background:var(--blue);
+    border:none;border-radius:12px;cursor:pointer}
+  .savebtn:hover{background:#2148a8}
+
+  .flash{border-radius:12px;padding:16px 18px;margin-bottom:22px;font-size:1.02rem;line-height:1.5}
+  .flash.ok{background:#e8f6ee;border:1px solid #bfe3cd;color:#146b3f}
+  .flash.bad{background:#fff4f4;border:1px solid #f0c9cb;color:#b3151b}
+  .warnbox{background:#fff8e6;border:1px solid #f3e2b3;color:#7a5b12;border-radius:12px;
+    padding:16px 18px;margin-bottom:22px;font-size:.98rem;line-height:1.5}
+
+  .sechead{font-family:var(--display);font-weight:700;color:var(--navy);font-size:1.15rem;
+    margin:36px 0 12px;padding-top:24px;border-top:1px solid var(--line)}
+  .dirbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+  #divSearch{flex:1;min-width:220px;font-size:1.05rem;padding:12px 16px;border:1.5px solid var(--line);
+    border-radius:10px;font-family:var(--body)}
+  #divSearch:focus{outline:none;border-color:var(--blue)}
+  .dircount{color:var(--muted);font-size:.95rem;white-space:nowrap}
+
+  .dirtbl{width:100%;border-collapse:collapse;font-size:.95rem;background:var(--surface);
+    border-radius:14px;overflow:hidden;box-shadow:var(--shadow)}
+  .dirtbl th{background:var(--blue-tint);font-family:var(--display);color:var(--navy);
+    font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;padding:11px 10px;
+    text-align:left;border-bottom:2px solid var(--line);white-space:nowrap}
+  .dirtbl td{padding:10px;border-bottom:1px solid var(--line);vertical-align:middle;color:var(--navy)}
+  .dirtbl tr:last-child td{border-bottom:none}
+  .dirtbl tr:nth-child(even) td{background:#fafbfe}
+  .dirtbl tr.hidden-row{display:none}
+
+  .divbadge{display:inline-block;font-family:var(--display);font-weight:700;font-size:.72rem;
+    letter-spacing:.05em;padding:4px 10px;border-radius:999px;color:#fff;white-space:nowrap}
+  .divbadge.RED{background:var(--red)}
+  .divbadge.BLUE{background:var(--blue)}
+  .divbadge.WHITE{background:var(--navy)}
+  .divbadge.other{background:var(--muted)}
+  @media(max-width:760px){
+    .dirtbl{font-size:.9rem}
+    .dirtbl th,.dirtbl td{padding:8px 6px}
+    .hide-mobile{display:none}
+  }
+</style>
+
+<div class="adminbar">
+  <a href="{{ url_for('admin_dashboard') }}">&larr; Back to dashboard</a>
+  <a href="{{ url_for('admin_logout') }}">Sign out</a>
+</div>
+
+{% if result %}
+  <div class="flash {{ 'ok' if result.ok else 'bad' }}">{{ result.message }}</div>
+{% endif %}
+
+{% if roster.error %}
+  <div class="flash bad">Couldn't read the member list: {{ roster.error }}</div>
+{% endif %}
+
+{% if not roster.players %}
+  <p style="color:var(--muted)">No members found in the roster sheet.</p>
+{% else %}
+
+  <div class="warnbox">
+    <strong>Before you change someone's division:</strong> this updates the division rosters on the
+    website within a couple of minutes, and the pickup game system picks it up within about 15 minutes.
+    It also changes which game-day emails that member receives. Please be sure before you save.
+  </div>
+
+  <form method="post" action="{{ url_for('admin_divisions_save') }}" id="divForm">
+    <div class="step">
+      <label class="lead" for="changed_by">1. Who are you?</label>
+      {% if board %}
+        <select id="changed_by" name="changed_by" required>
+          <option value="">— choose your name —</option>
+          {% for name in board %}<option value="{{ name }}">{{ name }}</option>{% endfor %}
+        </select>
+      {% else %}
+        <input type="text" id="changed_by" name="changed_by" required placeholder="Your name"
+               style="width:100%;font-family:var(--body);font-size:1.05rem;padding:13px 14px;
+                      border:1.5px solid var(--line);border-radius:10px">
+      {% endif %}
+      <div class="hint">Recorded in the log below so the board knows who made the change.</div>
+    </div>
+
+    <div class="step">
+      <label class="lead" for="member">2. Which member?</label>
+      <select id="member" name="member" required>
+        <option value="">— choose a member —</option>
+        {% for p in roster.players %}
+          <option value="{{ p.row }}|{{ p.email }}" data-div="{{ p.div }}" data-name="{{ p.name }}">
+            {{ p.name }}{% if p.div %} — currently {{ p.div }}{% else %} — no division yet{% endif %}
+          </option>
+        {% endfor %}
+      </select>
+      <div class="hint">{{ roster.players|length }} active members. The list below shows everyone at a glance.</div>
+    </div>
+
+    <div class="step">
+      <label class="lead">3. Move them to</label>
+      <div class="divpick">
+        {% for d in divisions %}
+          <label><input type="radio" name="division" value="{{ d }}" required> {{ d }}</label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <button class="savebtn" type="submit">Save this change</button>
+  </form>
+
+  <div class="sechead">Everyone's current division</div>
+  <div class="dirbar">
+    <input id="divSearch" type="search" placeholder="Search for a name…" autocomplete="off">
+    <span class="dircount" id="divCount">{{ roster.players|length }} members</span>
+  </div>
+  <div style="overflow-x:auto">
+    <table class="dirtbl" id="divTable">
+      <thead><tr><th>Name</th><th>Division</th><th class="hide-mobile">Email</th></tr></thead>
+      <tbody>
+        {% for p in roster.players %}
+        <tr data-search="{{ [p.name, p.div, p.email] | join(' ') | lower }}">
+          <td style="font-weight:600">{{ p.name }}</td>
+          <td>{% if p.div %}<span class="divbadge {{ p.div }}">{{ p.div }}</span>
+              {% else %}<span class="divbadge other">none</span>{% endif %}</td>
+          <td class="hide-mobile">{{ p.email }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endif %}
+
+<div class="sechead">Recent division changes</div>
+{% if changes %}
+  <div style="overflow-x:auto">
+    <table class="dirtbl">
+      <thead>
+        <tr><th>Date</th><th class="hide-mobile">Time</th><th>Member</th>
+            <th>From</th><th>To</th><th>Changed by</th></tr>
+      </thead>
+      <tbody>
+        {% for c in changes %}
+        <tr>
+          <td style="white-space:nowrap">{{ c.date }}</td>
+          <td class="hide-mobile" style="white-space:nowrap">{{ c.time }}</td>
+          <td style="font-weight:600">{{ c.player }}</td>
+          <td>{{ c['from'] }}</td>
+          <td><strong>{{ c.to }}</strong></td>
+          <td>{{ c.by }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="hint">The full history lives in the <strong>&ldquo;Division Changes&rdquo;</strong> tab of the website control sheet.</p>
+{% else %}
+  <p style="color:var(--muted)">No division changes recorded yet.</p>
+{% endif %}
+
+<script>
+(function(){
+  var input = document.getElementById('divSearch');
+  if (input) {
+    var count = document.getElementById('divCount');
+    var rows = document.querySelectorAll('#divTable tbody tr');
+    var total = rows.length;
+    input.addEventListener('input', function(){
+      var q = input.value.trim().toLowerCase();
+      var shown = 0;
+      rows.forEach(function(tr){
+        var match = !q || tr.getAttribute('data-search').indexOf(q) !== -1;
+        tr.classList.toggle('hidden-row', !match);
+        if (match) shown++;
+      });
+      count.textContent = (q ? shown + ' of ' + total : total) + ' members';
+    });
+  }
+
+  // Say out loud what is about to happen — this change emails people and moves
+  // a player between game-day rosters, so it is worth one extra tap.
+  var form = document.getElementById('divForm');
+  if (form) {
+    form.addEventListener('submit', function(e){
+      var sel = document.getElementById('member');
+      var opt = sel.options[sel.selectedIndex];
+      var to = form.querySelector('input[name="division"]:checked');
+      if (!opt || !opt.value || !to) return;   // the browser's own check handles it
+      var name = opt.getAttribute('data-name');
+      var from = opt.getAttribute('data-div') || 'no division';
+      if (from === to.value) {
+        alert(name + ' is already in ' + to.value + '.');
+        e.preventDefault();
+        return;
+      }
+      if (!confirm('Move ' + name + ' from ' + from + ' to ' + to.value + '?')) {
+        e.preventDefault();
+      }
+    });
+  }
+})();
+</script>
+{% endblock %}
+{% block footer_btns %}<a class="btn btn-navy" href="{{ url_for('admin_dashboard') }}">&larr; Back to dashboard</a>{% endblock %}
+{% block extra_btns %}{% endblock %}
