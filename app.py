@@ -995,6 +995,49 @@ def admin_directory():
     return render_template("admin/directory.html", directory=directory)
 
 
+# ----------------------------------------------------------------------------
+# Member divisions — move a player RED / WHITE / BLUE without ever handing the
+# board edit access to the protected Pickup Game Management workbook.
+# ----------------------------------------------------------------------------
+@app.route("/admin/divisions")
+@login_required
+def admin_divisions():
+    try:
+        roster = sheets.member_divisions()
+    except Exception as e:
+        roster = {"players": [], "error": str(e)}
+    try:
+        board = [m["name"] for m in sheets.board_members()]
+    except Exception:
+        board = []
+    try:
+        changes = sheets.division_change_log()
+    except Exception:
+        changes = []
+    return render_template(
+        "admin/divisions.html",
+        page_title="Member Division Assignments",
+        roster=roster, board=board, changes=changes,
+        divisions=sheets.MEMBER_DIVISIONS,
+        result=session.pop("division_result", None))
+
+
+@app.route("/admin/divisions/save", methods=["POST"])
+@login_required
+def admin_divisions_save():
+    # The member picker carries "<row>|<email>" so the save works without any
+    # JavaScript, and so we can check the row still holds the same person.
+    member = request.form.get("member", "")
+    row, _, email = member.partition("|")
+    ok, message = sheets.set_member_division(
+        row, email, request.form.get("name", ""),
+        request.form.get("division", ""),
+        request.form.get("changed_by", ""),
+    )
+    session["division_result"] = {"ok": bool(ok), "message": message}
+    return redirect(url_for("admin_divisions"))
+
+
 @app.route("/admin/communications")
 @login_required
 def admin_communications():
