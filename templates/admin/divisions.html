@@ -35,6 +35,25 @@
 
   .sechead{font-family:var(--display);font-weight:700;color:var(--navy);font-size:1.15rem;
     margin:36px 0 12px;padding-top:24px;border-top:1px solid var(--line)}
+  /* Division head counts — the balance between RED/WHITE/BLUE at a glance. */
+  /* auto-fit so it sits right whether or not the "no division" tile is shown */
+  .tallies{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));
+    gap:12px;margin-bottom:16px}
+  .tally{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+    min-height:82px;padding:12px 8px;border-radius:12px;border:2px solid var(--line);background:#fff}
+  .tally .n{font-family:var(--display);font-weight:700;font-size:1.85rem;line-height:1.05;color:var(--navy)}
+  .tally .lbl{font-family:var(--display);font-weight:700;font-size:.74rem;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--muted)}
+  .tally.RED{border-color:var(--red)}
+  .tally.RED .n{color:var(--red)}
+  .tally.WHITE{border-color:var(--navy)}
+  .tally.WHITE .n{color:var(--navy)}
+  .tally.BLUE{border-color:var(--blue)}
+  .tally.BLUE .n{color:var(--blue)}
+  .tally.total{background:var(--blue-tint);border-color:transparent}
+  .tally.none{border-color:var(--muted)}
+  .tally.none .n{color:var(--muted)}
+
   .dirbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px}
   #divSearch{flex:1;min-width:220px;font-size:1.05rem;padding:12px 16px;border:1.5px solid var(--line);
     border-radius:10px;font-family:var(--body)}
@@ -129,6 +148,17 @@
   </form>
 
   <div class="sechead">Everyone's current division</div>
+
+  <div class="tallies">
+    <div class="tally RED"><span class="n">{{ roster.counts.RED }}</span><span class="lbl">Red</span></div>
+    <div class="tally WHITE"><span class="n">{{ roster.counts.WHITE }}</span><span class="lbl">White</span></div>
+    <div class="tally BLUE"><span class="n">{{ roster.counts.BLUE }}</span><span class="lbl">Blue</span></div>
+    {% if roster.counts.none %}
+      <div class="tally none"><span class="n">{{ roster.counts.none }}</span><span class="lbl">No division</span></div>
+    {% endif %}
+    <div class="tally total"><span class="n">{{ roster.counts.total }}</span><span class="lbl">Total</span></div>
+  </div>
+
   <div class="dirbar">
     <input id="divSearch" type="search" placeholder="Search for a name…" autocomplete="off">
     <span class="dircount" id="divCount">{{ roster.players|length }} members</span>

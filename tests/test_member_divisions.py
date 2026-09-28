@@ -152,6 +152,25 @@ jim = next(p for p in listing["players"] if p["name"] == "Jim Kowalski")
 check("Jim is on row 2 with his current division", jim["row"] == 2 and jim["div"] == "RED",
       str(jim))
 
+# ------------------------------------------------------- the division head counts
+counts = listing["counts"]
+check("each division is counted",
+      counts["RED"] == 1 and counts["WHITE"] == 1 and counts["BLUE"] == 0, str(counts))
+check("a member with no division is counted separately", counts["none"] == 1, str(counts))
+check("the inactive member is left out of the counts too",
+      counts["total"] == 3, str(counts))
+check("the divisions plus 'none' add up to the total",
+      counts["RED"] + counts["WHITE"] + counts["BLUE"] + counts["none"] == counts["total"],
+      str(counts))
+
+# counts must be present even when the sheet can't be read, so the page still draws
+saved_id = sheets.ROSTER_SHEET_ID
+sheets.ROSTER_SHEET_ID = ""
+blank = sheets.member_divisions()
+sheets.ROSTER_SHEET_ID = saved_id
+check("counts are still there when the roster can't be read",
+      blank["counts"]["total"] == 0 and blank["counts"]["RED"] == 0, str(blank))
+
 print()
 if failures:
     print("FAILURES: " + ", ".join(failures))

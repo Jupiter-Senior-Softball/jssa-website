@@ -13,12 +13,14 @@ os.environ["ADMIN_PASSWORD"] = "test-only"
 import sheets
 import app as webapp
 
+COUNTS = {"RED": 76, "WHITE": 80, "BLUE": 70, "none": 2, "total": 228}
+
 sheets.member_divisions = lambda: {"players": [
     {"name": "Jim Kowalski", "last": "kowalski", "email": "jim@e.com",
      "div": "RED", "row": 2},
     {"name": "Bob Marsh", "last": "marsh", "email": "bob@e.com",
      "div": "WHITE", "row": 3},
-], "error": ""}
+], "counts": dict(COUNTS), "error": ""}
 sheets.board_members = lambda: [
     {"name": "Tom Cosentino", "role": "Commissioner", "division": "",
      "initials": "TC", "order": 1},
@@ -72,6 +74,12 @@ for must in ["Member Division Assignments", "Jim Kowalski", "Bob Marsh",
 check("the page warns that a change affects game-day emails",
       "emails" in html.lower() and "15 minutes" in html)
 
+# ----------------------------------------------------- the division head counts
+for n in ("76", "80", "70", "228"):
+    check("the summary shows the count " + n, ">" + n + "<" in html)
+check("the 'no division' tile shows when someone has none",
+      ">2<" in html and "No division" in html)
+
 # ------------------------------------------------------------------ saving
 del saved[:]
 r = c.post("/admin/divisions/save",
@@ -94,14 +102,17 @@ check("it does not appear again on the next visit",
 # ------------------------------------------------- a member with no email on file
 sheets.member_divisions = lambda: {"players": [
     {"name": "Newguy Nodiv", "last": "nodiv", "email": "", "div": "", "row": 5},
-], "error": ""}
+], "counts": {"RED": 0, "WHITE": 0, "BLUE": 0, "none": 1, "total": 1}, "error": ""}
 r = c.get("/admin/divisions")
 html = r.get_data(as_text=True)
 check("a member with no email still appears", "Newguy Nodiv" in html)
 check("and is labelled as having no division yet", "no division yet" in html)
 
 # ------------------------------------------------------ the sheet being unreachable
-sheets.member_divisions = lambda: {"players": [], "error": "quota exceeded"}
+sheets.member_divisions = lambda: {
+    "players": [],
+    "counts": {"RED": 0, "WHITE": 0, "BLUE": 0, "none": 0, "total": 0},
+    "error": "quota exceeded"}
 r = c.get("/admin/divisions")
 html = r.get_data(as_text=True)
 check("if the roster can't be read, the page still loads", r.status_code == 200)
