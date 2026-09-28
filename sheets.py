@@ -2124,9 +2124,13 @@ def _players_worksheet(sh):
 
 def member_divisions():
     """Every active member with their current division, for the admin page.
-    Returns {'players': [{'name','email','div','row'}], 'error': ''}.
-    'row' is the spreadsheet row number, used to write the change back."""
-    out = {"players": [], "error": ""}
+    Returns {'players': [{'name','email','div','row'}], 'counts': {...},
+    'error': ''}. 'row' is the spreadsheet row number, used to write the change
+    back. 'counts' is the head count per division plus 'none' and 'total', so
+    the board can see at a glance whether the divisions are balanced."""
+    out = {"players": [],
+           "counts": {"RED": 0, "WHITE": 0, "BLUE": 0, "none": 0, "total": 0},
+           "error": ""}
     if not (ROSTER_SHEET_ID and _SA_JSON):
         out["error"] = "The roster sheet isn't connected yet."
         return out
@@ -2161,6 +2165,9 @@ def member_divisions():
             })
         players.sort(key=lambda p: (p["last"], p["name"].lower()))
         out["players"] = players
+        for p in players:
+            out["counts"][p["div"] or "none"] += 1
+        out["counts"]["total"] = len(players)
         return out
     except Exception as e:
         out["error"] = str(e)
