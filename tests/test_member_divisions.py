@@ -12,6 +12,10 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 import sheets
 
+# Keep the real tab finder — the stubs below replace it, and the last section
+# of this file puts it back to check which tab it picks.
+_real_players_worksheet = sheets._players_worksheet
+
 HEADERS = ["Email", "First Name", "Last Name", "Division", "Active"]
 COLS = {"email": 0, "first name": 1, "last name": 2, "division": 3, "active": 4}
 HEADER_ROW = 1          # headers sit on row 1, so players start on row 2
@@ -170,6 +174,82 @@ blank = sheets.member_divisions()
 sheets.ROSTER_SHEET_ID = saved_id
 check("counts are still there when the roster can't be read",
       blank["counts"]["total"] == 0 and blank["counts"]["RED"] == 0, str(blank))
+
+# ------------------------------------------- picking the right tab to write to
+# The real workbook has FOUR tabs carrying First Name / Last Name / Division:
+# JSSA Players, Master_Backend, Schedule and Master_Backend Archive. Only the
+# first is safe to write to — the others are rebuilt by the pickup app's sync,
+# so a change written there would silently disappear.
+import gspread
+
+
+class FakeTab(FakeReadWorksheet):
+    def __init__(self, title, rows):
+        FakeReadWorksheet.__init__(self, rows)
+        self.title = title
+
+
+BACKEND_ROWS = [
+    ["Email", "First Name", "Last Name", "Division", "Position"],
+    ["jim@e.com", "Jim", "Kowalski", "RED", "SS"],
+]
+PLAYERS_ROWS = [
+    HEADERS,
+    ["jim@e.com", "Jim", "Kowalski", "RED", "TRUE"],
+]
+
+
+class FakeSpreadsheet:
+    """Tabs in workbook order — Master_Backend deliberately sits first, the way
+    it would if somebody dragged a tab in Google Sheets."""
+
+    def __init__(self):
+        self.tabs = [FakeTab("Master_Backend", BACKEND_ROWS),
+                     FakeTab("Schedule", BACKEND_ROWS),
+                     FakeTab(sheets.PLAYERS_TAB, PLAYERS_ROWS)]
+
+    def worksheets(self):
+        return self.tabs
+
+    def worksheet(self, title):
+        for t in self.tabs:
+            if t.title == title:
+                return t
+        raise gspread.WorksheetNotFound(title)
+
+
+# restore the real finder for this part
+sheets._players_worksheet = _real_players_worksheet
+
+ws, header_row, cols = sheets._players_worksheet(FakeSpreadsheet())
+check("the JSSA Players tab is chosen even when another matching tab is first",
+      ws is not None and ws.title == sheets.PLAYERS_TAB,
+      ws.title if ws is not None else "none")
+check("and its Active column is found (the backend tabs have none)",
+      cols is not None and "active" in cols, str(cols))
+
+
+class NoPlayersTab(FakeSpreadsheet):
+    def __init__(self):
+        FakeSpreadsheet.__init__(self)
+        self.tabs = [FakeTab("Renamed Roster", PLAYERS_ROWS)]
+
+
+ws, header_row, cols = sheets._players_worksheet(NoPlayersTab())
+check("a renamed tab is still found by its headers",
+      ws is not None and ws.title == "Renamed Roster",
+      ws.title if ws is not None else "none")
+
+
+class NothingMatching(FakeSpreadsheet):
+    def __init__(self):
+        FakeSpreadsheet.__init__(self)
+        self.tabs = [FakeTab("Settings", [["Setting", "Value"]])]
+
+
+ws, header_row, cols = sheets._players_worksheet(NothingMatching())
+check("a workbook with no player list returns nothing rather than guessing",
+      ws is None and cols is None)
 
 print()
 if failures:

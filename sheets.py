@@ -2108,17 +2108,45 @@ def _roster_sheet(readonly=True):
     return gc.open_by_key(ROSTER_SHEET_ID)
 
 
+PLAYERS_TAB = "JSSA Players"
+
+
+def _players_headers(ws):
+    """(header_row_number, {column name: 0-based index}) for a tab that looks
+    like a player list, or (None, None)."""
+    for i, r in enumerate(ws.get_all_values()):
+        low = [_clean(c).lower() for c in r]
+        if "first name" in low and "last name" in low and "division" in low:
+            return i + 1, {name: ci for ci, name in enumerate(low)}
+    return None, None
+
+
 def _players_worksheet(sh):
     """Find the tab holding the player list, and where its columns are.
     Returns (worksheet, header_row_number, {column name: 0-based index}) or
-    (None, None, None). We look for the header row rather than hard-coding
-    "JSSA Players" so a renamed tab doesn't break the page."""
+    (None, None, None).
+
+    Look for "JSSA Players" BY NAME first. Several tabs in that workbook carry
+    the same First Name / Last Name / Division headers — Master_Backend,
+    Schedule and Master_Backend Archive — so searching by header alone would
+    read, and write to, whichever tab happened to be furthest left. Today that
+    is the right one, but only by luck: dragging a tab would silently send a
+    division change into a sheet the pickup app rebuilds on its next sync, and
+    the change would vanish. Fall back to the header search so a renamed tab
+    still works for reading."""
+    import gspread
+    try:
+        ws = sh.worksheet(PLAYERS_TAB)
+        header_row, cols = _players_headers(ws)
+        if cols:
+            return ws, header_row, cols
+    except gspread.WorksheetNotFound:
+        pass
+
     for ws in sh.worksheets():
-        vals = ws.get_all_values()
-        for i, r in enumerate(vals):
-            low = [_clean(c).lower() for c in r]
-            if "first name" in low and "last name" in low and "division" in low:
-                return ws, i + 1, {name: ci for ci, name in enumerate(low)}
+        header_row, cols = _players_headers(ws)
+        if cols:
+            return ws, header_row, cols
     return None, None, None
 
 
