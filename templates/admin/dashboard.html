@@ -13,6 +13,9 @@
      it gets the top spot and the only red button on the page. */
   .cancelcall{border:2px solid #f0c9cb;background:#fffafa;border-radius:14px;padding:20px 22px;margin:4px 0 30px}
   .cancelcall h2{font-size:1.4rem;margin:0 0 6px;color:#b3151b}
+  /* The "(use the link below)" half of the heading: same red, lighter weight and
+     a shade smaller, so the heading itself still reads first. */
+  .cancelcall h2 .h2sub{font-weight:600;font-size:.82em}
   .cancelcall p{margin:0 0 16px;color:var(--navy);font-size:1.02rem;line-height:1.5}
   .cancelbtn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:64px;padding:14px 20px;
              font-family:var(--display);font-weight:700;font-size:1.15rem;color:#fff;background:#b3151b;
@@ -69,7 +72,7 @@
 {% else %}
 
   <div class="cancelcall">
-    <h2>&#9888;&#65039; Cancelling today's games?</h2>
+    <h2>&#9888;&#65039; Rain Out Cancellations <span class="h2sub">(use the link below)</span></h2>
     <p>Use this button — <strong>not</strong> the announcement form below. It posts the notice on the website
       <strong>and emails every player scheduled to play today</strong>. Posting an announcement by itself
       does not email anyone, so players show up at the field.</p>
