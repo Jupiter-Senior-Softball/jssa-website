@@ -24,10 +24,8 @@
   /* The pair of rain-cancellation notices. Same look in both places on purpose:
      one says use THIS section, the other says do not use that one, and matching
      them makes the two read as a single instruction. */
-  /* The second selector is needed because `.cancelcall p` above is more
-     specific than a bare `.rainnote` and would otherwise win on color. */
-  .rainnote,
-  .cancelcall p.rainnote{font-weight:800;color:#b3151b;font-size:1.08rem;line-height:1.45;margin:0 0 16px}
+  /* The "do not post rain cancellations here" line under the announcement form. */
+  .rainnote{font-weight:800;color:#b3151b;font-size:1.08rem;line-height:1.45;margin:0 0 16px}
   .note{background:#fff8e6;border:1px solid #f3e2b3;color:#7a5b12;border-radius:12px;padding:18px 20px}
   .note code{background:#fff;border:1px solid #eadfbf;border-radius:5px;padding:1px 6px;font-size:.92em}
   table.notices{width:100%;border-collapse:collapse;margin-top:8px}
@@ -76,7 +74,6 @@
     <p>Use this button — <strong>not</strong> the announcement form below. It posts the notice on the website
       <strong>and emails every player scheduled to play today</strong>. Posting an announcement by itself
       does not email anyone, so players show up at the field.</p>
-    <p class="rainnote">Please use this section for rain cancellation notices.</p>
     <a class="cancelbtn" href="{{ url_for('admin_cancel') }}">&#9888;&#65039; Cancel Today's Games &amp; Notify Players</a>
   </div>
 
