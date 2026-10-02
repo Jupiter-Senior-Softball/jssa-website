@@ -13,6 +13,9 @@
      it gets the top spot and the only red button on the page. */
   .cancelcall{border:2px solid #f0c9cb;background:#fffafa;border-radius:14px;padding:20px 22px;margin:4px 0 30px}
   .cancelcall h2{font-size:1.4rem;margin:0 0 6px;color:#b3151b}
+  /* The "(use the link below)" half of the heading: same red, lighter weight and
+     a shade smaller, so the heading itself still reads first. */
+  .cancelcall h2 .h2sub{font-weight:600;font-size:.82em}
   .cancelcall p{margin:0 0 16px;color:var(--navy);font-size:1.02rem;line-height:1.5}
   .cancelbtn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:64px;padding:14px 20px;
              font-family:var(--display);font-weight:700;font-size:1.15rem;color:#fff;background:#b3151b;
@@ -21,10 +24,8 @@
   /* The pair of rain-cancellation notices. Same look in both places on purpose:
      one says use THIS section, the other says do not use that one, and matching
      them makes the two read as a single instruction. */
-  /* The second selector is needed because `.cancelcall p` above is more
-     specific than a bare `.rainnote` and would otherwise win on color. */
-  .rainnote,
-  .cancelcall p.rainnote{font-weight:800;color:#b3151b;font-size:1.08rem;line-height:1.45;margin:0 0 16px}
+  /* The "do not post rain cancellations here" line under the announcement form. */
+  .rainnote{font-weight:800;color:#b3151b;font-size:1.08rem;line-height:1.45;margin:0 0 16px}
   .note{background:#fff8e6;border:1px solid #f3e2b3;color:#7a5b12;border-radius:12px;padding:18px 20px}
   .note code{background:#fff;border:1px solid #eadfbf;border-radius:5px;padding:1px 6px;font-size:.92em}
   table.notices{width:100%;border-collapse:collapse;margin-top:8px}
@@ -69,11 +70,10 @@
 {% else %}
 
   <div class="cancelcall">
-    <h2>&#9888;&#65039; Cancelling today's games?</h2>
+    <h2>&#9888;&#65039; Rain Out Cancellations <span class="h2sub">(use the link below)</span></h2>
     <p>Use this button — <strong>not</strong> the announcement form below. It posts the notice on the website
       <strong>and emails every player scheduled to play today</strong>. Posting an announcement by itself
       does not email anyone, so players show up at the field.</p>
-    <p class="rainnote">Please use this section for rain cancellation notices.</p>
     <a class="cancelbtn" href="{{ url_for('admin_cancel') }}">&#9888;&#65039; Cancel Today's Games &amp; Notify Players</a>
   </div>
 
