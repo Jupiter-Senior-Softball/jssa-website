@@ -17,9 +17,12 @@ Production (Render uses render.yaml):
 
 Environment variables (set in Render):
     SECRET_KEY                   — random string for signing sessions
-    ADMIN_PASSWORD               — shared password for the admin area
     GOOGLE_SERVICE_ACCOUNT_JSON  — full service-account key JSON
     SHEET_ID                     — id of the JSSA Website Content sheet
+
+The Board Portal password is NOT an env var — it's the "Admin Password" row
+on the Website Controls tab (same sheet/tab as the Game Day Button switch),
+so Tom can change it himself without Render access.
 """
 
 import os
@@ -41,7 +44,6 @@ import cutout
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-only-insecure-key")
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
 
 
 @app.after_request
@@ -894,17 +896,18 @@ def _normalize_password(s):
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login():
     error = None
+    admin_password = sheets.admin_password()
     if request.method == "POST":
         pw = request.form.get("password", "")
-        if ADMIN_PASSWORD and hmac.compare_digest(
-                _normalize_password(pw), _normalize_password(ADMIN_PASSWORD)):
+        if admin_password and hmac.compare_digest(
+                _normalize_password(pw), _normalize_password(admin_password)):
             session["admin"] = True
             dest = request.args.get("next") or url_for("admin_dashboard")
             return redirect(dest)
         error = "Incorrect password."
     return render_template("admin/login.html",
                            error=error,
-                           configured=bool(ADMIN_PASSWORD))
+                           configured=bool(admin_password))
 
 
 @app.route("/admin/logout")

@@ -669,6 +669,14 @@ def season_name():
     return _website_controls().get("season name", "").strip() or "League Season"
 
 
+def admin_password():
+    """The Board Portal login password, from the 'Admin Password' row on the
+    Website Controls tab. Empty string if the row is missing/blank, which
+    leaves the portal login disabled (matches the old 'not configured yet'
+    behavior from when this lived in Render's ADMIN_PASSWORD env var)."""
+    return _website_controls().get("admin password", "").strip()
+
+
 # ----------------------------------------------------------------------------
 # Pickup Game Schedule — live "next game" preview for the homepage middle card
 # and the /pickup preview page.
