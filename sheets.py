@@ -677,6 +677,17 @@ def admin_password():
     return _website_controls().get("admin password", "").strip()
 
 
+def divisions_password():
+    """A second, narrower password just for Member Division Assignments
+    (/admin/divisions), from the 'Divisions Password' row on the Website
+    Controls tab. Separate from the main Board Portal password so the board
+    can hand out portal access broadly while keeping who can actually move a
+    member between divisions to a smaller, trusted group. Empty string if
+    the row is missing/blank, which leaves that section locked (shown as
+    'not configured yet') until Tom sets one."""
+    return _website_controls().get("divisions password", "").strip()
+
+
 # ----------------------------------------------------------------------------
 # Pickup Game Schedule — live "next game" preview for the homepage middle card
 # and the /pickup preview page.
