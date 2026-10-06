@@ -10,7 +10,7 @@
   .note{background:#fff8e6;border:1px solid #f3e2b3;color:#7a5b12;border-radius:10px;padding:14px 16px}
 </style>
 {% if not configured %}
-  <div class="note">The admin area isn't fully set up yet. Once an <strong>Admin Password</strong> row is added to the Website Controls tab, you'll be able to sign in here.</div>
+  <div class="note">The admin area isn't fully set up yet. Once an <strong>Admin Password</strong> row is added to the Site Passwords tab of the private control sheet, you'll be able to sign in here.</div>
 {% else %}
   {% if error %}<div class="err">{{ error }}</div>{% endif %}
   <form class="login-form" method="post" action="{{ url_for('admin_login', next=request.args.get('next','')) }}">

@@ -671,21 +671,22 @@ def season_name():
 
 def admin_password():
     """The Board Portal login password, from the 'Admin Password' row on the
-    Website Controls tab. Empty string if the row is missing/blank, which
-    leaves the portal login disabled (matches the old 'not configured yet'
-    behavior from when this lived in Render's ADMIN_PASSWORD env var)."""
-    return _website_controls().get("admin password", "").strip()
+    Site Passwords tab of the PRIVATE control sheet (never the public Game
+    Day spreadsheet). Empty string if the row is missing/blank, which leaves
+    the portal login disabled (matches the old 'not configured yet' behavior
+    from when this lived in Render's ADMIN_PASSWORD env var)."""
+    return _site_passwords().get("admin password", "").strip()
 
 
 def divisions_password():
     """A second, narrower password just for Member Division Assignments
-    (/admin/divisions), from the 'Divisions Password' row on the Website
-    Controls tab. Separate from the main Board Portal password so the board
-    can hand out portal access broadly while keeping who can actually move a
-    member between divisions to a smaller, trusted group. Empty string if
-    the row is missing/blank, which leaves that section locked (shown as
-    'not configured yet') until Tom sets one."""
-    return _website_controls().get("divisions password", "").strip()
+    (/admin/divisions), from the 'Divisions Password' row on the Site
+    Passwords tab of the PRIVATE control sheet. Separate from the main Board
+    Portal password so the board can hand out portal access broadly while
+    keeping who can actually move a member between divisions to a smaller,
+    trusted group. Empty string if the row is missing/blank, which leaves
+    that section locked (shown as 'not configured yet') until Tom sets one."""
+    return _site_passwords().get("divisions password", "").strip()
 
 
 # ----------------------------------------------------------------------------
@@ -2357,6 +2358,42 @@ def _control_sheet(readonly=True):
     creds = Credentials.from_service_account_info(info, scopes=scopes)
     gc = gspread.authorize(creds)
     return gc.open_by_key(CONTROL_SHEET_ID)
+
+
+# ----------------------------------------------------------------------------
+# Site Passwords — the admin/portal passwords, kept strictly on the PRIVATE
+# control sheet (CONTROL_SHEET_ID, "JSSA website control sheet_live"), which
+# is never linked anywhere on the public site. Deliberately a separate tab
+# from "Website Controls" (Game Day Button, Season Mode, etc.) because that
+# one lives on the PUBLIC Game Day/pickup spreadsheet — fine for on/off
+# switches, wrong place for a secret.
+# ----------------------------------------------------------------------------
+SITE_PASSWORDS_TAB = os.environ.get("SITE_PASSWORDS_TAB", "Site Passwords").strip()
+_site_passwords_cache = {"data": None, "ts": 0.0}
+_SITE_PASSWORDS_TTL = 60  # seconds — picks up a changed password fast
+
+
+def _site_passwords():
+    """{setting (lowercased): value} read from the Site Passwords tab of the
+    PRIVATE control sheet. {} if the tab is missing or the API hiccups."""
+    now = time.time()
+    with _lock:
+        c = _site_passwords_cache
+        if c["data"] is not None and now - c["ts"] < _SITE_PASSWORDS_TTL:
+            return c["data"]
+    out = {}
+    try:
+        if CONTROL_SHEET_ID and _SA_JSON:
+            ws = _control_sheet(readonly=True).worksheet(SITE_PASSWORDS_TAB)
+            for row in ws.get_all_values():
+                if len(row) >= 2 and str(row[0]).strip():
+                    out[str(row[0]).strip().lower()] = str(row[1]).strip()
+    except Exception:
+        out = {}
+    with _lock:
+        _site_passwords_cache["data"] = out
+        _site_passwords_cache["ts"] = now
+    return out
 
 
 # ----------------------------------------------------------------------------
