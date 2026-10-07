@@ -678,7 +678,7 @@ def photo_gallery_on():
     """Whether the homepage 'Highlights' photo section shows. Driven by the
     'Photo Gallery' row on the Site Settings tab. Defaults to ON, so the
     site is unchanged until the row says OFF."""
-    return _setting_on(("Photo Gallery", "Photo Gallery Enabled"), True)
+    return _setting_on(("Photo Gallery",), True)
 
 
 def admin_password():

@@ -40,8 +40,9 @@ check("fallback: members", sheets.members_page_on(), True)
 check("fallback: admin pw", sheets.admin_password(), "old")
 check("fallback: divisions pw", sheets.divisions_password(), "d")
 
+# a leftover row from the old Site Settings tab must NOT hide the photos
 setup({"photogalleryenabled": "FALSE"}, {}, {})
-check("gallery 'Enabled' label", sheets.photo_gallery_on(), False)
+check("old PhotoGalleryEnabled row ignored", sheets.photo_gallery_on(), True)
 
 # the homepage really hides / shows the photo section
 import app as webapp
