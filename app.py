@@ -21,7 +21,7 @@ Environment variables (set in Render):
     SHEET_ID                     — id of the JSSA Website Content sheet
 
 The Board Portal password is NOT an env var — it's the "Admin Password" row
-on the Website Controls tab (same sheet/tab as the Game Day Button switch),
+on the Site Passwords / Site Settings tab of the private control sheet,
 so Tom can change it himself without Render access.
 """
 
@@ -81,7 +81,17 @@ def _season_context():
     if peek in ("LEAGUE", "PICKUP"):
         mode = peek
     return {"season_mode": mode, "season_name": name,
-            "members_page_on": _members_page_visible()}
+            "members_page_on": _members_page_visible(),
+            "photo_gallery_on": _photo_gallery_visible()}
+
+
+def _photo_gallery_visible():
+    """True unless the 'Photo Gallery' row on the Site Settings tab says OFF.
+    A sheet hiccup keeps the section showing, as it always has."""
+    try:
+        return sheets.photo_gallery_on()
+    except Exception:
+        return True
 
 
 def _members_page_visible():
