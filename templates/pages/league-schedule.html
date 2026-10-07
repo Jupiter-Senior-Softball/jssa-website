@@ -12,8 +12,15 @@
   .gwhen{min-width:150px}
   .gwhen .d{font-family:var(--display);font-weight:800;color:var(--navy);font-size:1.05rem}
   .gwhen .t{color:var(--muted);font-size:.95rem}
-  .gmatch{flex:1;min-width:200px;font-size:1.15rem;font-weight:700;color:var(--navy)}
-  .gmatch .vs{color:var(--muted);font-weight:600;font-size:.95rem;margin:0 8px}
+  .gmatch{flex:1;min-width:220px;display:flex;flex-direction:column;gap:8px;color:var(--navy)}
+  .gteam{display:flex;align-items:center;gap:12px;font-size:1.2rem;font-weight:600}
+  .gteam.home{font-weight:800}
+  .gteam .tag{flex:0 0 auto;width:84px;text-align:center;font-family:var(--display);font-weight:800;
+    font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;padding:5px 0;border-radius:6px}
+  .gteam.visitor .tag{background:var(--navy);color:#fff}
+  .gteam.home .tag{background:#f5c518;color:var(--navy)}
+  .gteam .tn{flex:1}
+  .gteam .sc{font-family:var(--display);font-weight:800;font-size:1.4rem}
   .gright{text-align:right;min-width:110px}
   .gscore{font-family:var(--display);font-weight:800;font-size:1.4rem;color:var(--navy)}
   .gstatus{display:inline-block;font-family:var(--display);font-weight:700;font-size:.78rem;
@@ -32,10 +39,12 @@
       <div class="d">{{ g.date }}</div>
       <div class="t">{{ g.time }}{% if g.field %} · {{ g.field }}{% endif %}</div>
     </div>
-    <div class="gmatch">{{ g.home }}<span class="vs">vs</span>{{ g.away }}</div>
+    <div class="gmatch">
+      <div class="gteam visitor"><span class="tag">Visitor</span><span class="tn">{{ g.away }}</span>{% if final %}<span class="sc">{{ g.score_away }}</span>{% endif %}</div>
+      <div class="gteam home"><span class="tag">Home</span><span class="tn">{{ g.home }}</span>{% if final %}<span class="sc">{{ g.score_home }}</span>{% endif %}</div>
+    </div>
     <div class="gright">
       {% if final %}
-        <div class="gscore">{{ g.score_home }} – {{ g.score_away }}</div>
         <span class="gstatus final">Final</span>
       {% else %}
         <span class="gstatus">{{ g.status or 'Scheduled' }}</span>
