@@ -647,8 +647,7 @@ def season_mode():
     Set by the 'Season Mode' row on the Website Controls tab. Anything other
     than LEAGUE (blank row, missing tab, typo) falls back to PICKUP, so the
     homepage keeps working exactly as it does today."""
-    return "LEAGUE" if _website_controls().get(
-        "season mode", "").strip().upper() == "LEAGUE" else "PICKUP"
+    return "LEAGUE" if _setting("Season Mode").upper() == "LEAGUE" else "PICKUP"
 
 
 def members_page_on():
@@ -659,14 +658,27 @@ def members_page_on():
     ready — and switched straight back off, with no code change and no deploy,
     if it turns out not to be wanted. Picked up within a minute either way.
     """
-    return _control_value("Members Page").strip().upper() == "ON"
+    return _setting_on(("Members Page",), False)
 
 
 def season_name():
     """The season label shown above the homepage buttons in LEAGUE mode, e.g.
     'Fall 2026 Season'. Free text from the 'Season Name' row on the Website
     Controls tab; falls back to a generic label if the row is blank."""
-    return _website_controls().get("season name", "").strip() or "League Season"
+    return _setting("Season Name") or "League Season"
+
+
+def _password(label):
+    """A password from the Site Settings tab, else the older Site Passwords tab."""
+    val = _site_settings().get(_squash(label), "").strip()
+    return val or _site_passwords().get(label, "").strip()
+
+
+def photo_gallery_on():
+    """Whether the homepage 'Highlights' photo section shows. Driven by the
+    'Photo Gallery' row on the Site Settings tab. Defaults to ON, so the
+    site is unchanged until the row says OFF."""
+    return _setting_on(("Photo Gallery",), True)
 
 
 def admin_password():
@@ -675,7 +687,7 @@ def admin_password():
     Day spreadsheet). Empty string if the row is missing/blank, which leaves
     the portal login disabled (matches the old 'not configured yet' behavior
     from when this lived in Render's ADMIN_PASSWORD env var)."""
-    return _site_passwords().get("admin password", "").strip()
+    return _password("admin password")
 
 
 def divisions_password():
@@ -686,7 +698,7 @@ def divisions_password():
     keeping who can actually move a member between divisions to a smaller,
     trusted group. Empty string if the row is missing/blank, which leaves
     that section locked (shown as 'not configured yet') until Tom sets one."""
-    return _site_passwords().get("divisions password", "").strip()
+    return _password("divisions password")
 
 
 # ----------------------------------------------------------------------------
@@ -2397,6 +2409,75 @@ def _site_passwords():
 
 
 # ----------------------------------------------------------------------------
+# Site Settings — Tom's one-stop tab on the PRIVATE control sheet. Passwords,
+# season switch, members page, registration sheet and the photo gallery all
+# live here as plain "Setting | Value" rows. Anything missing from this tab
+# falls back to where it used to live (Site Passwords / Website Controls), so
+# rows can be moved over one at a time with nothing breaking in between.
+# The Game Day Button and Manual Test Button deliberately stay on the public
+# Website Controls tab: the Game Day automation writes to them there.
+# ----------------------------------------------------------------------------
+SITE_SETTINGS_TAB = os.environ.get("SITE_SETTINGS_TAB", "Site Settings").strip()
+_site_settings_cache = {"data": None, "ts": 0.0}
+_SITE_SETTINGS_TTL = 60  # seconds
+
+
+def _squash(label):
+    return re.sub(r"[^a-z0-9]", "", str(label).lower())
+
+
+def _site_settings():
+    """{label squashed to lowercase letters+digits: value} from the Site
+    Settings tab, so 'Season Mode', 'season-mode' and 'SeasonMode' all match.
+    {} if the tab is missing or the API hiccups."""
+    now = time.time()
+    with _lock:
+        c = _site_settings_cache
+        if c["data"] is not None and now - c["ts"] < _SITE_SETTINGS_TTL:
+            return c["data"]
+    out = {}
+    try:
+        if CONTROL_SHEET_ID and _SA_JSON:
+            ws = _control_sheet(readonly=True).worksheet(SITE_SETTINGS_TAB)
+            for row in ws.get_all_values():
+                # Blank values are skipped, so a stray empty duplicate row
+                # can't shadow the real one further down.
+                if len(row) >= 2 and _squash(row[0]) and str(row[1]).strip():
+                    out.setdefault(_squash(row[0]), str(row[1]).strip())
+    except Exception:
+        out = {}
+    with _lock:
+        _site_settings_cache["data"] = out
+        _site_settings_cache["ts"] = now
+    return out
+
+
+def _setting(*names):
+    """First non-blank value among the given labels: the Site Settings tab
+    wins, then the older Website Controls tab. '' if neither has it."""
+    for name in names:
+        val = _site_settings().get(_squash(name), "").strip()
+        if val:
+            return val
+    for name in names:
+        val = _control_value(name).strip()
+        if val:
+            return val
+    return ""
+
+
+def _setting_on(names, default):
+    """An ON/OFF style setting. ON/YES/TRUE/1 -> True, OFF/NO/FALSE/0 -> False,
+    blank or anything else -> default."""
+    val = _setting(*names).upper()
+    if val in ("ON", "YES", "TRUE", "1"):
+        return True
+    if val in ("OFF", "NO", "FALSE", "0"):
+        return False
+    return default
+
+
+# ----------------------------------------------------------------------------
 # Board Portal Links — a self-service menu the board manages from a sheet tab.
 # Any row the board adds to the "Board Portal Links" tab of the control sheet
 # ("JSSA website control sheet_live") shows up as a button in the admin portal.
@@ -3593,7 +3674,7 @@ def _registration_sheet_id():
     if REGISTRATION_SHEET_ID:
         return REGISTRATION_SHEET_ID
     try:
-        raw = _control_value("Registration Sheet ID").strip()
+        raw = _setting("Registration Sheet ID")
     except Exception:
         return ""
     match = re.search(r"/spreadsheets/d/([a-zA-Z0-9-_]+)", raw)
