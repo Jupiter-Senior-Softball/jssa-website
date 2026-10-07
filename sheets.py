@@ -3092,6 +3092,28 @@ def player_cards():
     return out
 
 
+def _team_key(name):
+    """Case/space/apostrophe-insensitive key, so "Mick's Picks" typed with a curly
+    apostrophe on one tab still matches the same team on another."""
+    return " ".join((name or "").replace("\u2019", "'").replace("\u2018", "'")
+                    .lower().split())
+
+
+def _league_team_list(rosters, extra):
+    """Teams for the public Teams page: every team that has players (from the
+    Players tab) PLUS any team listed on the Teams tab or the Schedule that has no
+    players yet (shown with 0 players). `extra` is [(division, team), ...] in
+    sheet order. Rosters themselves are left untouched."""
+    out = {d: [dict(t) for t in rosters.get(d, [])] for d in ("RED", "WHITE", "BLUE")}
+    seen = {d: {_team_key(t["team"]) for t in out[d]} for d in out}
+    for div, team in extra:
+        team = (team or "").strip()
+        if div in out and team and _team_key(team) not in seen[div]:
+            seen[div].add(_team_key(team))
+            out[div].append({"team": team, "players": [], "manager": "", "count": 0})
+    return out
+
+
 def league_season():
     """Everything the public league pages need, read from the Control Sheet:
         {'standings': {RED/WHITE/BLUE: [team,...]},
@@ -3106,11 +3128,13 @@ def league_season():
 
     blank = {"standings": {"RED": [], "WHITE": [], "BLUE": []},
              "schedule": [], "results": [],
-             "rosters": {"RED": [], "WHITE": [], "BLUE": []}}
+             "rosters": {"RED": [], "WHITE": [], "BLUE": []},
+             "teams": {"RED": [], "WHITE": [], "BLUE": []}}
     try:
         data = {"standings": {"RED": [], "WHITE": [], "BLUE": []},
                 "schedule": [], "results": [],
-                "rosters": {"RED": [], "WHITE": [], "BLUE": []}}
+                "rosters": {"RED": [], "WHITE": [], "BLUE": []},
+                "teams": {"RED": [], "WHITE": [], "BLUE": []}}
         if CONTROL_SHEET_ID and _SA_JSON:
             sh = _control_sheet(readonly=True)
             tabs = _control_tabs(sh)          # one batch read for all tabs
@@ -3207,6 +3231,27 @@ def league_season():
                 # Mark in the Players tab who has uploaded a photo (only if a
                 # "Photo" column exists). Add-only, only-on-change, fail-safe.
                 _sync_photo_flags(ptitle, rows, hi, cols, profiles)
+
+        # --- Teams page list: teams with players, plus any team named on the
+        #     Teams tab or the Schedule that has no players yet ---
+        extra = []
+        if CONTROL_SHEET_ID and _SA_JSON:
+            for title, vals in tabs:
+                if title.strip().lower() != "teams":
+                    continue
+                for i, r in enumerate(vals):
+                    low = [_clean(c).lower() for c in r]
+                    if "team name" in low and "division" in low:
+                        cols = {name: ci for ci, name in enumerate(low)}
+                        for row in vals[i + 1:]:
+                            g = _row_reader(cols)(row)
+                            extra.append((_norm_div(g("division")), g("team name")))
+                        break
+                break
+        for g in data["schedule"]:
+            extra.append((g["division"], g["home"]))
+            extra.append((g["division"], g["away"]))
+        data["teams"] = _league_team_list(data["rosters"], extra)
 
         # Auto-standings: derive the table from the schedule's final scores so
         # there's no separate Standings tab to maintain. Every team in the

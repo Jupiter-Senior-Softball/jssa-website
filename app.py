@@ -621,7 +621,8 @@ def league_section(section):
     except Exception:
         season = {"standings": {"RED": [], "WHITE": [], "BLUE": []},
                   "schedule": [], "results": [],
-                  "rosters": {"RED": [], "WHITE": [], "BLUE": []}}
+                  "rosters": {"RED": [], "WHITE": [], "BLUE": []},
+                  "teams": {"RED": [], "WHITE": [], "BLUE": []}}
     # Does this section have any data to show yet? If not, the template falls
     # back to the friendly "off-season" message.
     has_data = {
@@ -629,7 +630,7 @@ def league_section(section):
         "schedules": bool(season["schedule"]),
         "results":   bool(season["results"]),
         "standings": any(season["standings"].values()),
-        "teams":     any(season["rosters"].values()),
+        "teams":     any(season.get("teams", season["rosters"]).values()),
     }.get(section, False)
     template = "pages/league-section.html"
     section_template = {
