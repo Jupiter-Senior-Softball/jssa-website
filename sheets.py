@@ -2440,7 +2440,9 @@ def _site_settings():
         if CONTROL_SHEET_ID and _SA_JSON:
             ws = _control_sheet(readonly=True).worksheet(SITE_SETTINGS_TAB)
             for row in ws.get_all_values():
-                if len(row) >= 2 and _squash(row[0]):
+                # Blank values are skipped, so a stray empty duplicate row
+                # can't shadow the real one further down.
+                if len(row) >= 2 and _squash(row[0]) and str(row[1]).strip():
                     out.setdefault(_squash(row[0]), str(row[1]).strip())
     except Exception:
         out = {}
