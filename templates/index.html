@@ -463,6 +463,14 @@
     .qb-note{text-align:center;color:#4a5670;font-size:.8rem;line-height:1.3;margin:9px 0 0}
     .qb-note strong{color:var(--navy);font-weight:700}
     @media(max-width:760px){.qb-grid{grid-template-columns:1fr}}
+
+    /* Season First Pitch countdown — one line below the cards. Safe to
+       delete this whole #firstPitch paragraph (and the script after it)
+       to remove it. */
+    .qb-countdown{text-align:center;color:var(--red);font-family:var(--display);
+      font-weight:800;font-size:clamp(.95rem,2.4vw,1.15rem);letter-spacing:.01em;
+      margin:14px 0 0}
+    .qb-countdown b{font-weight:900}
   </style>
   <div class="wrap">
     {# Two seasons, one switch. The "Season Mode" row on the Website Controls
@@ -492,7 +500,39 @@
         <span class="qb-go">See who's on each team →</span>
       </a>
     </div>
-    <p class="qb-note">Pickup games are now under <strong>Pickup Games</strong> in the menu above.</p>
+    {% if season_first_pitch %}
+    <p class="qb-countdown" id="firstPitch" data-target="{{ season_first_pitch }}">
+      ⚾ Countdown to First Pitch: <b class="fp-d">—</b> Days, <b class="fp-h">—</b> Hrs, <b class="fp-m">—</b> Min
+    </p>
+    <script>
+    (function(){
+      var box = document.getElementById('firstPitch');
+      if (!box) return;
+      var target = new Date(box.getAttribute('data-target')).getTime();
+      if (isNaN(target)) { box.style.display = 'none'; return; }
+      var dNum = box.querySelector('.fp-d');
+      var hNum = box.querySelector('.fp-h');
+      var mNum = box.querySelector('.fp-m');
+      function two(n) { return (n < 10 ? '0' : '') + n; }
+      function tick() {
+        var diff = target - Date.now();
+        if (diff <= 0) {
+          box.innerHTML = '⚾ The season is underway — Play Ball!';
+          return;
+        }
+        var s = Math.floor(diff / 1000);
+        var d = Math.floor(s / 86400); s -= d * 86400;
+        var h = Math.floor(s / 3600);  s -= h * 3600;
+        var m = Math.floor(s / 60);
+        dNum.textContent = d;
+        hNum.textContent = two(h);
+        mNum.textContent = two(m);
+        setTimeout(tick, 1000);
+      }
+      tick();
+    })();
+    </script>
+    {% endif %}
     {% else %}
     <div class="qb-grid">
       <a class="qb-btn" href="https://script.google.com/macros/s/AKfycbzLLz9E-qjJwXbgAkaGjhH0PT_3oa13uzrl9T5dT1omGCL6Ocw1lYELg8xFBM7zuapN7g/exec">
