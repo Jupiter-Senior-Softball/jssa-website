@@ -439,10 +439,10 @@
   <style>
     .quickbar{position:relative;background:#dde5f1;padding:26px 0 26px;overflow:hidden}
     .quickbar>.wrap{position:relative;z-index:1}
-    .qb-figure{position:absolute;top:50%;transform:translateY(-50%);height:clamp(200px,30vw,320px);
-      width:auto;fill:var(--navy);opacity:.1;pointer-events:none;z-index:0}
-    .qb-figure.left{left:-28px}
-    .qb-figure.right{right:-28px}
+    .qb-figure{position:absolute;top:50%;transform:translateY(-50%);height:clamp(170px,24vw,260px);
+      width:auto;color:var(--navy);opacity:.12;pointer-events:none;z-index:0}
+    .qb-figure.left{left:-18px}
+    .qb-figure.right{right:-18px}
     @media(max-width:900px){.qb-figure{display:none}}
     .qb-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;max-width:1040px;margin:0 auto}
     .qb-btn{display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;
@@ -479,27 +479,30 @@
     .qb-countdown b{font-weight:900}
   </style>
   {% if season_mode == 'LEAGUE' %}
-  {# Faint background figures, just for visual interest behind the season
+  {# Faint background diamonds, just for visual interest behind the season
      band — pure CSS/SVG, no image files. Safe to delete both <svg> blocks
      (and their .qb-figure CSS above) to remove them. #}
-  <svg class="qb-figure left" viewBox="0 0 140 230" aria-hidden="true">
-    <circle cx="68" cy="26" r="14"/>
-    <rect x="56" y="40" width="24" height="56" rx="10"/>
-    <path d="M60,92 L42,178 L55,184 L72,108 Z"/>
-    <path d="M78,92 L98,176 L86,183 L68,108 Z"/>
-    <path d="M58,50 L30,76 L39,86 L65,62 Z"/>
-    <path d="M80,48 L98,24 L108,31 L90,56 Z"/>
-    <rect x="24" y="6" width="11" height="92" rx="5" transform="rotate(32 29 52)"/>
+  <svg class="qb-figure left" viewBox="0 0 200 200" aria-hidden="true">
+    <path d="M -10,120 A 150,150 0 0,1 210,120" fill="none" stroke="currentColor" stroke-width="3" opacity=".5"/>
+    <path d="M100,182 L30,100 L2,58" fill="none" stroke="currentColor" stroke-width="4"/>
+    <path d="M100,182 L170,100 L198,58" fill="none" stroke="currentColor" stroke-width="4"/>
+    <path d="M100,182 L170,100 L100,20 L30,100 Z" fill="none" stroke="currentColor" stroke-width="6"/>
+    <circle cx="100" cy="100" r="9" fill="currentColor"/>
+    <rect x="93" y="13" width="14" height="14" transform="rotate(45 100 20)" fill="currentColor"/>
+    <rect x="163" y="93" width="14" height="14" transform="rotate(45 170 100)" fill="currentColor"/>
+    <rect x="23" y="93" width="14" height="14" transform="rotate(45 30 100)" fill="currentColor"/>
+    <path d="M91,182 L91,172 L100,165 L109,172 L109,182 Z" fill="currentColor"/>
   </svg>
-  <svg class="qb-figure right" viewBox="0 0 140 230" aria-hidden="true">
-    <circle cx="68" cy="46" r="14"/>
-    <rect x="56" y="60" width="24" height="54" rx="10"/>
-    <path d="M60,112 L46,196 L59,202 L73,128 Z"/>
-    <path d="M78,112 L96,194 L84,201 L68,128 Z"/>
-    <path d="M62,66 L36,22 L48,14 L74,58 Z"/>
-    <ellipse cx="34" cy="18" rx="15" ry="11"/>
-    <circle cx="36" cy="3" r="6"/>
-    <path d="M80,68 L102,80 L96,91 L74,80 Z"/>
+  <svg class="qb-figure right" viewBox="0 0 200 200" aria-hidden="true">
+    <path d="M -10,120 A 150,150 0 0,1 210,120" fill="none" stroke="currentColor" stroke-width="3" opacity=".5"/>
+    <path d="M100,182 L30,100 L2,58" fill="none" stroke="currentColor" stroke-width="4"/>
+    <path d="M100,182 L170,100 L198,58" fill="none" stroke="currentColor" stroke-width="4"/>
+    <path d="M100,182 L170,100 L100,20 L30,100 Z" fill="none" stroke="currentColor" stroke-width="6"/>
+    <circle cx="100" cy="100" r="9" fill="currentColor"/>
+    <rect x="93" y="13" width="14" height="14" transform="rotate(45 100 20)" fill="currentColor"/>
+    <rect x="163" y="93" width="14" height="14" transform="rotate(45 170 100)" fill="currentColor"/>
+    <rect x="23" y="93" width="14" height="14" transform="rotate(45 30 100)" fill="currentColor"/>
+    <path d="M91,182 L91,172 L100,165 L109,172 L109,182 Z" fill="currentColor"/>
   </svg>
   {% endif %}
   <div class="wrap">
