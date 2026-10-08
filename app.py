@@ -80,7 +80,13 @@ def _season_context():
     peek = (request.args.get("season") or "").strip().upper()
     if peek in ("LEAGUE", "PICKUP"):
         mode = peek
-    return {"season_mode": mode, "season_name": name,
+    next_game = None
+    if mode == "LEAGUE" and request.path == "/":
+        try:
+            next_game = sheets.next_league_game()
+        except Exception:
+            next_game = None
+    return {"season_mode": mode, "season_name": name, "next_game": next_game,
             "members_page_on": _members_page_visible(),
             "photo_gallery_on": _photo_gallery_visible()}
 

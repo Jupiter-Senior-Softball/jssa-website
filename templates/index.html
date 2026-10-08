@@ -446,8 +446,20 @@
     /* League season: keep this band about as short as the pickup one — a
        compact heading and a single fine line of text under the buttons. */
     .quickbar.qb-season-on{padding:18px 0 18px}
-    .qb-season{font-family:var(--display);font-weight:800;color:var(--navy);text-align:center;
-      font-size:clamp(1.15rem,2vw,1.4rem);letter-spacing:-.01em;margin:0 0 12px}
+    .qb-titlerow{display:flex;align-items:center;justify-content:center;gap:18px}
+    .qb-season{font-family:'Sablon Up','Archivo',sans-serif;font-weight:400;text-transform:uppercase;
+      color:var(--navy);text-align:center;font-size:clamp(1.9rem,6vw,3.2rem);letter-spacing:.02em;
+      line-height:1;margin:0}
+    .qb-stitch{flex:1 1 0;min-width:16px;max-width:150px;height:8px;
+      background:radial-gradient(circle,var(--red) 3.5px,transparent 4px) 0 50%/16px 8px repeat-x}
+    .qb-bar{width:90px;height:5px;background:var(--red);border-radius:3px;margin:10px auto 16px}
+    .qb-next{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;justify-content:center;
+      background:var(--navy);color:#fff;border-radius:12px;padding:12px 18px;max-width:640px;
+      margin:0 auto 16px;font-size:1.1rem}
+    .qb-nl{font-family:var(--display);font-weight:800;background:var(--red);padding:4px 10px;
+      border-radius:6px;text-transform:uppercase;letter-spacing:.08em;font-size:.82rem}
+    .qb-nv b{font-family:var(--display);font-weight:800}
+    .qb-nm{color:#cfe0ff}
     .qb-note{text-align:center;color:#4a5670;font-size:.8rem;line-height:1.3;margin:9px 0 0}
     .qb-note strong{color:var(--navy);font-weight:700}
     @media(max-width:760px){.qb-grid{grid-template-columns:1fr}}
@@ -461,7 +473,13 @@
        Anything other than LEAGUE keeps the pickup buttons, so a blank or
        missing row leaves the homepage exactly as it is today. #}
     {% if season_mode == 'LEAGUE' %}
-    <h2 class="qb-season">{{ season_name }}</h2>
+    <div class="qb-titlerow"><span class="qb-stitch" aria-hidden="true"></span><h2 class="qb-season">{{ season_name }}</h2><span class="qb-stitch" aria-hidden="true"></span></div>
+    <div class="qb-bar" aria-hidden="true"></div>
+    {% if next_game %}
+    <div class="qb-next"><span class="qb-nl">Next game</span>
+      <span class="qb-nv"><b>{{ next_game.day }} {{ next_game.date }}</b> · {{ next_game.time }}{% if next_game.field %} · {{ next_game.field }}{% endif %}</span>
+      {% if next_game.matchup %}<span class="qb-nm">{{ next_game.matchup }}</span>{% elif next_game.count > 1 %}<span class="qb-nm">{{ next_game.count }} games</span>{% endif %}</div>
+    {% endif %}
     <div class="qb-grid">
       <a class="qb-btn" href="/league/schedules">
         <span class="qb-ic">📅</span>
