@@ -36,7 +36,7 @@
   {% set final = g.score_home != '' and g.score_away != '' %}
   <div class="gcard {{ g.division }}" data-div="{{ g.division }}">
     <div class="gwhen">
-      <div class="d">{{ g.date }}</div>
+      <div class="d">{% if g.dow %}<span style="display:block;color:var(--red)">{{ g.dow }}</span>{% endif %}{{ g.date }}</div>
       <div class="t">{{ g.time }}{% if g.field %} · {{ g.field }}{% endif %}</div>
     </div>
     <div class="gmatch">

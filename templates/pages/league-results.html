@@ -26,7 +26,7 @@
   {% set hs = g.home_score|int(-1) %}{% set as = g.away_score|int(-1) %}
   <div class="rcard {{ g.division }}" data-div="{{ g.division }}">
     <div class="rtop">
-      <span class="rwhen">{{ g.date }}{% if g.time %} · {{ g.time }}{% endif %}</span>
+      <span class="rwhen">{% if g.dow %}{{ g.dow }}, {% endif %}{{ g.date }}{% if g.time %} · {{ g.time }}{% endif %}</span>
       <span class="rfield">{{ g.field }}</span>
     </div>
     <div class="rline {% if hs > as %}win{% elif hs < as %}lose{% endif %}">

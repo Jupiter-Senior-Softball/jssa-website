@@ -3115,6 +3115,18 @@ def _league_team_list(rosters, extra):
     return out
 
 
+def _weekday_prefix(date_text):
+    """'10/19/2026' -> 'Monday'. Returns '' if the date can't be understood, so a
+    odd-looking date in the sheet simply shows as typed."""
+    t = (date_text or "").strip()
+    for fmt in ("%m/%d/%Y", "%m/%d/%y", "%Y-%m-%d", "%B %d, %Y", "%b %d, %Y"):
+        try:
+            return datetime.datetime.strptime(t, fmt).strftime("%A")
+        except ValueError:
+            pass
+    return ""
+
+
 def league_season():
     """Everything the public league pages need, read from the Control Sheet:
         {'standings': {RED/WHITE/BLUE: [team,...]},
@@ -3170,7 +3182,8 @@ def league_season():
                         continue
                     data["schedule"].append({
                         "division": _norm_div(g("division")),
-                        "date": g("date"), "time": g("time"), "field": g("field"),
+                        "date": g("date"), "dow": _weekday_prefix(g("date")),
+                        "time": g("time"), "field": g("field"),
                         "home": home, "away": away,
                         "score_home": g("score home"), "score_away": g("score away"),
                         "status": g("status"),
@@ -3188,7 +3201,8 @@ def league_season():
                         continue
                     data["results"].append({
                         "division": _norm_div(g("division")),
-                        "date": g("date"), "time": g("time"), "field": g("field"),
+                        "date": g("date"), "dow": _weekday_prefix(g("date")),
+                        "time": g("time"), "field": g("field"),
                         "home": home, "away": away,
                         "home_score": g("home score", "score home"),
                         "away_score": g("away score", "score away"),
