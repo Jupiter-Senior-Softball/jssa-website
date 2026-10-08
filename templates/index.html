@@ -453,13 +453,12 @@
     /* League season: keep this band about as short as the pickup one — a
        compact heading and a single fine line of text under the buttons. */
     .quickbar.qb-season-on{padding:18px 0 18px}
-    .qb-titlerow{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap}
+    .qb-titlerow{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;margin-bottom:26px}
     .qb-season{font-family:'Sablon Up','Archivo',sans-serif;font-weight:400;text-transform:uppercase;
       color:var(--navy);text-align:center;font-size:clamp(1.9rem,6vw,3.2rem);letter-spacing:.02em;
       line-height:1;margin:0}
     .qb-stitch{flex:1 1 0;min-width:16px;max-width:150px;height:8px;
       background:radial-gradient(circle,var(--red) 3.5px,transparent 4px) 0 50%/16px 8px repeat-x}
-    .qb-bar{width:90px;height:5px;background:var(--red);border-radius:3px;margin:10px auto 16px}
     .qb-note{text-align:center;color:#4a5670;font-size:.8rem;line-height:1.3;margin:9px 0 0}
     .qb-note strong{color:var(--navy);font-weight:700}
     @media(max-width:760px){.qb-grid{grid-template-columns:1fr}}
@@ -482,7 +481,6 @@
        missing row leaves the homepage exactly as it is today. #}
     {% if season_mode == 'LEAGUE' %}
     <div class="qb-titlerow"><span class="qb-stitch" aria-hidden="true"></span><h2 class="qb-season">{{ season_name }}</h2><span class="qb-stitch" aria-hidden="true"></span></div>
-    <div class="qb-bar" aria-hidden="true"></div>
     <div class="qb-grid">
       <a class="qb-btn" href="/league/schedules">
         <span class="qb-ic">📅</span>
