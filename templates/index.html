@@ -464,19 +464,28 @@
     .qb-note strong{color:var(--navy);font-weight:700}
     @media(max-width:760px){.qb-grid{grid-template-columns:1fr}}
 
-    /* Countdown to First Pitch — a small badge that sits right in the season
-       title row (not its own section). Pure CSS/JS, no image: safe to delete
-       this whole #firstPitch block (and the script under it) to remove it. */
-    .fp-mini{flex:0 0 auto;width:clamp(58px,9vw,72px);height:clamp(58px,9vw,72px);
-      border-radius:50%;background:var(--navy);border:3px solid var(--red);
+    /* Countdown to First Pitch — a badge that sits right in the season title
+       row (not its own section), big enough to spell out what it is and show
+       a real Days/Hours/Minutes breakdown. Pure CSS/JS, no image: safe to
+       delete this whole #firstPitch block (and the script under it) to
+       remove it. */
+    .fp-mini{flex:0 0 auto;width:clamp(104px,15vw,132px);height:clamp(104px,15vw,132px);
+      border-radius:50%;background:var(--navy);border:4px solid var(--red);
       display:flex;flex-direction:column;align-items:center;justify-content:center;
-      box-shadow:0 4px 12px rgba(22,35,63,.2);cursor:default}
-    .fp-mini-ic{font-size:.8rem;line-height:1}
+      gap:3px;padding:8px 6px;box-shadow:0 6px 16px rgba(22,35,63,.22);cursor:default}
+    .fp-mini-lbl{font-family:var(--display);font-weight:800;letter-spacing:.05em;
+      text-transform:uppercase;color:#f5c518;font-size:.46rem;line-height:1.2;
+      text-align:center;max-width:92px}
+    .fp-mini-stats{display:flex;align-items:flex-start;justify-content:center;gap:6px}
+    .fp-mini-stat{display:flex;flex-direction:column;align-items:center}
     .fp-mini-num{font-family:var(--display);font-weight:900;color:#fff;
-      font-size:1.08rem;line-height:1.15}
-    .fp-mini-sub{font-family:var(--display);font-weight:700;letter-spacing:.04em;
-      text-transform:uppercase;color:#f5c518;font-size:.46rem;margin-top:1px}
-    .fp-live{color:#f5c518;font-size:1.3rem;line-height:1}
+      font-size:1.15rem;line-height:1}
+    .fp-mini-unit{font-family:var(--display);font-weight:700;letter-spacing:.03em;
+      text-transform:uppercase;color:#cdd7ea;font-size:.4rem;margin-top:1px}
+    .fp-mini-sep{color:#cdd7ea;font-weight:900;font-size:1rem;align-self:center;
+      margin-top:-2px}
+    .fp-live{color:#f5c518;font-family:var(--display);font-weight:800;
+      font-size:.92rem;line-height:1.25;text-align:center}
   </style>
   <div class="wrap">
     {# Two seasons, one switch. The "Season Mode" row on the Website Controls
@@ -491,11 +500,15 @@
       <span class="qb-stitch" aria-hidden="true"></span>
       <h2 class="qb-season">{{ season_name }}</h2>
       {% if season_first_pitch %}
-      <div class="fp-mini" id="firstPitch" data-target="{{ season_first_pitch }}"
-           title="Countdown to First Pitch">
-        <span class="fp-mini-ic">⚾</span>
-        <span class="fp-mini-num">—</span>
-        <span class="fp-mini-sub">&nbsp;</span>
+      <div class="fp-mini" id="firstPitch" data-target="{{ season_first_pitch }}">
+        <span class="fp-mini-lbl">⚾ Countdown to First Pitch</span>
+        <span class="fp-mini-stats">
+          <span class="fp-mini-stat"><span class="fp-mini-num fp-d">—</span><span class="fp-mini-unit">Days</span></span>
+          <span class="fp-mini-sep">:</span>
+          <span class="fp-mini-stat"><span class="fp-mini-num fp-h">—</span><span class="fp-mini-unit">Hrs</span></span>
+          <span class="fp-mini-sep">:</span>
+          <span class="fp-mini-stat"><span class="fp-mini-num fp-m">—</span><span class="fp-mini-unit">Min</span></span>
+        </span>
       </div>
       {% endif %}
       <span class="qb-stitch" aria-hidden="true"></span>
@@ -508,8 +521,9 @@
       if (!box) return;
       var target = new Date(box.getAttribute('data-target')).getTime();
       if (isNaN(target)) { box.style.display = 'none'; return; }
-      var num = box.querySelector('.fp-mini-num');
-      var sub = box.querySelector('.fp-mini-sub');
+      var dNum = box.querySelector('.fp-d');
+      var hNum = box.querySelector('.fp-h');
+      var mNum = box.querySelector('.fp-m');
       var dateStr = new Date(target).toLocaleString('en-US', {
         weekday: 'short', month: 'short', day: 'numeric',
         hour: 'numeric', minute: '2-digit'
@@ -519,22 +533,16 @@
       function tick() {
         var diff = target - Date.now();
         if (diff <= 0) {
-          box.querySelector('.fp-mini-ic').style.display = 'none';
-          num.innerHTML = '<span class="fp-live">⚾</span>';
-          sub.textContent = 'Play ball!';
+          box.innerHTML = '<span class="fp-live">⚾<br>PLAY BALL!</span>';
           return;
         }
         var s = Math.floor(diff / 1000);
         var d = Math.floor(s / 86400); s -= d * 86400;
         var h = Math.floor(s / 3600);  s -= h * 3600;
-        var m = Math.floor(s / 60);    s -= m * 60;
-        if (d > 0) {
-          num.textContent = d;
-          sub.textContent = d === 1 ? 'Day' : 'Days';
-        } else {
-          num.textContent = two(h) + ':' + two(m);
-          sub.textContent = two(s) + ' sec';
-        }
+        var m = Math.floor(s / 60);
+        dNum.textContent = d;
+        hNum.textContent = two(h);
+        mNum.textContent = two(m);
         setTimeout(tick, 1000);
       }
       tick();
