@@ -3127,69 +3127,6 @@ def _weekday_prefix(date_text):
     return ""
 
 
-def _game_start(date_text, time_text):
-    """('10/19/2026', '9:00 AM') -> naive datetime, or None if unreadable."""
-    d = None
-    t = (date_text or "").strip()
-    for fmt in ("%m/%d/%Y", "%m/%d/%y", "%Y-%m-%d", "%B %d, %Y", "%b %d, %Y"):
-        try:
-            d = datetime.datetime.strptime(t, fmt)
-            break
-        except ValueError:
-            pass
-    if d is None:
-        return None
-    tt = (time_text or "").strip().upper().replace(".", "")
-    for fmt in ("%I:%M %p", "%I %p", "%I:%M%p", "%H:%M"):
-        try:
-            tm = datetime.datetime.strptime(tt, fmt).time()
-            return d.replace(hour=tm.hour, minute=tm.minute)
-        except ValueError:
-            pass
-    return d
-
-
-def next_league_game():
-    """The next game still to be played, for the homepage season band, or None.
-    Looks at the league schedule, skips scored games and games that began more
-    than 2 hours ago. If several games start at the same time (different
-    divisions) it reports a count instead of picking one.
-        {'day': 'Monday', 'date': '10/19', 'time': '9:00 AM', 'field': 'Field 4',
-         'matchup': "Jackals at Mick's Picks", 'count': 1}"""
-    try:
-        try:
-            import zoneinfo
-            now = datetime.datetime.now(zoneinfo.ZoneInfo("America/New_York")).replace(tzinfo=None)
-        except Exception:
-            now = datetime.datetime.now(_EASTERN).replace(tzinfo=None)
-        upcoming = []
-        for g in league_season().get("schedule", []):
-            if g.get("score_home") not in ("", None) and g.get("score_away") not in ("", None):
-                continue
-            if _clean(g.get("status")).lower() in ("cancelled", "canceled", "postponed", "final"):
-                continue
-            start = _game_start(g.get("date"), g.get("time"))
-            if start is None or start + datetime.timedelta(hours=2) < now:
-                continue
-            upcoming.append((start, g))
-        if not upcoming:
-            return None
-        upcoming.sort(key=lambda x: x[0])
-        first = upcoming[0][0]
-        slot = [g for st, g in upcoming if st == first]
-        g = slot[0]
-        return {
-            "day": first.strftime("%A"),
-            "date": "%d/%d" % (first.month, first.day),
-            "time": g.get("time", ""),
-            "field": g.get("field", "") if len({x.get("field") for x in slot}) == 1 else "",
-            "matchup": ("%s at %s" % (g.get("away"), g.get("home"))) if len(slot) == 1 and g.get("home") and g.get("away") else "",
-            "count": len(slot),
-        }
-    except Exception:
-        return None
-
-
 def league_season():
     """Everything the public league pages need, read from the Control Sheet:
         {'standings': {RED/WHITE/BLUE: [team,...]},
