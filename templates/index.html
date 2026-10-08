@@ -463,31 +463,6 @@
     .qb-note{text-align:center;color:#4a5670;font-size:.8rem;line-height:1.3;margin:9px 0 0}
     .qb-note strong{color:var(--navy);font-weight:700}
     @media(max-width:760px){.qb-grid{grid-template-columns:1fr}}
-
-    /* Countdown to First Pitch — a badge that sits right in the season title
-       row (not its own section), big enough to spell out what it is and show
-       a real Days/Hours/Minutes breakdown. Pure CSS/JS, no image: safe to
-       delete this whole #firstPitch block (and the script under it) to
-       remove it. */
-    .fp-mini{position:relative;flex:0 0 auto;width:clamp(108px,15vw,138px);
-      height:clamp(108px,15vw,138px);border-radius:50%;background:var(--navy);
-      border:4px solid var(--red);box-shadow:0 6px 16px rgba(22,35,63,.22);
-      cursor:default;overflow:hidden}
-    .fp-arc{position:absolute;inset:0;width:100%;height:100%}
-    .fp-arc text{font-family:var(--display);font-weight:800;
-      text-transform:uppercase;fill:#f5c518}
-    .fp-mini-stats{position:absolute;left:0;right:0;top:57%;display:flex;
-      align-items:flex-start;justify-content:center;gap:6px}
-    .fp-mini-stat{display:flex;flex-direction:column;align-items:center}
-    .fp-mini-num{font-family:var(--display);font-weight:900;color:#fff;
-      font-size:1.1rem;line-height:1}
-    .fp-mini-unit{font-family:var(--display);font-weight:700;letter-spacing:.03em;
-      text-transform:uppercase;color:#cdd7ea;font-size:.38rem;margin-top:1px}
-    .fp-mini-sep{color:#cdd7ea;font-weight:900;font-size:1rem;align-self:center;
-      margin-top:-2px}
-    .fp-live{position:absolute;inset:0;display:flex;align-items:center;
-      justify-content:center;text-align:center;color:#f5c518;
-      font-family:var(--display);font-weight:800;font-size:.92rem;line-height:1.25}
   </style>
   <div class="wrap">
     {# Two seasons, one switch. The "Season Mode" row on the Website Controls
@@ -498,62 +473,8 @@
        Anything other than LEAGUE keeps the pickup buttons, so a blank or
        missing row leaves the homepage exactly as it is today. #}
     {% if season_mode == 'LEAGUE' %}
-    <div class="qb-titlerow">
-      <span class="qb-stitch" aria-hidden="true"></span>
-      <h2 class="qb-season">{{ season_name }}</h2>
-      {% if season_first_pitch %}
-      <div class="fp-mini" id="firstPitch" data-target="{{ season_first_pitch }}">
-        <svg class="fp-arc" viewBox="0 0 100 100" aria-hidden="true">
-          <path id="fpArcPath" d="M 13,52 A 37,37 0 0,1 87,52" fill="none"></path>
-          <text font-size="6.4"><textPath href="#fpArcPath" startOffset="50%" text-anchor="middle">COUNTDOWN TO FIRST PITCH</textPath></text>
-        </svg>
-        <span class="fp-mini-stats">
-          <span class="fp-mini-stat"><span class="fp-mini-num fp-d">—</span><span class="fp-mini-unit">Days</span></span>
-          <span class="fp-mini-sep">:</span>
-          <span class="fp-mini-stat"><span class="fp-mini-num fp-h">—</span><span class="fp-mini-unit">Hrs</span></span>
-          <span class="fp-mini-sep">:</span>
-          <span class="fp-mini-stat"><span class="fp-mini-num fp-m">—</span><span class="fp-mini-unit">Min</span></span>
-        </span>
-      </div>
-      {% endif %}
-      <span class="qb-stitch" aria-hidden="true"></span>
-    </div>
+    <div class="qb-titlerow"><span class="qb-stitch" aria-hidden="true"></span><h2 class="qb-season">{{ season_name }}</h2><span class="qb-stitch" aria-hidden="true"></span></div>
     <div class="qb-bar" aria-hidden="true"></div>
-    {% if season_first_pitch %}
-    <script>
-    (function(){
-      var box = document.getElementById('firstPitch');
-      if (!box) return;
-      var target = new Date(box.getAttribute('data-target')).getTime();
-      if (isNaN(target)) { box.style.display = 'none'; return; }
-      var dNum = box.querySelector('.fp-d');
-      var hNum = box.querySelector('.fp-h');
-      var mNum = box.querySelector('.fp-m');
-      var dateStr = new Date(target).toLocaleString('en-US', {
-        weekday: 'short', month: 'short', day: 'numeric',
-        hour: 'numeric', minute: '2-digit'
-      });
-      box.title = 'Countdown to First Pitch — ' + dateStr;
-      function two(n) { return (n < 10 ? '0' : '') + n; }
-      function tick() {
-        var diff = target - Date.now();
-        if (diff <= 0) {
-          box.innerHTML = '<span class="fp-live">⚾<br>PLAY BALL!</span>';
-          return;
-        }
-        var s = Math.floor(diff / 1000);
-        var d = Math.floor(s / 86400); s -= d * 86400;
-        var h = Math.floor(s / 3600);  s -= h * 3600;
-        var m = Math.floor(s / 60);
-        dNum.textContent = d;
-        hNum.textContent = two(h);
-        mNum.textContent = two(m);
-        setTimeout(tick, 1000);
-      }
-      tick();
-    })();
-    </script>
-    {% endif %}
     <div class="qb-grid">
       <a class="qb-btn" href="/league/schedules">
         <span class="qb-ic">📅</span>
