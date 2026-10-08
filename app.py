@@ -77,10 +77,15 @@ def _season_context():
         name = sheets.season_name()
     except Exception:
         mode, name = "PICKUP", "League Season"
+    try:
+        first_pitch = sheets.season_first_pitch()
+    except Exception:
+        first_pitch = ""
     peek = (request.args.get("season") or "").strip().upper()
     if peek in ("LEAGUE", "PICKUP"):
         mode = peek
     return {"season_mode": mode, "season_name": name,
+            "season_first_pitch": first_pitch,
             "members_page_on": _members_page_visible(),
             "photo_gallery_on": _photo_gallery_visible()}
 

@@ -668,6 +668,27 @@ def season_name():
     return _setting("Season Name") or "League Season"
 
 
+def season_first_pitch():
+    """ISO8601 datetime (Eastern) for the homepage 'Countdown to First Pitch'
+    badge, parsed from the 'Season First Pitch' row on the Site Settings tab
+    (e.g. 'October 19, 2026 9:00 AM', '10/19/2026 9:00 AM', or
+    '2026-10-19 09:00'). Returns '' if the row is blank or doesn't match one
+    of those formats — never raises, so a typo just hides the badge instead
+    of breaking the homepage."""
+    raw = _clean(_setting("Season First Pitch", "First Pitch"))
+    if not raw:
+        return ""
+    for fmt in ("%B %d, %Y %I:%M %p", "%B %d %Y %I:%M %p",
+                "%m/%d/%Y %I:%M %p", "%m/%d/%Y %H:%M",
+                "%Y-%m-%d %I:%M %p", "%Y-%m-%d %H:%M"):
+        try:
+            return datetime.datetime.strptime(raw, fmt).replace(
+                tzinfo=_EASTERN).isoformat()
+        except ValueError:
+            continue
+    return ""
+
+
 def _password(label):
     """A password from the Site Settings tab, else the older Site Passwords tab."""
     val = _site_settings().get(_squash(label), "").strip()

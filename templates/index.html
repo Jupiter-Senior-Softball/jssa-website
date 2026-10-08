@@ -463,6 +463,26 @@
     .qb-note{text-align:center;color:#4a5670;font-size:.8rem;line-height:1.3;margin:9px 0 0}
     .qb-note strong{color:var(--navy);font-weight:700}
     @media(max-width:760px){.qb-grid{grid-template-columns:1fr}}
+
+    /* Countdown to First Pitch — a small circular badge above the season
+       buttons. Pure CSS/JS, no image: safe to delete this whole .fp-wrap
+       block (and the script below it) to remove the countdown. */
+    .fp-wrap{display:flex;flex-direction:column;align-items:center;margin:4px 0 22px}
+    .fp-eyebrow{font-family:var(--display);font-weight:800;letter-spacing:.1em;
+      text-transform:uppercase;font-size:.78rem;color:var(--red);margin-bottom:10px}
+    .fp-circle{width:128px;height:128px;border-radius:50%;background:var(--navy);
+      border:4px solid var(--red);display:flex;flex-direction:column;
+      align-items:center;justify-content:center;box-shadow:0 8px 22px rgba(22,35,63,.25)}
+    .fp-num{font-family:var(--display);font-weight:900;color:#fff;font-size:2.4rem;
+      line-height:1}
+    .fp-unit{font-family:var(--display);font-weight:700;letter-spacing:.08em;
+      text-transform:uppercase;color:#f5c518;font-size:.68rem;margin-top:1px}
+    .fp-clock{font-family:var(--display);font-weight:700;color:#cdd7ea;
+      font-size:.72rem;letter-spacing:.03em;margin-top:5px}
+    .fp-date{margin-top:10px;color:var(--navy);font-size:.92rem;font-weight:600;
+      text-align:center}
+    .fp-live{color:#f5c518;font-family:var(--display);font-weight:800;font-size:1.15rem;
+      line-height:1.2;text-align:center}
   </style>
   <div class="wrap">
     {# Two seasons, one switch. The "Season Mode" row on the Website Controls
@@ -475,6 +495,56 @@
     {% if season_mode == 'LEAGUE' %}
     <div class="qb-titlerow"><span class="qb-stitch" aria-hidden="true"></span><h2 class="qb-season">{{ season_name }}</h2><span class="qb-stitch" aria-hidden="true"></span></div>
     <div class="qb-bar" aria-hidden="true"></div>
+    {% if season_first_pitch %}
+    <div class="fp-wrap" id="firstPitch" data-target="{{ season_first_pitch }}">
+      <span class="fp-eyebrow">⚾ Countdown to First Pitch</span>
+      <div class="fp-circle">
+        <span class="fp-num">—</span>
+        <span class="fp-unit">&nbsp;</span>
+        <span class="fp-clock">&nbsp;</span>
+      </div>
+      <div class="fp-date"></div>
+    </div>
+    <script>
+    (function(){
+      var box = document.getElementById('firstPitch');
+      if (!box) return;
+      var target = new Date(box.getAttribute('data-target')).getTime();
+      if (isNaN(target)) { box.style.display = 'none'; return; }
+      var num = box.querySelector('.fp-num');
+      var unit = box.querySelector('.fp-unit');
+      var clock = box.querySelector('.fp-clock');
+      var dateLine = box.querySelector('.fp-date');
+      dateLine.textContent = new Date(target).toLocaleString('en-US', {
+        weekday: 'short', month: 'short', day: 'numeric',
+        hour: 'numeric', minute: '2-digit'
+      });
+      function two(n) { return (n < 10 ? '0' : '') + n; }
+      function tick() {
+        var diff = target - Date.now();
+        if (diff <= 0) {
+          box.querySelector('.fp-circle').innerHTML = '<span class="fp-live">⚾<br>PLAY BALL!</span>';
+          return;
+        }
+        var s = Math.floor(diff / 1000);
+        var d = Math.floor(s / 86400); s -= d * 86400;
+        var h = Math.floor(s / 3600);  s -= h * 3600;
+        var m = Math.floor(s / 60);    s -= m * 60;
+        if (d > 0) {
+          num.textContent = d;
+          unit.textContent = d === 1 ? 'Day' : 'Days';
+          clock.textContent = two(h) + ':' + two(m) + ':' + two(s);
+        } else {
+          num.textContent = two(h) + ':' + two(m);
+          unit.textContent = 'Hrs : Min';
+          clock.textContent = two(s) + ' sec';
+        }
+        setTimeout(tick, 1000);
+      }
+      tick();
+    })();
+    </script>
+    {% endif %}
     <div class="qb-grid">
       <a class="qb-btn" href="/league/schedules">
         <span class="qb-ic">📅</span>
