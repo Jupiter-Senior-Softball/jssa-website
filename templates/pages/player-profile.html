@@ -113,7 +113,7 @@
     </div>
     <div class="tc-plate">
       <div class="tc-name">{{ player.name }}</div>
-      {% if player.position %}<div class="tc-role">{{ player.position }}</div>{% endif %}
+      {% if player.position or player.is_manager %}<div class="tc-role">{{ player.position }}{% if player.is_manager %}{{ ' · ' if player.position }}Manager{% endif %}</div>{% endif %}
     </div>
   </div>
 </div>

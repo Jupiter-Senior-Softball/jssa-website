@@ -3087,6 +3087,7 @@ def player_cards():
                     "last": parts[-1] if parts else nm,
                     "team": t.get("team", ""), "division": div,
                     "position": position,
+                    "is_manager": bool(p.get("is_manager")),
                     "photo_url": photo_url,
                 }
     return out
@@ -3214,7 +3215,8 @@ def league_season():
                         bucket[key] = {"players": [], "manager": ""}
                         order.append(key)
                     bucket[key]["players"].append(
-                        {"name": name, "position": g("position", "pos")})
+                        {"name": name, "position": g("position", "pos"),
+                         "is_manager": bool(g("manager"))})
                     if g("manager") and not bucket[key]["manager"]:
                         bucket[key]["manager"] = name
                 for (div, team) in order:
@@ -3223,6 +3225,7 @@ def league_season():
                                    key=lambda p: p["name"].split()[-1].lower())
                     players = [{"name": p["name"], "slug": _slug(p["name"]),
                                 "position": p["position"],
+                                "is_manager": p["is_manager"],
                                 "has_profile": _slug(p["name"]) in profiles}
                                for p in plist]
                     data["rosters"][div].append({
