@@ -502,7 +502,7 @@
     </div>
     {% if season_first_pitch %}
     <p class="qb-countdown" id="firstPitch" data-target="{{ season_first_pitch }}">
-      ⚾ Countdown to First Pitch: <b class="fp-d">—</b> Days, <b class="fp-h">—</b> Hrs, <b class="fp-m">—</b> Min
+      ⚾ Countdown to First Pitch: <b class="fp-d">—</b> Days, <b class="fp-h">—</b> Hrs, <b class="fp-m">—</b> Min, <b class="fp-s">—</b> Sec
     </p>
     <script>
     (function(){
@@ -513,6 +513,7 @@
       var dNum = box.querySelector('.fp-d');
       var hNum = box.querySelector('.fp-h');
       var mNum = box.querySelector('.fp-m');
+      var sNum = box.querySelector('.fp-s');
       function two(n) { return (n < 10 ? '0' : '') + n; }
       function tick() {
         var diff = target - Date.now();
@@ -523,10 +524,11 @@
         var s = Math.floor(diff / 1000);
         var d = Math.floor(s / 86400); s -= d * 86400;
         var h = Math.floor(s / 3600);  s -= h * 3600;
-        var m = Math.floor(s / 60);
+        var m = Math.floor(s / 60);    s -= m * 60;
         dNum.textContent = d;
         hNum.textContent = two(h);
         mNum.textContent = two(m);
+        sNum.textContent = two(s);
         setTimeout(tick, 1000);
       }
       tick();
