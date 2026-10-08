@@ -339,6 +339,22 @@ def league_debug():
         }
     except Exception as e:
         out["profiles_error"] = "%s: %s" % (type(e).__name__, e)
+    # Site Settings tab + the season/countdown values parsed from it. Any row
+    # whose label contains "password" is redacted — this page has no login,
+    # so it must never echo a secret back.
+    try:
+        sheets._site_settings_cache["ts"] = 0.0   # force a fresh read
+        raw = sheets._site_settings()
+        out["site_settings"] = {
+            k: ("(redacted)" if "password" in k else v) for k, v in raw.items()
+        }
+        out["season_mode"] = sheets.season_mode()
+        out["season_name"] = sheets.season_name()
+        out["season_first_pitch_matched"] = sheets._setting(
+            "Season First Pitch", "First Pitch")
+        out["season_first_pitch_parsed"] = sheets.season_first_pitch()
+    except Exception as e:
+        out["site_settings_error"] = "%s: %s" % (type(e).__name__, e)
     # Can the service account actually READ each submitted photo? 200 = yes
     # (and shows the type); 403/404 = the upload folder isn't shared with it.
     try:
