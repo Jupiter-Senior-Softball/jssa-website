@@ -1080,6 +1080,8 @@ def _parse_schedule_grid(rows, ref):
     for r in rows[phdr + 1:]:
         if len(r) <= gc or not _clean(r[gc]):
             continue  # blank cell = not signed up for this game
+        if _clean(r[gc]).lower() == "league":
+            continue  # greyed "League" label: in a league game that day, NOT signed up for pickup
         first = _clean(r[first_i]) if len(r) > first_i else ""
         last = _clean(r[last_i]) if len(r) > last_i else ""
         name = (first + " " + last).strip()
