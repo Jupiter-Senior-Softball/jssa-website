@@ -994,6 +994,9 @@ def admin_dashboard():
     if configured:
         try:
             notices = sheets.list_notices()
+            for n in notices:
+                n["shutoff"] = (sheets.notice_shutoff_info(n)
+                                if n.get("type") == "weather" else None)
         except Exception as e:
             error = str(e)
         try:
@@ -1217,9 +1220,11 @@ def admin_cancel_send():
     location = (request.form.get("location") or "").strip()
     sent_by = (request.form.get("sent_by") or "").strip()
     banner_only = request.form.get("banner_only") == "1"
+    shutoff = (request.form.get("shutoff") or "").strip()
     try:
         result = sheets.send_cancellation(reason, location, sent_by,
-                                          banner_only=banner_only)
+                                          banner_only=banner_only,
+                                          shutoff=shutoff)
     except Exception as e:
         result = {"ok": False, "emailed": 0, "missed": [], "banner": False,
                   "note": "Something went wrong: %s" % e}
@@ -1257,6 +1262,17 @@ def admin_toggle(nid):
     active = request.form.get("active") == "1"
     try:
         sheets.set_active(nid, active)
+    except Exception:
+        pass
+    return redirect(url_for("admin_dashboard"))
+
+
+@app.route("/admin/notices/<nid>/shutoff", methods=["POST"])
+@login_required
+def admin_shutoff(nid):
+    """Change the time a weather banner comes down by itself."""
+    try:
+        sheets.set_notice_shutoff(nid, request.form.get("shutoff", ""))
     except Exception:
         pass
     return redirect(url_for("admin_dashboard"))
