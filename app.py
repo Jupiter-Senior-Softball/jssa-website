@@ -666,6 +666,12 @@ def league_section(section):
                   "schedule": [], "results": [],
                   "rosters": {"RED": [], "WHITE": [], "BLUE": []},
                   "teams": {"RED": [], "WHITE": [], "BLUE": []}}
+    # The schedule page lists games by date and then time of day, whatever order
+    # the rows happen to be in on the sheet (9:00 AM before 10:30 AM each day).
+    # Done on a copy: the scoring tools rely on the sheet's own row order.
+    if section == "schedules":
+        season = dict(season, schedule=sorted(season["schedule"],
+                                              key=sheets.game_sort_key))
     # Does this section have any data to show yet? If not, the template falls
     # back to the friendly "off-season" message.
     has_data = {
