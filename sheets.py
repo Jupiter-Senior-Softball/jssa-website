@@ -4870,3 +4870,286 @@ def rules_blocks(body):
         if buf:
             out.append({"p": " ".join(buf)})
     return out
+
+
+# ----------------------------------------------------------------------------
+# Past Seasons archive — a permanent copy of each finished season.
+#
+# At the end of a season the admin clicks "Save this season". That copies the
+# live Schedule (with every score) and the live team rosters into two archive
+# tabs on the Control Sheet, each row stamped with a season name such as
+# "Fall 2026". The live tabs are never touched. Standings are not stored: they
+# are worked out again from the archived scores, exactly as they are for the
+# current season, so they can never drift out of step with the games.
+#
+# The archive tabs deliberately use DIFFERENT column headings from the live
+# tabs ("Home"/"Away", not "Home Team"/"Away Team"; "Player", not "Player First
+# Name"). The live pages find their tabs by heading, and an archive tab that
+# looked like a live one could be picked up in its place.
+# ----------------------------------------------------------------------------
+ARCHIVE_SCHEDULE_TAB = "Archive Schedule"
+ARCHIVE_SCHEDULE_HEADERS = ["Season", "Division", "Date", "Time", "Field",
+                            "Home", "Away", "Home Score", "Away Score",
+                            "Game Status"]
+ARCHIVE_ROSTERS_TAB = "Archive Rosters"
+ARCHIVE_ROSTERS_HEADERS = ["Season", "Division", "Team", "Player",
+                           "Position", "Manager"]
+ARCHIVE_SEASON_MAX = 40
+
+_archive_cache = {"data": None, "ts": 0.0}
+_ARCHIVE_TTL = 60  # seconds
+
+
+def archive_configured():
+    return bool(CONTROL_SHEET_ID and _SA_JSON)
+
+
+def _archive_invalidate():
+    with _lock:
+        _archive_cache["data"] = None
+        _archive_cache["ts"] = 0.0
+
+
+def clean_season_name(name):
+    """Tidy a typed season name ('  Fall   2026 ' -> 'Fall 2026')."""
+    return " ".join(str(name or "").split())
+
+
+def _same_season(a, b):
+    return clean_season_name(a).lower() == clean_season_name(b).lower()
+
+
+def _season_sort_key(name, index):
+    """Newest first: by year, then Winter < Spring < Summer < Fall within the
+    year; anything unrecognised falls back to the order it was saved in."""
+    m = re.search(r"(19|20)\d{2}", name)
+    year = int(m.group(0)) if m else 0
+    low = name.lower()
+    rank = 0
+    for i, word in enumerate(("winter", "spring", "summer", "fall")):
+        if word in low:
+            rank = i + 1
+    return (year, rank, index)
+
+
+def _game_sort_key(g):
+    d = g.get("date", "")
+    stamp = None
+    for fmt in ("%m/%d/%Y", "%m/%d/%y", "%Y-%m-%d"):
+        try:
+            stamp = datetime.datetime.strptime(d.strip(), fmt)
+            break
+        except ValueError:
+            pass
+    minutes = 0
+    t = g.get("time", "").strip()
+    for fmt in ("%I:%M %p", "%I %p", "%H:%M"):
+        try:
+            tt = datetime.datetime.strptime(t.upper(), fmt)
+            minutes = tt.hour * 60 + tt.minute
+            break
+        except ValueError:
+            pass
+    return (0 if stamp else 1, stamp or datetime.datetime.max, minutes,
+            g.get("division", ""), g.get("field", ""))
+
+
+def _archive_replace(sh, title, headers, season, new_rows):
+    """Make `season`'s rows in tab `title` exactly `new_rows`, leaving every
+    other season alone. The new contents are written in ONE update before any
+    old rows are blanked, so a failure part-way can't lose another season."""
+    import gspread
+    try:
+        ws = sh.worksheet(title)
+    except gspread.WorksheetNotFound:
+        ws = sh.add_worksheet(title=title, rows=200, cols=len(headers))
+    existing = ws.get_all_values()
+    width = len(headers)
+    kept = []
+    for r in existing[1:]:
+        r = list(r) + [""] * (width - len(r))
+        if not any(str(c).strip() for c in r):
+            continue
+        if _same_season(r[0], season):
+            continue
+        kept.append(r[:width])
+    out = [list(headers)] + kept + [list(r) for r in new_rows]
+    total = len(out)
+    blanks = max(0, len(existing) - total)
+    out += [[""] * width for _ in range(blanks)]
+    if ws.row_count < len(out) + 20:
+        ws.resize(rows=len(out) + 50, cols=max(ws.col_count, width))
+    ws.update(out, "A1", value_input_option="RAW")
+
+
+def archive_current_season(season):
+    """Copy the live Schedule and rosters into the archive under `season`.
+    Saving the same name again refreshes that season (never duplicates it).
+    Returns {'games', 'scored', 'players', 'teams'}; raises ValueError with a
+    plain-English reason when there is nothing sensible to save."""
+    season = clean_season_name(season)
+    if not season:
+        raise ValueError("Please type a season name, such as Fall 2026.")
+    if len(season) > ARCHIVE_SEASON_MAX:
+        raise ValueError("That season name is too long. Keep it short, such as Fall 2026.")
+    if not archive_configured():
+        raise ValueError("The Google Sheet isn't connected, so nothing was saved.")
+
+    # Re-saving "fall 2026" over "Fall 2026" refreshes it under its original
+    # spelling rather than renaming it.
+    sh = _control_sheet(readonly=False)
+    for title in (ARCHIVE_SCHEDULE_TAB, ARCHIVE_ROSTERS_TAB):
+        try:
+            for row in sh.worksheet(title).get_all_values()[1:]:
+                if row and _same_season(row[0], season):
+                    season = clean_season_name(row[0])
+                    break
+        except Exception:
+            pass
+
+    # Always archive what is on the sheet right now, not a cached copy.
+    started = time.time()
+    with _lock:
+        _season_cache["ts"] = 0.0
+    live = league_season()
+    if _season_cache["ts"] < started:
+        raise ValueError("Couldn't read the live schedule from Google just now. "
+                         "Nothing was saved — please try again in a minute.")
+    schedule = live.get("schedule", [])
+    rosters = live.get("rosters", {})
+    if not schedule and not any(rosters.values()):
+        raise ValueError("There is no schedule or roster on the live sheet to save.")
+
+    games = [[season, g["division"], g["date"], g["time"], g["field"],
+              g["home"], g["away"], g["score_home"], g["score_away"],
+              g["status"]] for g in schedule]
+    players = []
+    team_count = 0
+    for div in ("RED", "WHITE", "BLUE"):
+        for t in rosters.get(div, []):
+            team_count += 1
+            for p in t["players"]:
+                players.append([season, div, t["team"], p["name"],
+                                p.get("position", ""),
+                                "Yes" if p.get("is_manager") else ""])
+
+    _archive_replace(sh, ARCHIVE_SCHEDULE_TAB, ARCHIVE_SCHEDULE_HEADERS, season, games)
+    _archive_replace(sh, ARCHIVE_ROSTERS_TAB, ARCHIVE_ROSTERS_HEADERS, season, players)
+    _archive_invalidate()
+    scored = sum(1 for g in schedule
+                 if _parse_score(g["score_home"]) is not None
+                 and _parse_score(g["score_away"]) is not None)
+    return {"games": len(games), "scored": scored,
+            "players": len(players), "teams": team_count}
+
+
+def delete_archived_season(season):
+    """Remove one saved season (for a mistyped name). Live tabs are untouched."""
+    season = clean_season_name(season)
+    if not season or not archive_configured():
+        return False
+    sh = _control_sheet(readonly=False)
+    _archive_replace(sh, ARCHIVE_SCHEDULE_TAB, ARCHIVE_SCHEDULE_HEADERS, season, [])
+    _archive_replace(sh, ARCHIVE_ROSTERS_TAB, ARCHIVE_ROSTERS_HEADERS, season, [])
+    _archive_invalidate()
+    return True
+
+
+def _archive_load():
+    """Read both archive tabs once and group them by season. Cached briefly;
+    a Google hiccup keeps the last good copy. {'order': [names newest first],
+    'games': {name: [game]}, 'rosters': {name: {RED/WHITE/BLUE: [team]}}}"""
+    now = time.time()
+    with _lock:
+        if _archive_cache["data"] is not None and now - _archive_cache["ts"] < _ARCHIVE_TTL:
+            return _archive_cache["data"]
+    empty = {"order": [], "games": {}, "rosters": {}}
+    if not archive_configured():
+        return empty
+    try:
+        import gspread
+        sh = _control_sheet(readonly=True)
+
+        def rows_of(title, headers):
+            try:
+                vals = sh.worksheet(title).get_all_values()
+            except gspread.WorksheetNotFound:
+                return []
+            return [list(r) + [""] * (len(headers) - len(r)) for r in vals[1:]
+                    if r and str(r[0]).strip()]
+
+        names, games, rosters = [], {}, {}
+
+        def canon(name):
+            for n in names:
+                if _same_season(n, name):
+                    return n
+            names.append(clean_season_name(name))
+            return names[-1]
+
+        for r in rows_of(ARCHIVE_SCHEDULE_TAB, ARCHIVE_SCHEDULE_HEADERS):
+            n = canon(r[0])
+            games.setdefault(n, []).append({
+                "division": _norm_div(r[1]), "date": _clean(r[2]),
+                "dow": _weekday_prefix(r[2]), "time": _clean(r[3]),
+                "field": _clean(r[4]), "home": _clean(r[5]), "away": _clean(r[6]),
+                "score_home": _clean(r[7]), "score_away": _clean(r[8]),
+                "status": _clean(r[9])})
+        buckets = {}
+        for r in rows_of(ARCHIVE_ROSTERS_TAB, ARCHIVE_ROSTERS_HEADERS):
+            n = canon(r[0])
+            div = _norm_div(r[1])
+            if not div:
+                continue
+            b = buckets.setdefault(n, {}).setdefault((div, _clean(r[2])), [])
+            b.append({"name": _clean(r[3]), "position": _clean(r[4]),
+                      "is_manager": bool(_clean(r[5]))})
+        for n, teams in buckets.items():
+            out = {"RED": [], "WHITE": [], "BLUE": []}
+            for (div, team), plist in teams.items():
+                plist.sort(key=lambda p: p["name"].split()[-1].lower() if p["name"].split() else "")
+                mgr = next((p["name"] for p in plist if p["is_manager"]), "")
+                out[div].append({"team": team, "players": plist,
+                                 "manager": mgr, "count": len(plist)})
+            rosters[n] = out
+        for g in games.values():
+            g.sort(key=_game_sort_key)
+        order = [n for _, n in sorted(
+            ((_season_sort_key(n, i), n) for i, n in enumerate(names)), reverse=True)]
+        data = {"order": order, "games": games, "rosters": rosters}
+        with _lock:
+            _archive_cache["data"] = data
+            _archive_cache["ts"] = now
+        return data
+    except Exception:
+        return _archive_cache["data"] or empty
+
+
+def archived_seasons():
+    """Every saved season, newest first, with simple counts for the pickers."""
+    data = _archive_load()
+    out = []
+    for n in data["order"]:
+        games = data["games"].get(n, [])
+        teams = data["rosters"].get(n, {"RED": [], "WHITE": [], "BLUE": []})
+        out.append({
+            "name": n, "games": len(games),
+            "scored": sum(1 for g in games
+                          if _parse_score(g["score_home"]) is not None
+                          and _parse_score(g["score_away"]) is not None),
+            "teams": sum(len(v) for v in teams.values())})
+    return out
+
+
+def archived_season(name):
+    """One saved season in the same shape the live pages use:
+    {'name', 'schedule', 'standings', 'rosters'} — or None if not found."""
+    data = _archive_load()
+    for n in data["order"]:
+        if _same_season(n, name):
+            schedule = data["games"].get(n, [])
+            return {"name": n, "schedule": schedule,
+                    "standings": _standings_from_schedule(schedule),
+                    "rosters": data["rosters"].get(
+                        n, {"RED": [], "WHITE": [], "BLUE": []})}
+    return None
