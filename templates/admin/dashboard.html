@@ -170,6 +170,15 @@
           <td><span class="badge {{ n.type }}">{{ n.type }}</span></td>
           <td>
             <span id="text-{{ n.id }}">{{ n.message }}</span>
+            {% if n.type == 'weather' %}
+            <form method="post" action="{{ url_for('admin_shutoff', nid=n.id) }}" style="margin-top:10px">
+              <label for="so-{{ n.id }}" style="font-weight:600">Banner comes down at</label>
+              <input type="time" id="so-{{ n.id }}" name="shutoff" value="{{ n.shutoff.value if n.shutoff else '' }}"
+                     style="font-size:1.05rem;padding:8px 10px;border:1px solid var(--line);border-radius:8px">
+              <button class="mini on" type="submit">Change time</button>
+              <div class="hint" style="margin-top:4px">{% if n.shutoff %}{% if n.shutoff.expired %}It came down automatically at {{ n.shutoff.label }}.{% else %}It comes down by itself at {{ n.shutoff.label }}.{% endif %}{% else %}No automatic shutoff — turn it off by hand. Pick a time to add one.{% endif %}</div>
+            </form>
+            {% endif %}
             <form id="edit-{{ n.id }}" class="edit-form" style="display:none;margin-top:6px"
                   method="post" action="{{ url_for('admin_edit', nid=n.id) }}">
               <textarea name="message" rows="3" required>{{ n.message }}</textarea>
@@ -182,7 +191,8 @@
           <td>{{ n.created_by }}</td>
           <td>
             {% set is_on = (n.active|string|upper) in ['TRUE','1','YES'] %}
-            {% if is_on %}<span class="status-on">● Live</span>{% else %}<span class="status-off">○ Off</span>{% endif %}
+            {% if is_on and n.shutoff and n.shutoff.expired %}<span class="status-off">○ Came down automatically</span>
+            {% elif is_on %}<span class="status-on">● Live</span>{% else %}<span class="status-off">○ Off</span>{% endif %}
           </td>
           <td style="white-space:nowrap">
             <button class="mini" type="button" onclick="startEdit('{{ n.id }}')">Edit</button>

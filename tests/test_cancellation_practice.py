@@ -35,7 +35,7 @@ def fake_post(url, subject, body, recipients, test_to=""):
     # mirrors the real sender: in practice mode it reports 0 players emailed
     return {"ok": True, "sent": 0 if test_to else len(recipients)}
 sheets._post_to_sender = fake_post
-sheets.add_notice = lambda t, m, by, url="", lt="": banners.append(m)
+sheets.add_notice = lambda t, m, by, url="", lt="", **kw: banners.append(m)
 sheets._mark_league_games_cancelled = lambda d: marked.append(d) or 1
 sheets._log_cancellation = lambda *a: log.append(a)
 

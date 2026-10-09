@@ -30,7 +30,8 @@ SHEET_ID = os.environ.get("SHEET_ID", "").strip()
 _SA_JSON = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", "").strip()
 
 NOTICES_TAB = "WebsiteNotices"
-HEADERS = ["id", "type", "message", "active", "created_by", "created_at", "url", "link_text"]
+HEADERS = ["id", "type", "message", "active", "created_by", "created_at", "url", "link_text",
+           "expires_at"]
 
 _CACHE_TTL = 300  # seconds (5 min — reduces API quota pressure)
 _cache = {"notice": None, "ts": 0.0}
@@ -99,21 +100,95 @@ def list_notices():
     return list(reversed(records))
 
 
+# Weather / cancellation banners come down by themselves. Each weather post
+# carries a "shuts off at" time (the `expires_at` column, stored in UTC). It
+# defaults to 1:00 PM Eastern and the person posting can change it. Nothing runs
+# on a timer: the homepage simply skips a notice whose time has passed.
+NOTICE_TZ = "America/New_York"
+DEFAULT_SHUTOFF = "13:00"
+
+
+def _notice_tz():
+    import zoneinfo
+    return zoneinfo.ZoneInfo(NOTICE_TZ)
+
+
+def parse_shutoff_time(text):
+    """'13:00' or '1:00 PM' -> (13, 0), or None if it isn't a time."""
+    t = str(text or "").strip().upper().replace(".", "")
+    for fmt in ("%H:%M", "%I:%M %p", "%I:%M%p", "%I %p"):
+        try:
+            d = datetime.datetime.strptime(t, fmt)
+            return d.hour, d.minute
+        except ValueError:
+            pass
+    return None
+
+
+def _parse_expiry(text):
+    """The stored expires_at -> an aware UTC datetime, or None (never expires)."""
+    t = str(text or "").strip()
+    if not t:
+        return None
+    try:
+        d = datetime.datetime.fromisoformat(t.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return d if d.tzinfo else d.replace(tzinfo=datetime.timezone.utc)
+
+
+def shutoff_for_new_post(hhmm, now=None):
+    """The expires_at to store for a notice posted now, with the shutoff given
+    as a time of day (blank = the 1:00 PM default). If that time has already
+    passed today, the banner stays up until 11:59 PM tonight instead, so a late
+    post is never taken down the instant it appears and never lingers into
+    tomorrow. Returns (utc ISO string, fell_back)."""
+    hm = parse_shutoff_time(hhmm) or parse_shutoff_time(DEFAULT_SHUTOFF)
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    local = now.astimezone(_notice_tz())
+    target = local.replace(hour=hm[0], minute=hm[1], second=0, microsecond=0)
+    fell_back = target <= local
+    if fell_back:
+        target = local.replace(hour=23, minute=59, second=0, microsecond=0)
+    return (target.astimezone(datetime.timezone.utc)
+            .isoformat(timespec="seconds").replace("+00:00", "Z"), fell_back)
+
+
+def notice_expired(rec, now=None):
+    exp = _parse_expiry(rec.get("expires_at"))
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    return bool(exp and now >= exp)
+
+
+def notice_shutoff_info(rec):
+    """For the admin list: {'value': '13:00', 'label': '1:00 PM', 'expired': bool}
+    — or None for a notice with no automatic shutoff."""
+    exp = _parse_expiry(rec.get("expires_at"))
+    if not exp:
+        return None
+    local = exp.astimezone(_notice_tz())
+    return {"value": local.strftime("%H:%M"),
+            "label": local.strftime("%I:%M %p").lstrip("0"),
+            "expired": notice_expired(rec)}
+
+
 def active_notice():
     """
     The single notice to show in the site banner, or None.
     Weather/cancellation notices take priority over announcements.
+    A notice past its shutoff time is skipped.
     Cached for _CACHE_TTL seconds; last good value is kept on error.
     """
     now = time.time()
     with _lock:
         if now - _cache["ts"] < _CACHE_TTL:
-            return _cache["notice"]
+            return _notice_if_current(_cache["notice"])
 
     notice = None
     try:
         if is_configured():
-            actives = [r for r in list_notices() if _is_true(r.get("active"))]
+            actives = [r for r in list_notices()
+                       if _is_true(r.get("active")) and not notice_expired(r)]
             weather = [r for r in actives if str(r.get("type")) == "weather"]
             chosen = (weather or actives)[0] if actives else None
             if chosen:
@@ -122,6 +197,7 @@ def active_notice():
                     "message": str(chosen.get("message") or ""),
                     "url": str(chosen.get("url") or "").strip(),
                     "link_text": str(chosen.get("link_text") or "").strip(),
+                    "expires_at": str(chosen.get("expires_at") or "").strip(),
                 }
         with _lock:
             _cache["notice"] = notice
@@ -129,7 +205,15 @@ def active_notice():
         return notice
     except Exception:
         # On any API hiccup, keep showing the last known value rather than break.
-        return _cache["notice"]
+        return _notice_if_current(_cache["notice"])
+
+
+def _notice_if_current(notice):
+    """A cached notice may outlive its shutoff time (the cache lasts minutes):
+    drop it the moment its time passes rather than when the cache refreshes."""
+    if notice and notice_expired(notice):
+        return None
+    return notice
 
 
 def _invalidate():
@@ -137,7 +221,7 @@ def _invalidate():
         _cache["ts"] = 0.0
 
 
-def add_notice(ntype, message, created_by, url="", link_text=""):
+def add_notice(ntype, message, created_by, url="", link_text="", expires_at=""):
     ntype = "weather" if ntype == "weather" else "announcement"
     row = [
         uuid.uuid4().hex[:8],
@@ -148,6 +232,7 @@ def add_notice(ntype, message, created_by, url="", link_text=""):
         datetime.datetime.utcnow().isoformat(timespec="seconds") + "Z",
         url.strip() if url else "",
         link_text.strip() if link_text else "",
+        expires_at or "",
     ]
     ws = _worksheet()
     ws.append_row(row, value_input_option="USER_ENTERED")
@@ -161,8 +246,39 @@ def set_active(notice_id, active):
     for i, rec in enumerate(records):
         if str(rec.get("id")) == str(notice_id):
             ws.update_cell(i + 2, col, "TRUE" if active else "FALSE")
+            if active and str(rec.get("expires_at") or "").strip():
+                # Turning a notice back on means "show it" — don't let an old
+                # shutoff time hide it again straight away.
+                ws.update_cell(i + 2, HEADERS.index("expires_at") + 1, "")
             break
     _invalidate()
+
+
+def set_notice_shutoff(notice_id, hhmm):
+    """Change when a notice comes down, as a time of day on the day it was
+    posted. Blank removes the automatic shutoff. A time already past takes the
+    notice down. Returns False if the time can't be understood."""
+    hhmm = str(hhmm or "").strip()
+    hm = parse_shutoff_time(hhmm) if hhmm else None
+    if hhmm and hm is None:
+        return False
+    ws = _worksheet()
+    col = HEADERS.index("expires_at") + 1
+    for i, rec in enumerate(ws.get_all_records(expected_headers=HEADERS)):
+        if str(rec.get("id")) != str(notice_id):
+            continue
+        value = ""
+        if hm:
+            posted = _parse_expiry(rec.get("created_at")) or datetime.datetime.now(
+                datetime.timezone.utc)
+            day = posted.astimezone(_notice_tz())
+            target = day.replace(hour=hm[0], minute=hm[1], second=0, microsecond=0)
+            value = (target.astimezone(datetime.timezone.utc)
+                     .isoformat(timespec="seconds").replace("+00:00", "Z"))
+        ws.update_cell(i + 2, col, value)
+        break
+    _invalidate()
+    return True
 
 
 def delete_notice(notice_id):
@@ -4377,7 +4493,8 @@ def _log_cancellation(plan, reason, location, sent_by, emailed, missed, result):
         pass
 
 
-def send_cancellation(reason, location, sent_by, plan=None, banner_only=False):
+def send_cancellation(reason, location, sent_by, plan=None, banner_only=False,
+                      shutoff=""):
     """Call off today's games. Posts the website banner, emails today's
     scheduled players, marks the league games cancelled, and logs it.
 
@@ -4407,14 +4524,19 @@ def send_cancellation(reason, location, sent_by, plan=None, banner_only=False):
         headline += " " + reason
         if not headline.endswith((".", "!", "?")):
             headline += "."
+    expires_at, shutoff_fell_back = shutoff_for_new_post(shutoff)
     try:
-        add_notice("weather", headline, sent_by or "Admin")
+        add_notice("weather", headline, sent_by or "Admin", expires_at=expires_at)
         banner_ok = True
     except Exception:
         pass
 
     # 2. The emails.
     emailed, notes = 0, []
+    if banner_ok and shutoff_fell_back:
+        notes.append("That shutoff time had already passed, so the banner will "
+                     "come down at 11:59 PM tonight. You can change it on the "
+                     "dashboard.")
     attempted = False        # did we actually reach the sender script?
     send_failures = []       # addresses a failed batch never reached
     addresses = [p["email"] for p in plan["recipients"]]

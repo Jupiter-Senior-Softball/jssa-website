@@ -29,6 +29,7 @@ What they cover:
 | `test_division_rules_sheet.py` | The rules sheet itself: row indexing, header order, one current season per division, the `##` heading format |
 | `test_member_divisions.py` | Moving a member's division: exactly one cell is written, always the Division column, and every guard refuses rather than writing the wrong row |
 | `test_past_seasons.py` | Past Seasons archive: saving and refreshing a season without duplicates, seasons kept apart, standings rebuilt from archived scores, the live pages never mistaking an archive tab for a live one, the public page and the admin page |
+| `test_notice_shutoff.py` | Weather banners coming down by themselves: the 1:00 PM Eastern default, the poster's own time, a late post, summer/winter clocks, a cached banner vanishing on time, changing or clearing the time, and the admin form and dashboard |
 | `test_member_divisions_page.py` | The `/admin/divisions` page: sign-in required, the member and board lists, and what gets passed through on save |
 | `test_rehearsal.py` | A practice run reports the real headcount and warns when the quota wouldn't cover it |
 | `test_partial_send.py` | A failed send names everyone missed and does not lock out the day; a successful one still does |
