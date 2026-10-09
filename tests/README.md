@@ -33,6 +33,7 @@ What they cover:
 | `test_schedule_order.py` | The public schedule lists games by date, then 9:00 AM before 10:30 AM, whatever order the sheet rows are in |
 | `test_results_order.py` | The Results page: newest day first, and 9:00 AM above 10:30 AM within each day |
 | `test_schedule_editor.py` | The schedule editor: its own Schedule Password, moving a game to Maplewood, only changed cells written, stale/scored/invalid edits refused, adding a game in a spare row, the change log |
+| `test_pickup_league_mark.py` | A player marked "League" on the pickup schedule (in a league game that day) is not counted as signed up for pickup on the website |
 | `test_member_divisions_page.py` | The `/admin/divisions` page: sign-in required, the member and board lists, and what gets passed through on save |
 | `test_rehearsal.py` | A practice run reports the real headcount and warns when the quota wouldn't cover it |
 | `test_partial_send.py` | A failed send names everyone missed and does not lock out the day; a successful one still does |
