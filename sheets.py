@@ -5054,7 +5054,9 @@ def _season_sort_key(name, index):
     return (year, rank, index)
 
 
-def _game_sort_key(g):
+def game_sort_key(g):
+    """Order games by date, then time of day (9:00 AM before 10:30 AM), then
+    division and field. A game with an unreadable date goes last."""
     d = g.get("date", "")
     stamp = None
     for fmt in ("%m/%d/%Y", "%m/%d/%y", "%Y-%m-%d"):
@@ -5235,7 +5237,7 @@ def _archive_load():
                                  "manager": mgr, "count": len(plist)})
             rosters[n] = out
         for g in games.values():
-            g.sort(key=_game_sort_key)
+            g.sort(key=game_sort_key)
         order = [n for _, n in sorted(
             ((_season_sort_key(n, i), n) for i, n in enumerate(names)), reverse=True)]
         data = {"order": order, "games": games, "rosters": rosters}
