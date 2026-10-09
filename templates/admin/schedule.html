@@ -1,0 +1,140 @@
+{% extends "page_base.html" %}
+{% block eyebrow %}Admin{% endblock %}
+{% block sub %}<p class="sub">Change a game's date, time, field or teams, or add a game. Saving updates the Schedule tab, and the website shows it right away. Games that already have a final score can't be edited here.</p>{% endblock %}
+{% block body %}
+<style>
+  html{font-size:112.5%}
+  .adminbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px}
+  .adminbar a{font-weight:600}
+  .good{background:#e8f6ee;border:1px solid #bfe3cd;color:#1a7f4b;border-radius:12px;padding:14px 18px;margin-bottom:18px;font-weight:600}
+  .bad{background:var(--red-tint);border:1px solid #f0c9cb;color:#b3151b;border-radius:12px;padding:14px 18px;margin-bottom:18px;font-weight:600}
+  .divtabs{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:22px}
+  .divtabs a{font-family:var(--display);font-weight:800;font-size:1.15rem;text-decoration:none;padding:12px 26px;
+    border-radius:12px;border:2px solid var(--navy);color:var(--navy);background:#fff;min-height:48px}
+  .divtabs a.on{color:#fff;background:var(--navy)}
+  .divtabs a.on.RED{background:var(--red);border-color:var(--red)} .divtabs a.on.BLUE{background:var(--blue);border-color:var(--blue)}
+  .egame{background:#fff;border:1px solid var(--line);border-left:6px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
+  .egame.RED{border-left-color:var(--red)} .egame.BLUE{border-left-color:var(--blue)} .egame.WHITE{border-left-color:var(--navy)}
+  .egame.played{background:#f6f8fb}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+  .grid label{display:block;font-family:var(--display);font-weight:600;color:var(--navy);font-size:.9rem;margin-bottom:5px}
+  .grid input,.grid select,.who input{width:100%;font-size:1.05rem;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:#fff}
+  .who{margin-top:12px;display:flex;gap:12px;align-items:end;flex-wrap:wrap}
+  .who label{display:block;font-family:var(--display);font-weight:600;color:var(--navy);font-size:.9rem;margin-bottom:5px}
+  .who .nm{flex:1;min-width:160px}
+  .who button{min-height:48px;padding:0 24px}
+  .done{color:#1a7f4b;font-weight:700}
+  details.addbox{background:#fff;border:2px dashed var(--line);border-radius:12px;padding:14px 16px;margin-bottom:26px}
+  details.addbox summary{cursor:pointer;font-family:var(--display);font-weight:800;color:var(--navy);font-size:1.1rem}
+  table.log{width:100%;border-collapse:collapse;margin-top:8px;font-size:.95rem}
+  table.log th{text-align:left;font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:8px;border-bottom:2px solid var(--line)}
+  table.log td{padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  .hint{color:var(--muted);font-size:.92rem}
+</style>
+
+<div class="adminbar">
+  <a href="{{ url_for('admin_dashboard') }}">← Back to dashboard</a>
+  <a href="{{ url_for('admin_logout') }}">Sign out</a>
+</div>
+
+{% if saved %}<div class="good">✓ {{ saved }}</div>{% endif %}
+{% if problem %}<div class="bad">{{ problem }}</div>{% endif %}
+
+<div class="divtabs">
+  {% for d in ['RED','WHITE','BLUE'] %}
+  <a href="{{ url_for('admin_schedule', division=d) }}" class="{{ 'on ' ~ d if d == division else '' }}">{{ d }}</a>
+  {% endfor %}
+</div>
+
+{% macro fieldset(g, prefix) %}
+  <div class="grid">
+    <div><label>Date</label><input type="text" name="date" value="{{ g.date if g else '' }}" placeholder="10/19/2026" required></div>
+    <div><label>Time</label><input type="text" name="time" value="{{ g.time if g else '' }}" placeholder="9:00 AM" required></div>
+    <div><label>Where</label>
+      <select name="field" required>
+        {% if not g %}<option value="">Choose…</option>{% endif %}
+        {% set cur = g.field if g else '' %}
+        {% if cur and cur not in fields %}<option selected>{{ cur }}</option>{% endif %}
+        {% for f in fields %}<option{{ ' selected' if f == cur else '' }}>{{ f }}</option>{% endfor %}
+      </select></div>
+    <div><label>Visiting team</label>
+      <select name="away" required>
+        {% if not g %}<option value="">Choose…</option>{% endif %}
+        {% set cur = g.away if g else '' %}
+        {% if cur and cur not in teams %}<option selected>{{ cur }}</option>{% endif %}
+        {% for t in teams %}<option{{ ' selected' if t == cur else '' }}>{{ t }}</option>{% endfor %}
+      </select></div>
+    <div><label>Home team</label>
+      <select name="home" required>
+        {% if not g %}<option value="">Choose…</option>{% endif %}
+        {% set cur = g.home if g else '' %}
+        {% if cur and cur not in teams %}<option selected>{{ cur }}</option>{% endif %}
+        {% for t in teams %}<option{{ ' selected' if t == cur else '' }}>{{ t }}</option>{% endfor %}
+      </select></div>
+    <div><label>Status</label>
+      <select name="status">
+        {% set cur = (g.status if g and g.status else 'Scheduled') %}
+        {% if cur not in statuses %}<option selected>{{ cur }}</option>{% endif %}
+        {% for st in statuses %}<option{{ ' selected' if st == cur else '' }}>{{ st }}</option>{% endfor %}
+      </select></div>
+  </div>
+{% endmacro %}
+
+<details class="addbox">
+  <summary>+ Add a game to the {{ division }} schedule</summary>
+  <p class="hint" style="margin:10px 0 12px">The new game goes into the next empty row at the bottom of the Schedule tab.</p>
+  <form method="post" action="{{ url_for('admin_schedule_add') }}">
+    <input type="hidden" name="division" value="{{ division }}">
+    {{ fieldset(none, 'add') }}
+    <div class="who">
+      <div class="nm"><label>Your name</label><input type="text" name="changed_by" value="{{ changed_by }}" required></div>
+      <button class="btn btn-navy" type="submit">Add game</button>
+    </div>
+  </form>
+</details>
+
+{% if games %}
+  {% for g in games %}
+  <div class="egame {{ division }}{{ ' played' if g.played }}">
+    {% if g.played %}
+      <div><strong>{{ g.date }} · {{ g.time }} · {{ g.field }}</strong></div>
+      <div>{{ g.away }} {{ g.score_away }} &nbsp;at&nbsp; {{ g.home }} {{ g.score_home }} <span class="done">· Final</span></div>
+      <div class="hint" style="margin-top:6px">This game has a final score, so it can't be edited here. Scores are changed on the scoring page.</div>
+    {% else %}
+    <form method="post" action="{{ url_for('admin_schedule_save') }}">
+      <input type="hidden" name="row" value="{{ g.row }}">
+      <input type="hidden" name="division" value="{{ division }}">
+      <input type="hidden" name="was_date" value="{{ g.date }}">
+      <input type="hidden" name="was_time" value="{{ g.time }}">
+      <input type="hidden" name="was_home" value="{{ g.home }}">
+      <input type="hidden" name="was_away" value="{{ g.away }}">
+      {{ fieldset(g, 'e' ~ g.row) }}
+      <div class="who">
+        <div class="nm"><label>Your name</label><input type="text" name="changed_by" value="{{ changed_by }}" required></div>
+        <button class="btn btn-navy" type="submit">Save changes</button>
+      </div>
+    </form>
+    {% endif %}
+  </div>
+  {% endfor %}
+{% else %}
+  <p class="hint">No {{ division }} games found on the schedule.</p>
+{% endif %}
+
+<h2 style="margin-top:40px">Recent schedule changes</h2>
+{% if changes %}
+<table class="log">
+  <thead><tr><th>When</th><th>Game</th><th>What</th><th>From</th><th>To</th><th>By</th></tr></thead>
+  <tbody>
+  {% for c in changes %}
+    <tr><td>{{ c.date }} {{ c.time }}</td><td>{{ c.division }} · {{ c.game }}</td><td>{{ c.what }}</td><td>{{ c['from'] }}</td><td>{{ c.to }}</td><td>{{ c.by }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+<p class="hint" style="margin-top:10px">To undo a change, edit the game again and put back the "From" value.</p>
+{% else %}
+<p class="hint">No changes yet.</p>
+{% endif %}
+{% endblock %}
+{% block footer_btns %}<a class="btn btn-navy" href="{{ url_for('admin_dashboard') }}">← Back to dashboard</a>{% endblock %}
+{% block extra_btns %}{% endblock %}
