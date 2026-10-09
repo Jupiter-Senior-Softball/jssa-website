@@ -631,6 +631,28 @@ LEAGUE_SECTIONS = {
 }
 
 
+@app.route("/league/past-seasons")
+def past_seasons():
+    """Public archive of finished seasons. ?season=Fall%202026 picks one;
+    with no choice the newest saved season is shown."""
+    try:
+        seasons = sheets.archived_seasons()
+    except Exception:
+        seasons = []
+    chosen = None
+    wanted = (request.args.get("season") or "").strip()
+    if seasons:
+        try:
+            chosen = sheets.archived_season(wanted or seasons[0]["name"])
+        except Exception:
+            chosen = None
+        if wanted and chosen is None:
+            abort(404)
+    return render_template("pages/past-seasons.html",
+                           page_title="Past Seasons", section_eyebrow="Organized League",
+                           seasons=seasons, chosen=chosen)
+
+
 @app.route("/league/<section>")
 def league_section(section):
     meta = LEAGUE_SECTIONS.get(section)
@@ -1749,6 +1771,62 @@ def admin_rules_delete(rid):
     except Exception:
         pass
     return redirect(url_for("admin_rules", saved="1"))
+
+
+# ----------------------------------------------------------------------------
+# Past Seasons archive (admin) — save a finished season for good
+# ----------------------------------------------------------------------------
+@app.route("/admin/archive")
+@login_required
+def admin_archive():
+    configured = sheets.archive_configured()
+    seasons, live, error = [], None, None
+    if configured:
+        try:
+            seasons = sheets.archived_seasons()
+        except Exception as e:
+            error = str(e)
+        try:
+            cur = sheets.league_season()
+            games = cur.get("schedule", [])
+            live = {"games": len(games),
+                    "scored": sum(1 for g in games if g["score_home"] != ""
+                                  and g["score_away"] != ""),
+                    "teams": sum(len(v) for v in cur.get("rosters", {}).values())}
+        except Exception:
+            live = None
+    return render_template("admin/archive.html", page_title="Past Seasons",
+                           configured=configured, seasons=seasons, live=live,
+                           error=error, saved=request.args.get("saved"),
+                           problem=request.args.get("problem"),
+                           suggestion=re.sub(r"\s+Season$", "", sheets.season_name() or "", flags=re.I) if configured else "")
+
+
+@app.route("/admin/archive/save", methods=["POST"])
+@login_required
+def admin_archive_save():
+    name = sheets.clean_season_name(request.form.get("season"))
+    try:
+        result = sheets.archive_current_season(name)
+    except ValueError as e:
+        return redirect(url_for("admin_archive", problem=str(e)))
+    except Exception as e:
+        return redirect(url_for("admin_archive",
+                                problem="Couldn't save the season: %s" % e))
+    return redirect(url_for("admin_archive", saved=(
+        "%s saved: %d games (%d with final scores) and %d players on %d teams."
+        % (name, result["games"], result["scored"], result["players"], result["teams"]))))
+
+
+@app.route("/admin/archive/delete", methods=["POST"])
+@login_required
+def admin_archive_delete():
+    name = sheets.clean_season_name(request.form.get("season"))
+    try:
+        sheets.delete_archived_season(name)
+    except Exception as e:
+        return redirect(url_for("admin_archive", problem="Couldn't remove it: %s" % e))
+    return redirect(url_for("admin_archive", saved="%s removed from the archive." % name))
 
 
 if __name__ == "__main__":

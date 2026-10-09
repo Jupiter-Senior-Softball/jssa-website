@@ -1,0 +1,134 @@
+{% extends "page_base.html" %}
+{% block eyebrow %}{{ section_eyebrow }}{% endblock %}
+{% block sub %}<p class="sub">A permanent record of each finished season — schedule and results, final standings, and team rosters.</p>{% endblock %}
+{% block body %}
+<style>
+  .seasonpick{display:flex;flex-wrap:wrap;gap:12px;margin:0 0 30px}
+  .seasonpick a{font-family:var(--display);font-weight:800;font-size:1.2rem;text-decoration:none;
+    padding:14px 24px;min-height:52px;border-radius:12px;border:2px solid var(--navy);color:var(--navy);background:#fff}
+  .seasonpick a.on{background:var(--navy);color:#fff}
+  .stitle{font-family:var(--display);font-weight:800;color:var(--navy);font-size:1.9rem;margin:0 0 6px}
+  .jump{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 28px}
+  .jump a{font-weight:700;color:var(--blue);padding:8px 14px;border:1px solid var(--line);border-radius:999px;text-decoration:none;background:#fff}
+  .sect{margin:0 0 44px}
+  .sect h2{font-family:var(--display);font-weight:800;color:var(--navy);font-size:1.5rem;margin:0 0 16px}
+  .divwrap{margin:0 0 30px}
+  .divhead{display:inline-block;font-family:var(--display);font-weight:800;font-size:1.1rem;
+    letter-spacing:.04em;color:#fff;padding:8px 18px;border-radius:10px;margin-bottom:12px}
+  .divhead.RED{background:var(--red)} .divhead.BLUE{background:var(--blue)} .divhead.WHITE{background:var(--navy)}
+  .tbl{width:100%;border-collapse:collapse;background:var(--surface);border-radius:14px;
+    overflow:hidden;box-shadow:var(--shadow);font-size:1.05rem}
+  .tbl th,.tbl td{padding:13px 12px;text-align:center;border-bottom:1px solid var(--line)}
+  .tbl th{background:var(--blue-tint);font-family:var(--display);color:var(--navy);
+    font-size:.82rem;letter-spacing:.06em;text-transform:uppercase}
+  .tbl td.l,.tbl th.l{text-align:left}
+  .tbl td.team{font-weight:700;color:var(--navy);font-size:1.1rem}
+  .tbl tr:last-child td{border-bottom:none}
+  .tbl tr:nth-child(even) td{background:#fafbfe}
+  .win{font-weight:800;color:#1c8a44}
+  .pos{color:var(--blue);font-weight:700} .neg{color:var(--red);font-weight:700}
+  .scrollx{overflow-x:auto}
+  .teamgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
+  .tcard{background:var(--surface);border-radius:14px;box-shadow:var(--shadow);border-top:5px solid var(--line);overflow:hidden}
+  .tcard.RED{border-top-color:var(--red)} .tcard.BLUE{border-top-color:var(--blue)} .tcard.WHITE{border-top-color:var(--navy)}
+  .tname{font-family:var(--display);font-weight:800;color:var(--navy);font-size:1.2rem;padding:14px 18px 4px}
+  .tcount{color:var(--muted);font-size:.9rem;font-weight:600;padding:0 18px 8px}
+  .tcard ol{list-style:none;padding:0 18px 16px;margin:0}
+  .tcard li{padding:8px 0;border-top:1px solid var(--line);font-size:1.05rem;color:var(--navy);display:flex;align-items:center;gap:10px}
+  .mgr-badge{margin-left:auto;font-family:var(--display);font-weight:800;font-size:.78rem;letter-spacing:.06em;
+    text-transform:uppercase;color:#fff;background:var(--navy);padding:3px 9px;border-radius:6px}
+  .empty{background:#fff;border:1px solid var(--line);border-radius:14px;padding:28px;font-size:1.1rem;color:var(--navy)}
+  @media(max-width:560px){.tbl{font-size:.95rem}.tbl th,.tbl td{padding:10px 6px}}
+</style>
+
+{% if not seasons %}
+<div class="empty">No past seasons have been saved yet. Once a season is finished, its schedule, results, standings and rosters will be kept here.</div>
+{% else %}
+<div class="seasonpick" role="navigation" aria-label="Choose a season">
+  {% for s in seasons %}
+  <a href="{{ url_for('past_seasons', season=s.name) }}"{% if chosen and s.name == chosen.name %} class="on" aria-current="page"{% endif %}>{{ s.name }}</a>
+  {% endfor %}
+</div>
+
+{% if chosen %}
+<h2 class="stitle">{{ chosen.name }}</h2>
+<div class="jump">
+  <a href="#standings">Standings</a><a href="#results">Schedule &amp; Results</a><a href="#rosters">Rosters</a>
+</div>
+
+<div class="sect" id="standings">
+  <h2>Final Standings</h2>
+  {% set ns = namespace(any=false) %}
+  {% for div in ['RED','WHITE','BLUE'] %}
+    {% set teams = chosen.standings[div] %}
+    {% if teams %}{% set ns.any = true %}
+    <div class="divwrap">
+      <div class="divhead {{ div }}">{{ div }} DIVISION</div>
+      <div class="scrollx"><table class="tbl">
+        <thead><tr><th class="l">Team</th><th>W</th><th>L</th><th>Win %</th><th>GB</th><th>Runs For</th><th>Runs Against</th><th>Diff</th></tr></thead>
+        <tbody>
+        {% for t in teams %}
+          <tr><td class="l team">{{ t.team }}</td><td>{{ t.wins }}</td><td>{{ t.losses }}</td>
+              <td>{{ t.pct }}</td><td>{{ t.gb }}</td><td>{{ t.rf }}</td><td>{{ t.ra }}</td>
+              <td class="{% if t.diff.startswith('-') %}neg{% elif t.diff not in ('0','') %}pos{% endif %}">{{ t.diff }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table></div>
+    </div>
+    {% endif %}
+  {% endfor %}
+  {% if not ns.any %}<div class="empty">No standings were saved for this season.</div>{% endif %}
+</div>
+
+<div class="sect" id="results">
+  <h2>Schedule &amp; Results</h2>
+  {% if chosen.schedule %}
+  <div class="scrollx"><table class="tbl">
+    <thead><tr><th class="l">Date</th><th class="l">Time</th><th>Div</th><th class="l">Visitor</th><th>Score</th><th class="l">Home</th><th>Score</th></tr></thead>
+    <tbody>
+    {% for g in chosen.schedule %}
+      {% set final = g.score_home != '' and g.score_away != '' %}
+      {% set hw = final and g.score_home|int > g.score_away|int %}
+      {% set aw = final and g.score_away|int > g.score_home|int %}
+      <tr>
+        <td class="l">{% if g.dow %}<strong>{{ g.dow[:3] }}</strong> {% endif %}{{ g.date }}</td>
+        <td class="l">{{ g.time }}{% if g.field %}<br><small>{{ g.field }}</small>{% endif %}</td>
+        <td>{{ g.division[:1] }}</td>
+        <td class="l team{{ ' win' if aw }}">{{ g.away }}</td><td class="{{ 'win' if aw }}">{{ g.score_away if final else '—' }}</td>
+        <td class="l team{{ ' win' if hw }}">{{ g.home }}</td><td class="{{ 'win' if hw }}">{{ g.score_home if final else '—' }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}<div class="empty">No games were saved for this season.</div>{% endif %}
+</div>
+
+<div class="sect" id="rosters">
+  <h2>Rosters</h2>
+  {% set rs = namespace(any=false) %}
+  {% for div in ['RED','WHITE','BLUE'] %}
+    {% set teams = chosen.rosters[div] %}
+    {% if teams %}{% set rs.any = true %}
+    <div class="divwrap">
+      <div class="divhead {{ div }}">{{ div }} DIVISION</div>
+      <div class="teamgrid">
+        {% for t in teams %}
+        <div class="tcard {{ div }}">
+          <div class="tname">{{ t.team }}</div>
+          <div class="tcount">{{ t.players|length }} player{{ '' if t.players|length == 1 else 's' }}</div>
+          <ol>{% for p in t.players %}<li>{{ p.name }}{% if p.is_manager %}<span class="mgr-badge">Manager</span>{% endif %}</li>{% endfor %}</ol>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  {% endfor %}
+  {% if not rs.any %}<div class="empty">No rosters were saved for this season.</div>{% endif %}
+</div>
+{% else %}
+<div class="empty">That season couldn't be loaded right now. Please try again in a minute.</div>
+{% endif %}
+{% endif %}
+{% endblock %}
+{% block footer_btns %}<a class="btn btn-navy" href="/">← Back to Home</a>{% endblock %}
+{% block extra_btns %}<a class="btn" style="background:var(--blue);color:#fff" href="/league/standings">Current Standings →</a>{% endblock %}
