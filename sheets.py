@@ -5284,3 +5284,301 @@ def archived_season(name):
                     "rosters": data["rosters"].get(
                         n, {"RED": [], "WHITE": [], "BLUE": []})}
     return None
+
+
+# ----------------------------------------------------------------------------
+# Schedule editor — change a game's date, time, field, or teams, or add a game
+# in a spare row. Locked behind its own "Schedule Password" (Site Passwords /
+# Site Settings tab, same arrangement as the Divisions Password).
+#
+#   * Places a game can be played come from the "Game Fields" tab of the control
+#     sheet (created with the four Jupiter Community Park fields and the two
+#     Maplewood Park fields the first time it is needed). Add a line there to
+#     offer a new place — no code change.
+#   * Only the cells that actually changed are written, into that game's own
+#     row, so the sheet's formulas keep working.
+#   * A game that already has a final score is read-only here (scores are
+#     changed on the scoring page).
+#   * Every change is logged on a "Schedule Changes" tab: what, from, to, who.
+# ----------------------------------------------------------------------------
+SCHEDULE_FIELDS_TAB = "Game Fields"
+SCHEDULE_FIELDS_HEADERS = ["Field / location", "Notes"]
+SCHEDULE_FIELDS_SEED = [
+    ["Field 1", "Jupiter Community Park"],
+    ["Field 2", "Jupiter Community Park"],
+    ["Field 3", "Jupiter Community Park"],
+    ["Field 4", "Jupiter Community Park"],
+    ["Maplewood Park - East Field", "Maplewood Park"],
+    ["Maplewood Park - West Field", "Maplewood Park"],
+]
+SCHEDULE_STATUSES = ["Scheduled", "Postponed", "Cancelled"]
+SCHEDULE_LOG_TAB = "Schedule Changes"
+SCHEDULE_LOG_HEADERS = ["Date", "Time", "Division", "Game", "What changed",
+                        "From", "To", "Changed by"]
+
+_fields_cache = {"data": None, "ts": 0.0}
+_FIELDS_TTL = 60
+
+
+def schedule_password():
+    """The Schedule Password row (Site Settings / Site Passwords tab). Empty if
+    it hasn't been set, which leaves the editor locked."""
+    return _password("schedule password")
+
+
+def game_field_options():
+    """The places a game can be played, in the order listed on the Game Fields
+    tab. Falls back to the built-in list if the sheet can't be read."""
+    now = time.time()
+    with _lock:
+        if _fields_cache["data"] is not None and now - _fields_cache["ts"] < _FIELDS_TTL:
+            return list(_fields_cache["data"])
+    names = []
+    try:
+        if CONTROL_SHEET_ID and _SA_JSON:
+            rows = _control_tab_rows(SCHEDULE_FIELDS_TAB, SCHEDULE_FIELDS_HEADERS,
+                                     SCHEDULE_FIELDS_SEED)
+            for r in rows[1:]:
+                v = _clean(r[0]) if r else ""
+                if v and v not in names:
+                    names.append(v)
+    except Exception:
+        names = []
+    if not names:
+        names = [r[0] for r in SCHEDULE_FIELDS_SEED]
+    with _lock:
+        _fields_cache["data"] = names
+        _fields_cache["ts"] = now
+    return list(names)
+
+
+def _norm_game_date(text):
+    """'10/9/26', '2026-10-19', ... -> '10/19/2026'. None if not a date."""
+    d = _parse_game_date(text, datetime.datetime.now(_notice_tz()).date())
+    return "%d/%d/%d" % (d.month, d.day, d.year) if d else None
+
+
+def _norm_game_time(text):
+    """'9am', '9:00 am', '13:30' -> '9:00 AM' / '1:30 PM'. None if not a time."""
+    t = _clean(text).upper().replace(".", "")
+    t = re.sub(r"\s+", " ", t)
+    t = re.sub(r"(\d)(AM|PM)$", r"\1 \2", t)
+    for fmt in ("%I:%M %p", "%I %p", "%H:%M"):
+        try:
+            d = datetime.datetime.strptime(t, fmt)
+            return d.strftime("%I:%M %p").lstrip("0")
+        except ValueError:
+            pass
+    return None
+
+
+def _schedule_tab():
+    """(worksheet, header_row_index, {column: index}, rows) of the Schedule tab."""
+    sh = _control_sheet(readonly=False)
+    tabs = _control_tabs(sh)
+    title, rows, hi, cols = _match_tab(tabs, ["home team", "away team", "status"])
+    if title is None:
+        raise ValueError("Couldn't find the Schedule tab.")
+    return sh.worksheet(title), hi, cols, rows
+
+
+def schedule_editor_games():
+    """Every scheduled game for the editor, in date/time order, each tagged with
+    its sheet row. 'played' is True once it has a final score."""
+    games = [dict(g, played=(g["score_home"] != "" and g["score_away"] != ""))
+             for g in schedule_games_for_scoring()]
+    games.sort(key=game_sort_key)
+    return games
+
+
+def schedule_team_options():
+    """{'RED': [team, ...], ...} — the team names to offer in the editor."""
+    out = {"RED": [], "WHITE": [], "BLUE": []}
+    try:
+        data = league_season()
+        for div in out:
+            for t in data.get("teams", {}).get(div, []):
+                if t["team"] not in out[div]:
+                    out[div].append(t["team"])
+            out[div].sort(key=str.lower)
+    except Exception:
+        pass
+    return out
+
+
+def _log_schedule_change(division, game, what, old, new, changed_by):
+    """Append one line to the Schedule Changes tab. Never raises."""
+    try:
+        if not (CONTROL_SHEET_ID and _SA_JSON):
+            return
+        _control_tab_rows(SCHEDULE_LOG_TAB, SCHEDULE_LOG_HEADERS, [])
+        ws = _control_sheet(readonly=False).worksheet(SCHEDULE_LOG_TAB)
+        now = datetime.datetime.now(_notice_tz())
+        ws.append_row([now.date().isoformat(), now.strftime("%-I:%M %p"), division,
+                       game, what, old, new, changed_by],
+                      value_input_option="USER_ENTERED")
+    except Exception:
+        pass
+
+
+def schedule_change_log(limit=25):
+    """Most recent schedule changes, newest first."""
+    try:
+        if not (CONTROL_SHEET_ID and _SA_JSON):
+            return []
+        rows = _control_tab_rows(SCHEDULE_LOG_TAB, SCHEDULE_LOG_HEADERS, [])
+        out = []
+        for r in rows[1:]:
+            if not any(_clean(c) for c in r):
+                continue
+            vals = [_clean(c) for c in r[:len(SCHEDULE_LOG_HEADERS)]]
+            vals += [""] * (len(SCHEDULE_LOG_HEADERS) - len(vals))
+            out.append(dict(zip(["date", "time", "division", "game", "what",
+                                 "from", "to", "by"], vals)))
+        out.reverse()
+        return out[:limit]
+    except Exception:
+        return []
+
+
+def _validated_game(form, existing=None):
+    """Check what the editor submitted. Returns (values, problem) where values
+    is {'division','date','time','field','home','away','status'} (normalised)
+    and problem is a plain-English reason, or '' when it is fine. Anything the
+    game already had is allowed to stay as it is."""
+    existing = existing or {}
+    f = lambda k: _clean(form.get(k, ""))
+    v = {"division": _norm_div(f("division") or existing.get("division", "")),
+         "home": f("home"), "away": f("away"),
+         "field": f("field"), "status": f("status") or "Scheduled"}
+    if not v["division"]:
+        return v, "Please choose a division."
+    v["date"] = _norm_game_date(f("date"))
+    if not v["date"]:
+        return v, "That date isn't one I can read. Use a form like 10/19/2026."
+    v["time"] = _norm_game_time(f("time"))
+    if not v["time"]:
+        return v, "That time isn't one I can read. Use a form like 9:00 AM."
+    if not v["home"] or not v["away"]:
+        return v, "Please choose both teams."
+    if v["home"].lower() == v["away"].lower():
+        return v, "A team can't play itself — please choose two different teams."
+    if not v["field"]:
+        return v, "Please choose where the game is played."
+    teams = {t.lower() for t in schedule_team_options().get(v["division"], [])}
+    for label, name, old in (("home", v["home"], existing.get("home", "")),
+                             ("away", v["away"], existing.get("away", ""))):
+        if name.lower() not in teams and name != old:
+            return v, ("%s isn't a team in the %s Division. Please pick the team "
+                       "from the list." % (name, v["division"].title()))
+    fields = {x.lower() for x in game_field_options()}
+    if v["field"].lower() not in fields and v["field"] != existing.get("field", ""):
+        return v, "That place isn't on the Game Fields list. Please pick one from the list."
+    if v["status"] not in SCHEDULE_STATUSES:
+        return v, "Please choose Scheduled, Postponed or Cancelled."
+    return v, ""
+
+
+def _schedule_write(ws, cols, row, updates):
+    """Write {column name: value} into one row, only the columns given."""
+    import gspread
+    data = []
+    for name, value in updates.items():
+        ci = cols.get(name)
+        if ci is None:
+            raise ValueError("The Schedule tab has no '%s' column." % name)
+        data.append({"range": gspread.utils.rowcol_to_a1(row, ci + 1),
+                     "values": [[str(value)]]})
+    if data:
+        # Typed in the way a person would, so dates and times stay real
+        # dates and times in the sheet.
+        ws.batch_update(data, raw=False)
+    with _lock:
+        _season_cache["ts"] = 0.0           # public pages pick it up at once
+
+
+_GAME_COLS = (("division", "division"), ("date", "date"), ("time", "time"),
+              ("field", "field"), ("home", "home team"), ("away", "away team"),
+              ("status", "status"))
+
+
+def _same_game_value(key, old, new):
+    """Is an edited value the same as what the sheet already holds? Dates and
+    times compare as dates and times, so '10/9/2026' and '10/09/2026' match."""
+    if key == "date":
+        return _norm_game_date(old) == new
+    if key == "time":
+        return _norm_game_time(old) == new
+    return _clean(old) == _clean(new)
+
+
+def update_schedule_game(row, expected, form, changed_by):
+    """Apply the editor's changes to one existing game. `expected` is what the
+    page showed (so a row that has since moved or changed is refused).
+    Returns (ok, message)."""
+    try:
+        row = int(row)
+        ws, hi, cols, rows = _schedule_tab()
+        if row <= hi + 1 or row > len(rows):
+            return False, "That game isn't on the schedule any more. Please reload the page."
+        g = _row_reader(cols)(rows[row - 1])
+        now_has = {"division": _norm_div(g("division")), "date": g("date"),
+                   "time": g("time"), "field": g("field"),
+                   "home": g("home team"), "away": g("away team"),
+                   "status": g("status")}
+        for k in ("date", "time", "home", "away"):
+            if _clean(expected.get(k)) != now_has[k]:
+                return False, ("This game was changed by someone else while you "
+                               "were editing. Nothing was saved — please reload.")
+        if _parse_score(g("score home")) is not None or _parse_score(g("score away")) is not None:
+            return False, ("This game already has a final score, so it can't be "
+                           "edited here. Change scores on the scoring page.")
+        vals, problem = _validated_game(form, now_has)
+        if problem:
+            return False, problem
+        updates, changes = {}, []
+        for key, col in _GAME_COLS:
+            old, new = now_has[key], vals[key]
+            if not _same_game_value(key, old, new):
+                updates[col] = new
+                changes.append((key, old, new))
+        if not updates:
+            return True, "No changes — everything was already as you entered it."
+        _schedule_write(ws, cols, row, updates)
+        label = "%s vs %s" % (now_has["away"], now_has["home"])
+        names = {"division": "Division", "date": "Date", "time": "Time",
+                 "field": "Field", "home": "Home team", "away": "Visiting team",
+                 "status": "Status"}
+        for key, old, new in changes:
+            _log_schedule_change(vals["division"], label + " (" + now_has["date"] + ")",
+                                 names[key], old, new, changed_by)
+        return True, "Saved. The website schedule is updated."
+    except Exception as e:
+        return False, "Couldn't save: %s" % e
+
+
+def add_schedule_game(form, changed_by):
+    """Put a new game into the first spare (empty) row of the Schedule tab.
+    Returns (ok, message)."""
+    try:
+        vals, problem = _validated_game(form)
+        if problem:
+            return False, problem
+        ws, hi, cols, rows = _schedule_tab()
+        spare = None
+        for idx in range(hi + 1, len(rows)):
+            g = _row_reader(cols)(rows[idx])
+            if not (g("home team") or g("away team") or g("date") or g("time")
+                    or g("division") or g("score home") or g("score away")):
+                spare = idx + 1
+                break
+        if spare is None:
+            return False, ("There are no spare rows left on the Schedule tab. "
+                           "Add some blank rows at the bottom of the tab, then try again.")
+        _schedule_write(ws, cols, spare, {col: vals[key] for key, col in _GAME_COLS})
+        _log_schedule_change(vals["division"], "%s vs %s (%s)" % (
+            vals["away"], vals["home"], vals["date"]), "Game added", "",
+            "%s %s, %s" % (vals["date"], vals["time"], vals["field"]), changed_by)
+        return True, "Game added. The website schedule is updated."
+    except Exception as e:
+        return False, "Couldn't add the game: %s" % e
