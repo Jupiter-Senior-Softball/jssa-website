@@ -5078,6 +5078,13 @@ def game_sort_key(g):
             g.get("division", ""), g.get("field", ""))
 
 
+def result_sort_key(g):
+    """Results order: the most recent day first, but within a day the earlier
+    game first (9:00 AM above 10:30 AM). Unreadable dates go last."""
+    unreadable, stamp, minutes, div, field = game_sort_key(g)
+    return (unreadable, 0 if unreadable else -stamp.toordinal(), minutes, div, field)
+
+
 def _archive_replace(sh, title, headers, season, new_rows):
     """Make `season`'s rows in tab `title` exactly `new_rows`, leaving every
     other season alone. The new contents are written in ONE update before any

@@ -22,7 +22,7 @@
 {% set picker_label = 'results' %}
 {% include "_divpicker.html" %}
 <div class="res">
-  {% for g in season.results|reverse %}
+  {% for g in season.results %}
   {% set hs = g.home_score|int(-1) %}{% set as = g.away_score|int(-1) %}
   <div class="rcard {{ g.division }}" data-div="{{ g.division }}">
     <div class="rtop">

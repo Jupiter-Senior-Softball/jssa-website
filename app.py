@@ -672,6 +672,11 @@ def league_section(section):
     if section == "schedules":
         season = dict(season, schedule=sorted(season["schedule"],
                                               key=sheets.game_sort_key))
+    # The results page lists the newest day first, with each day's games in
+    # time order (9:00 AM, then 10:30 AM), regardless of the sheet's row order.
+    if section == "results":
+        season = dict(season, results=sorted(season["results"],
+                                             key=sheets.result_sort_key))
     # Does this section have any data to show yet? If not, the template falls
     # back to the friendly "off-season" message.
     has_data = {
