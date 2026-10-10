@@ -36,6 +36,11 @@ rows = [H,
     row("Insure Options", "TRUE", "Licensed agent",  "https://www.insureoptions.health/",
         logo="https://drive.google.com/open?id=1DnaLYBgXNDNIugY8qBtoBJdQi2cQycru"),
     row("Pinned First", "TRUE", "", "", order="1"),
+    row("Benaim Eye Aesthetics\n", "TRUE", "Eye Dr.", "http://www.benaimeye.com/"),
+    row("Hibiscus Streatery", "TRUE", "", "http://www.littlemoirsjupiter.com/hibiscus-streatery"),
+    row("FOOD SHACK", "TRUE", "", "http://www.littlemoirsjupiter.com/"),
+    row("Law Office of Cindy A. Sojka, PA", "TRUE", "", "CindySojkaLaw.com"),
+    row("Brand New Co", "TRUE", "", "https://brandnew.example/"),
     [""] * len(H),                                   # the ~1,100 blank rows
     [""] * 15 + [""] * 7 + ["FALSE"],                # blank row with an unchecked box
 ]
@@ -46,14 +51,21 @@ for s in out:
 
 assert "Turned Off Co" not in names, "Website Enabled=FALSE must hide a sponsor"
 assert names[0] == "Pinned First", "Sort Order number goes first"
-assert names[1:] == ["VILLAGE SCOOP SHACK", "American Sr Health Services of the Treasure Coast",
-                     "TEMP TECH SERVICES", "Bradley Molineux", "Insure Options"], names
+assert names[1:7] == ["VILLAGE SCOOP SHACK", "American Sr Health Services of the Treasure Coast",
+                     "TEMP TECH SERVICES", "Bradley Molineux", "Insure Options", "Benaim Eye Aesthetics"], names
 by = {s["n"]: s for s in out}
 assert by["VILLAGE SCOOP SHACK"]["u"] == "https://villagescoopshack.com", "bare domain gets https://"
 assert by["TEMP TECH SERVICES"]["u"] == "", "a private Google Sheet link must never be shown"
 assert by["Bradley Molineux"]["p"] == "772-221-3100"
 assert by["Insure Options"]["l"].startswith("https://lh3.googleusercontent.com/d/1DnaLYBg"), "falls back to raw logo"
 assert by["VILLAGE SCOOP SHACK"]["l"].startswith("https://lh3.googleusercontent.com/d/1xza0")
+# no logo in the sheet -> the logo the site already had (matched by website)
+assert by["Benaim Eye Aesthetics"]["l"].startswith("https://benaimeye.com/wp-content/"), by["Benaim Eye Aesthetics"]
+assert by["Law Office of Cindy A. Sojka, PA"]["l"].startswith("https://lh3.googleusercontent.com/d/1Gffs"), "Sojka logo"
+# two sponsors sharing a domain must not swap logos (Food Shack vs Hibiscus)
+assert by["FOOD SHACK"]["l"].startswith("https://lh3.googleusercontent.com/d/1Wih3"), by["FOOD SHACK"]
+assert by["Hibiscus Streatery"]["l"].startswith("https://littlemoirs.com/"), by["Hibiscus Streatery"]
+assert by["Brand New Co"]["l"] == "", "unknown sponsor with no logo -> initials tile"
 assert sheets._form_sponsors([]) == [] and sheets._form_sponsors([["Nope"]]) == []
 
 # sponsors(): form tab wins; if it can't be read, the older list is used
