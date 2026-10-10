@@ -3803,9 +3803,12 @@ def _form_sponsors(rows):
             continue
         order = cell(r, c_order)
         url = _sponsor_web_url(cell(r, c_url))
-        logo = _img_url(cell(r, c_logo) or cell(r, c_logo0))
+        raw_logo = cell(r, c_logo) or cell(r, c_logo0)
+        logo = _img_url(raw_logo)
         if not logo:
             logo = fallback_logos.get(_sponsor_key(url), "")
+        # Drive file id -> lets the page also try Google's second image address
+        m = _DRIVE_RE.search(raw_logo) or _DRIVE_RE.search(logo)
         out.append({
             "n": name,
             "t": " ".join(cell(r, c_tag).split()),
@@ -3813,6 +3816,7 @@ def _form_sponsors(rows):
             # the sheet's 'Website Logo URL' first, then the raw form upload, then
             # the logo the site already had; the page shows initials if none loads
             "l": logo,
+            "fid": m.group(1) if m else "",
             "p": cell(r, c_phone),
             "order": int(order) if order.isdigit() else 10 ** 6 + pos,
         })
