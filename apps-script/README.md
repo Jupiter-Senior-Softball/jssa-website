@@ -240,7 +240,8 @@ until each application is approved.
 2. **+** next to *Files* → *Script* → name it `SponsorAlert` → paste the file → Save.
 3. Edit `ALERT_EMAILS` at the top to add everyone who should be notified.
 4. Run **`testAlert`** (approve permissions) — a sample email should arrive.
-5. Run **`installSponsorAlerts`** once. Done.
+5. Run **`fixSponsorTimestamps`** once — turns the raw-number timestamps (e.g. `46304.68456`) into real dates and formats column A.
+6. Run **`installSponsorAlerts`** once. Done.
 
 To undo: run **`removeSponsorAlerts`** (or delete the `SponsorAlert` file).
 Everything happens inside Google — nothing to deploy on Render.

@@ -44,6 +44,7 @@ function onSponsorFormSubmit(e) {
     var sheet = e && e.range && e.range.getSheet();
     if (!sheet || sheet.getName() !== SPONSOR_TAB) return;   // some other form
 
+    fixSponsorTimestamps();            // keep the Timestamp column a real date
     var row = e.range.getRow();
     var info = readRow_(sheet, row);
     var link = sheetLink_(sheet, row);
@@ -102,8 +103,8 @@ function remindPendingSponsors() {
     if (!name) continue;
     var approved = values[r][h.approved];
     if (approved === true || String(approved).toUpperCase() === 'TRUE') continue;
-    var when = values[r][h.timestamp];
-    if (!(when instanceof Date) || when.getTime() > cutoff) continue;
+    var when = toDate_(values[r][h.timestamp]);
+    if (!when || when.getTime() > cutoff) continue;
     pending.push('- ' + name + ' (applied ' +
       Utilities.formatDate(when, Session.getScriptTimeZone(), 'MMM d, yyyy') +
       ')  ' + sheetLink_(sheet, r + 1));
@@ -126,7 +127,7 @@ function remindPendingSponsors() {
 /** Sends a sample alert so you can see it works. */
 function testAlert() {
   var sheet = SpreadsheetApp.getActive().getSheetByName(SPONSOR_TAB);
-  var row = sheet ? sheet.getLastRow() : 2;
+  var row = sheet ? lastSponsorRow_(sheet) : 2;
   var info = sheet ? readRow_(sheet, row) : {};
   MailApp.sendEmail({
     to: ALERT_EMAILS.join(','),
@@ -156,6 +157,36 @@ function removeSponsorAlerts() {
       ScriptApp.deleteTrigger(t);
     }
   });
+}
+
+
+/**
+ * Fixes the Timestamp column (column A) of the Sponsor Form Responses tab.
+ *
+ * PROBLEM: some rows show a raw number like 46304.68456 instead of a date.
+ * That number IS the date (46304.68456 = Oct 9, 2026 4:25 PM) but it was saved
+ * as TEXT, so the Format menu cannot turn it into a date.
+ *
+ * This turns those into real dates and formats the whole column as
+ * "m/d/yyyy h:mm:ss". Run it once by hand; it also runs automatically with
+ * every new application. Safe to run any number of times.
+ */
+function fixSponsorTimestamps() {
+  var sheet = SpreadsheetApp.getActive().getSheetByName(SPONSOR_TAB);
+  if (!sheet) return;
+  var last = sheet.getMaxRows();
+  if (last < 2) return;
+  var range = sheet.getRange(2, 1, last - 1, 1);
+  var vals = range.getValues();
+  var changed = false;
+  for (var i = 0; i < vals.length; i++) {
+    var v = vals[i][0];
+    if (v instanceof Date || v === '' || v === null) continue;
+    var d = toDate_(v);
+    if (d) { vals[i][0] = d; changed = true; }
+  }
+  range.setNumberFormat('m/d/yyyy h:mm:ss');   // format first, then write dates
+  if (changed) range.setValues(vals);
 }
 
 
@@ -204,4 +235,28 @@ function readRow_(sheet, row) {
 function sheetLink_(sheet, row) {
   return SpreadsheetApp.getActive().getUrl().replace(/\/edit.*$/, '') +
          '/edit#gid=' + sheet.getSheetId() + '&range=A' + row;
+}
+
+/** Real dates pass through; "46304.68456" (number or text) becomes a Date;
+ *  anything else (blank, "5/22") returns null. */
+function toDate_(v) {
+  if (v instanceof Date) return v;
+  var n = (typeof v === 'number') ? v : (/^\d{5}(\.\d+)?$/.test(String(v).trim()) ? parseFloat(v) : NaN);
+  if (isNaN(n) || n < 40000 || n > 60000) return null;
+  // Sheets day-count -> wall-clock time -> a Date in the script's time zone.
+  var u = new Date(Math.round((n - 25569) * 86400000));
+  return new Date(u.getUTCFullYear(), u.getUTCMonth(), u.getUTCDate(),
+                  u.getUTCHours(), u.getUTCMinutes(), u.getUTCSeconds());
+}
+
+/** Last row that actually has a business name (the tab has ~1,100 pre-filled
+ *  checkbox rows, so getLastRow() would point at an empty one). */
+function lastSponsorRow_(sheet) {
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var col = headerIndex_(headers).business + 1;
+  var names = sheet.getRange(1, col, sheet.getMaxRows(), 1).getValues();
+  for (var r = names.length - 1; r >= 1; r--) {
+    if (String(names[r][0]).trim()) return r + 1;
+  }
+  return 2;
 }
