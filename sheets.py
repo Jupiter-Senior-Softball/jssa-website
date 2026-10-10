@@ -3728,8 +3728,101 @@ def survey_results():
         return _survey_cache["data"] or _empty_survey(True)
 
 
+SPONSOR_FORM_TAB = "Sponsor Form Responses"
+
+
+def _sponsor_web_url(raw):
+    """A sponsor's website as a safe, clickable link. Adds https:// when the
+    sponsor typed a bare domain, and drops anything that points at a Google
+    Sheet/Doc (a private link must never be shown as 'Visit website')."""
+    u = str(raw or "").strip()
+    if not u:
+        return ""
+    low = u.lower()
+    if "docs.google.com" in low or "drive.google.com" in low:
+        return ""
+    if not re.match(r"^[a-z][a-z0-9+.-]*://", low):
+        u = "https://" + u.lstrip("/")
+    return u
+
+
+def _form_sponsors(rows):
+    """Turn the raw Sponsor Form Responses rows into homepage sponsors.
+
+    A sponsor shows ONLY when its 'Website Enabled' box is checked. Order is
+    the 'Sort Order' column (lowest first); rows with no number keep sheet
+    order, after the numbered ones."""
+    if not rows:
+        return []
+    head = [str(h or "").strip().lower() for h in rows[0]]
+
+    def col(*names, prefix=False):
+        for i, h in enumerate(head):
+            for n in names:
+                if h == n or (prefix and h.startswith(n)):
+                    return i
+        return -1
+
+    c_name = col("business or individual", prefix=True)
+    c_tag = col("businesstag", "business tag", prefix=True)
+    c_url = col("website url")
+    c_logo = col("website logo url")
+    c_logo0 = col("logo url")
+    c_phone = col("phone")
+    c_order = col("sort order")
+    c_on = col("website enabled", "website enable")
+    if c_name < 0 or c_on < 0:
+        return []
+
+    def cell(r, i):
+        return str(r[i]).strip() if 0 <= i < len(r) else ""
+
+    out = []
+    for pos, r in enumerate(rows[1:]):
+        name = " ".join(cell(r, c_name).replace("\n", " ").split()).strip(" ,")
+        if not name or not _is_true(cell(r, c_on)):
+            continue
+        order = cell(r, c_order)
+        out.append({
+            "n": name,
+            "t": " ".join(cell(r, c_tag).split()),
+            "u": _sponsor_web_url(cell(r, c_url)),
+            # the converted 'Website Logo URL' first; the raw form upload only
+            # as a last resort (the page falls back to initials if it won't load)
+            "l": _img_url(cell(r, c_logo) or cell(r, c_logo0)),
+            "p": cell(r, c_phone),
+            "order": int(order) if order.isdigit() else 10 ** 6 + pos,
+        })
+    out.sort(key=lambda x: x["order"])
+    return out
+
+
 def sponsors():
-    """Active sponsors, ordered. Shaped for the homepage script (n,t,u,l,p).
+    """Sponsors for the homepage (n,t,u,l,p), in display order.
+
+    Source of truth: the 'Sponsor Form Responses' tab of the control sheet —
+    a sponsor shows when its 'Website Enabled' box is checked. If that tab
+    can't be read, fall back to the older admin-managed 'Sponsors' tab, and
+    then to the homepage's built-in list (returns [])."""
+    now = time.time()
+    with _lock:
+        if _sponsor_cache["data"] is not None and now - _sponsor_cache["ts"] < _CACHE_TTL:
+            return _sponsor_cache["data"]
+    try:
+        if CONTROL_SHEET_ID and _SA_JSON:
+            rows = _control_sheet(readonly=True).worksheet(SPONSOR_FORM_TAB).get_all_values()
+            out = _form_sponsors(rows)
+            with _lock:
+                _sponsor_cache["data"] = out
+                _sponsor_cache["ts"] = now
+            return out
+    except Exception:
+        pass  # tab missing / Google hiccup -> older list below
+    return _admin_sponsors()
+
+
+def _admin_sponsors():
+    """The older admin-managed 'Sponsors' tab (fallback).
     [] if not set up -> homepage falls back to its built-in list."""
     now = time.time()
     with _lock:

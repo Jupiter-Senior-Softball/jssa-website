@@ -224,3 +224,24 @@ The emails can't be unsent. Everything else is reversible:
   column of the Schedule tab; clear that cell to put a game back.
 - **To send again the same day** (say the reason changed) — delete that day's
   row from the "Cancellation Log" tab and the button unlocks.
+
+---
+
+# New Sponsor Alert — setup (one-time)
+
+**File:** [`sponsor-alert.gs`](./sponsor-alert.gs)
+
+The sponsor form ("JSSA Advertising Patron Registration") writes new
+applications to the **Sponsor Form Responses** tab of the Control Sheet. This
+script emails the league the moment a row arrives, and sends a daily reminder
+until each application is approved.
+
+1. Open the Control Sheet → **Extensions → Apps Script**.
+2. **+** next to *Files* → *Script* → name it `SponsorAlert` → paste the file → Save.
+3. Edit `ALERT_EMAILS` at the top to add everyone who should be notified.
+4. Run **`testAlert`** (approve permissions) — a sample email should arrive.
+5. Run **`fixSponsorTimestamps`** once — turns the raw-number timestamps (e.g. `46304.68456`) into real dates and formats column A.
+6. Run **`installSponsorAlerts`** once. Done.
+
+To undo: run **`removeSponsorAlerts`** (or delete the `SponsorAlert` file).
+Everything happens inside Google — nothing to deploy on Render.
