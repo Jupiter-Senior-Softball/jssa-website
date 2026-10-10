@@ -16,17 +16,17 @@
  *   1. Open the Control Sheet -> Extensions -> Apps Script.
  *   2. Click  +  next to "Files" -> Script -> name it  SponsorAlert.
  *      Paste ALL of this file and Save.
- *   3. Edit ALERT_EMAILS below (add the board members who should be told).
- *   4. Pick  testAlert  in the function dropdown and click Run. Approve the
+ *   3. Pick  testAlert  in the function dropdown and click Run. Approve the
  *      permissions. You should get a sample email within a minute.
- *   5. Pick  installSponsorAlerts  and click Run once. That turns on both the
+ *   4. Pick  installSponsorAlerts  and click Run once. That turns on both the
  *      instant alert and the daily reminder.
  *   To turn it all off: run  removeSponsorAlerts.
  */
 
-// Who gets the alerts. Add more addresses inside the brackets, in quotes,
-// separated by commas.
-var ALERT_EMAILS = ['cosentinoteam@gmail.com'];
+// Who gets the alerts: the shared league inbox (reaches the commissioner and
+// Tom). To add someone later, add another address inside the brackets, in
+// quotes, separated by commas.
+var ALERT_EMAILS = ['jssagames@gmail.com'];
 
 // The tab the sponsor form writes to.
 var SPONSOR_TAB = 'Sponsor Form Responses';
