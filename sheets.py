@@ -3746,6 +3746,24 @@ def _sponsor_web_url(raw):
     return u
 
 
+def _sponsor_key(url):
+    """'http://www.Example.com/path/' -> 'example.com/path' (for matching)."""
+    u = re.sub(r"^[a-z][a-z0-9+.-]*://", "", str(url or "").strip().lower())
+    u = re.sub(r"^www\.", "", u).split("?")[0].split("#")[0].rstrip("/")
+    return u
+
+
+def _builtin_logos():
+    """website -> logo, from the logos the site already had for these sponsors
+    (the built-in list). Used only when the sheet row has no logo of its own."""
+    out = {}
+    for _n, _t, u, logo, _p in _SPONSOR_SEED:
+        k = _sponsor_key(u)
+        if k and logo:
+            out[k] = _img_url(_LEGACY_LOGO_FIX.get(logo, logo))
+    return out
+
+
 def _form_sponsors(rows):
     """Turn the raw Sponsor Form Responses rows into homepage sponsors.
 
@@ -3777,19 +3795,24 @@ def _form_sponsors(rows):
     def cell(r, i):
         return str(r[i]).strip() if 0 <= i < len(r) else ""
 
+    fallback_logos = _builtin_logos()
     out = []
     for pos, r in enumerate(rows[1:]):
         name = " ".join(cell(r, c_name).replace("\n", " ").split()).strip(" ,")
         if not name or not _is_true(cell(r, c_on)):
             continue
         order = cell(r, c_order)
+        url = _sponsor_web_url(cell(r, c_url))
+        logo = _img_url(cell(r, c_logo) or cell(r, c_logo0))
+        if not logo:
+            logo = fallback_logos.get(_sponsor_key(url), "")
         out.append({
             "n": name,
             "t": " ".join(cell(r, c_tag).split()),
-            "u": _sponsor_web_url(cell(r, c_url)),
-            # the converted 'Website Logo URL' first; the raw form upload only
-            # as a last resort (the page falls back to initials if it won't load)
-            "l": _img_url(cell(r, c_logo) or cell(r, c_logo0)),
+            "u": url,
+            # the sheet's 'Website Logo URL' first, then the raw form upload, then
+            # the logo the site already had; the page shows initials if none loads
+            "l": logo,
             "p": cell(r, c_phone),
             "order": int(order) if order.isdigit() else 10 ** 6 + pos,
         })
