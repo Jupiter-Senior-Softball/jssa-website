@@ -1,6 +1,6 @@
 {% extends "page_base.html" %}
 {% block eyebrow %}{{ section_eyebrow }}{% endblock %}
-{% block sub %}<p class="sub">The full league schedule. Finished games show their final score; upcoming games show the date, time and field.</p>{% endblock %}
+{% block sub %}<p class="sub">The full league schedule. Finished games show their final score; upcoming games show the date, time, field and assigned umpires.</p>{% endblock %}
 {% block body %}
 <style>
   .sch{display:flex;flex-direction:column;gap:12px;max-width:760px;margin:0 auto}
@@ -27,6 +27,9 @@
     letter-spacing:.05em;text-transform:uppercase;padding:5px 12px;border-radius:999px;
     background:var(--blue-tint);color:var(--blue)}
   .gstatus.final{background:#e9f7ee;color:#1c8a44}
+  .gump{font-size:1.05rem;margin-top:8px;color:var(--navy)}
+  .gump b{font-family:var(--display)}
+  .gump.tbd{color:var(--muted)}
   @media(max-width:560px){.gright{text-align:left;width:100%}}
 </style>
 {% set picker_label = 'schedule' %}
@@ -42,6 +45,8 @@
     <div class="gmatch">
       <div class="gteam visitor"><span class="tag">Visitor</span><span class="tn">{{ g.away }}</span>{% if final %}<span class="sc">{{ g.score_away }}</span>{% endif %}</div>
       <div class="gteam home"><span class="tag">Home</span><span class="tn">{{ g.home }}</span>{% if final %}<span class="sc">{{ g.score_home }}</span>{% endif %}</div>
+      {% if g.umpires %}<div class="gump"><b>Umpires:</b> {{ g.umpires|join(' & ') }}</div>
+      {% elif season.umpires_enabled and not final and g.status != 'Cancelled' %}<div class="gump tbd"><b>Umpires:</b> to be announced</div>{% endif %}
     </div>
     <div class="gright">
       {% if final %}

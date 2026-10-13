@@ -84,6 +84,32 @@ check("the next add uses the next spare row", sheets.add_schedule_game(form(date
 ok, msg = sheets.add_schedule_game(form(date="11/9/2026"), "Tom")
 check("no spare rows left: refused with a plain explanation", (not ok) and "spare rows" in msg, msg)
 
+# ---- umpires --------------------------------------------------------------
+sheets.umpire_options = lambda: {"RED": ["Al Adams", "Bo Baker", "Cy Cole"], "WHITE": ["Dee Dunn"], "BLUE": []}
+class UWS(FakeWS):
+    col_count = 9
+    def add_cols(self, n): self.col_count += n
+    def update_cell(self, r, c, v):
+        for row in ROWS: row.extend([""] * (c - len(row)))
+        ROWS[r - 1][c - 1] = v; COLS[v.lower()] = c - 1; self.writes.append(("hdr", v))
+WS2 = UWS(); sheets._schedule_tab = lambda: (WS2, 0, COLS, ROWS)
+WASU = {"date": "10/20/2026", "time": "10:30 AM", "home": "Mick's Picks", "away": "Knee'd To Win"}
+ok, msg = sheets.update_schedule_game(2, WASU, form(date="10/20/2026", time="10:30 AM", field="Maplewood Park - East Field", away="Knee'd To Win", umpire1="Al Adams", umpire2="Bo Baker"), "Tom")
+check("assigning two umpires saves (and creates the Umpire columns the first time)", ok and ("hdr", "Umpire 1") in WS2.writes and ("hdr", "Umpire 2") in WS2.writes, (msg, WS2.writes))
+check("umpires landed in the game's row", ROWS[1][COLS["umpire 1"]] == "Al Adams" and ROWS[1][COLS["umpire 2"]] == "Bo Baker", ROWS[1])
+check("umpire changes are logged", [l[2] for l in LOG[-2:]] == ["Umpire 1", "Umpire 2"], LOG)
+WS2.writes.clear()
+WASU2 = dict(WASU)
+bad = lambda **k: sheets.update_schedule_game(2, WASU2, form(date="10/20/2026", time="10:30 AM", field="Maplewood Park - East Field", away="Knee'd To Win", **k), "Tom")
+ok, msg = bad(umpire1="Dee Dunn", umpire2="Bo Baker")
+check("an umpire from another division's list is refused", not ok and "Umpire list" in msg.replace("umpire list", "Umpire list") and "Dee Dunn" in msg, msg)
+ok, msg = bad(umpire1="Al Adams", umpire2="Al Adams")
+check("the same umpire twice is refused", not ok and "same person" in msg, msg)
+ok, msg = bad(umpire1="Al Adams", umpire2="")
+check("clearing umpire 2 is allowed and writes just that cell", ok and WS2.writes == [("%s2" % chr(65 + COLS["umpire 2"]), "")], (msg, WS2.writes))
+ok, msg = sheets.add_schedule_game(form(date="12/1/2026", home="Jackals", away="Mick's Picks", umpire1="Cy Cole"), "Tom")
+check("a game can be added with an umpire", ok or "spare rows" in msg, msg)
+
 # ---- password and pages ---------------------------------------------------
 import app as appmod
 PW = ["sunshine"]
