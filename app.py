@@ -1822,7 +1822,7 @@ def admin_schedule():
         changes = []
     teams = sheets.schedule_team_options()
     return render_template(
-        "admin/schedule.html", page_title="Edit Schedule",
+        "admin/schedule.html", page_title="Edit Schedule & Umpires",
         division=division, games=games, teams=teams[division],
         fields=sheets.game_field_options(), statuses=sheets.SCHEDULE_STATUSES,
         umpires=sheets.umpire_options()[division],
