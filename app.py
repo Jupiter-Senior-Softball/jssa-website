@@ -1851,6 +1851,7 @@ def admin_schedule():
         "admin/schedule.html", page_title="Edit Schedule",
         division=division, games=games, teams=teams[division],
         fields=sheets.game_field_options(), statuses=sheets.SCHEDULE_STATUSES,
+        umpires=sheets.umpire_options()[division],
         changes=changes, saved=request.args.get("saved"),
         problem=request.args.get("problem"),
         changed_by=session.get("schedule_by", ""))

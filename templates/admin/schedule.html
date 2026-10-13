@@ -1,6 +1,6 @@
 {% extends "page_base.html" %}
 {% block eyebrow %}Admin{% endblock %}
-{% block sub %}<p class="sub">Change a game's date, time, field or teams, or add a game. Saving updates the Schedule tab, and the website shows it right away. Games that already have a final score can't be edited here.</p>{% endblock %}
+{% block sub %}<p class="sub">Change a game's date, time, field, teams or umpires, or add a game. Saving updates the Schedule tab, and the website shows it right away. Games that already have a final score can't be edited here.</p>{% endblock %}
 {% block body %}
 <style>
   html{font-size:112.5%}
@@ -37,6 +37,7 @@
   <a href="{{ url_for('admin_logout') }}">Sign out</a>
 </div>
 
+{% if not umpires %}<div class="bad">No umpires are on the {{ division }} Division list yet. In the Google Sheet, open the <strong>Umpires</strong> tab, add each umpire's name, and put an X under {{ division.title() }}. Then reload this page.</div>{% endif %}
 {% if saved %}<div class="good">✓ {{ saved }}</div>{% endif %}
 {% if problem %}<div class="bad">{{ problem }}</div>{% endif %}
 
@@ -77,6 +78,16 @@
         {% if cur not in statuses %}<option selected>{{ cur }}</option>{% endif %}
         {% for st in statuses %}<option{{ ' selected' if st == cur else '' }}>{{ st }}</option>{% endfor %}
       </select></div>
+    {% for n in (1, 2) %}
+    {% set key = 'umpire' ~ n %}
+    {% set cur = (g[key] if g else '') %}
+    <div><label>Umpire {{ n }}</label>
+      <select name="{{ key }}">
+        <option value="">— Not assigned —</option>
+        {% if cur and cur not in umpires %}<option selected>{{ cur }}</option>{% endif %}
+        {% for u in umpires %}<option{{ ' selected' if u == cur else '' }}>{{ u }}</option>{% endfor %}
+      </select></div>
+    {% endfor %}
   </div>
 {% endmacro %}
 
@@ -98,6 +109,7 @@
   <div class="egame {{ division }}{{ ' played' if g.played }}">
     {% if g.played %}
       <div><strong>{{ g.date }} · {{ g.time }} · {{ g.field }}</strong></div>
+      {% if g.umpire1 or g.umpire2 %}<div class="hint">Umpires: {{ [g.umpire1, g.umpire2]|select|join(', ') }}</div>{% endif %}
       <div>{{ g.away }} {{ g.score_away }} &nbsp;at&nbsp; {{ g.home }} {{ g.score_home }} <span class="done">· Final</span></div>
       <div class="hint" style="margin-top:6px">This game has a final score, so it can't be edited here. Scores are changed on the scoring page.</div>
     {% else %}

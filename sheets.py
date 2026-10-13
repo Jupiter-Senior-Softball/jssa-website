@@ -3326,7 +3326,10 @@ def league_season():
                         "home": home, "away": away,
                         "score_home": g("score home"), "score_away": g("score away"),
                         "status": g("status"),
+                        "umpires": [u for u in (g("umpire 1"), g("umpire 2")) if u],
                     })
+                # Only show "Umpires: TBD" once the sheet has the umpire columns.
+                data["umpires_enabled"] = "umpire 1" in cols
 
             # --- Results ---
             _, rows, hi, cols = _match_tab(tabs, ["result"])
@@ -3453,6 +3456,7 @@ def schedule_games_for_scoring():
                 "home": home, "away": away,
                 "score_home": g("score home"), "score_away": g("score away"),
                 "status": g("status"),
+                "umpire1": g("umpire 1"), "umpire2": g("umpire 2"),
             })
         # Order for the admin score form: games that still need a score come
         # first, in date order (soonest/next game at the top). Games that
@@ -5430,6 +5434,10 @@ SCHEDULE_FIELDS_SEED = [
     ["Maplewood Park - West Field", "Maplewood Park"],
 ]
 SCHEDULE_STATUSES = ["Scheduled", "Postponed", "Cancelled"]
+# Volunteer umpires: one row per umpire, an X under each division they may work.
+UMPIRES_TAB = "Umpires"
+UMPIRES_HEADERS = ["Umpire", "Red", "White", "Blue"]
+UMPIRE_COLS = ("umpire 1", "umpire 2")
 SCHEDULE_LOG_TAB = "Schedule Changes"
 SCHEDULE_LOG_HEADERS = ["Date", "Time", "Division", "Game", "What changed",
                         "From", "To", "Changed by"]
@@ -5468,6 +5476,52 @@ def game_field_options():
         _fields_cache["data"] = names
         _fields_cache["ts"] = now
     return list(names)
+
+
+def umpire_options():
+    """{'RED': [name, ...], 'WHITE': [...], 'BLUE': [...]} from the Umpires tab.
+    An umpire can be on more than one division's list. Empty lists if the tab
+    can't be read (the editor then explains how to fill it in)."""
+    out = {"RED": [], "WHITE": [], "BLUE": []}
+    try:
+        if not (CONTROL_SHEET_ID and _SA_JSON):
+            return out
+        rows = _control_tab_rows(UMPIRES_TAB, UMPIRES_HEADERS, [])
+        if not rows:
+            return out
+        head = [_clean(c).lower() for c in rows[0]]
+        for r in rows[1:]:
+            name = _clean(r[0]) if r else ""
+            if not name:
+                continue
+            for div in out:
+                ci = head.index(div.lower()) if div.lower() in head else None
+                mark = _clean(r[ci]).lower() if ci is not None and len(r) > ci else ""
+                if mark and mark not in ("no", "n", "0", "false", "-"):
+                    if name not in out[div]:
+                        out[div].append(name)
+        for div in out:
+            out[div].sort(key=str.lower)
+    except Exception:
+        pass
+    return out
+
+
+def _ensure_umpire_columns(ws, hi, cols, rows):
+    """Add 'Umpire 1' / 'Umpire 2' headers to the right of the Schedule tab's
+    header row if they aren't there yet. Returns the updated column map."""
+    missing = [c for c in UMPIRE_COLS if c not in cols]
+    if not missing:
+        return cols
+    cols = dict(cols)
+    width = max(list(cols.values()) + [len(rows[hi]) - 1]) + 1
+    if width + len(missing) > ws.col_count:
+        ws.add_cols(width + len(missing) - ws.col_count)
+    for name in missing:
+        ws.update_cell(hi + 1, width + 1, name.title())
+        cols[name] = width
+        width += 1
+    return cols
 
 
 def _norm_game_date(text):
@@ -5568,7 +5622,8 @@ def _validated_game(form, existing=None):
     f = lambda k: _clean(form.get(k, ""))
     v = {"division": _norm_div(f("division") or existing.get("division", "")),
          "home": f("home"), "away": f("away"),
-         "field": f("field"), "status": f("status") or "Scheduled"}
+         "field": f("field"), "status": f("status") or "Scheduled",
+         "umpire1": f("umpire1"), "umpire2": f("umpire2")}
     if not v["division"]:
         return v, "Please choose a division."
     v["date"] = _norm_game_date(f("date"))
@@ -5594,6 +5649,14 @@ def _validated_game(form, existing=None):
         return v, "That place isn't on the Game Fields list. Please pick one from the list."
     if v["status"] not in SCHEDULE_STATUSES:
         return v, "Please choose Scheduled, Postponed or Cancelled."
+    if v["umpire1"] and v["umpire1"].lower() == v["umpire2"].lower():
+        return v, "Umpire 1 and Umpire 2 can't be the same person."
+    approved = {u.lower() for u in umpire_options().get(v["division"], [])}
+    for key, label in (("umpire1", "Umpire 1"), ("umpire2", "Umpire 2")):
+        name = v[key]
+        if name and name.lower() not in approved and name != existing.get(key, ""):
+            return v, ("%s isn't on the %s Division umpire list. Please pick from "
+                       "the list, or add them to the Umpires tab." % (name, v["division"].title()))
     return v, ""
 
 
@@ -5617,7 +5680,7 @@ def _schedule_write(ws, cols, row, updates):
 
 _GAME_COLS = (("division", "division"), ("date", "date"), ("time", "time"),
               ("field", "field"), ("home", "home team"), ("away", "away team"),
-              ("status", "status"))
+              ("status", "status"), ("umpire1", "umpire 1"), ("umpire2", "umpire 2"))
 
 
 def _same_game_value(key, old, new):
@@ -5643,7 +5706,8 @@ def update_schedule_game(row, expected, form, changed_by):
         now_has = {"division": _norm_div(g("division")), "date": g("date"),
                    "time": g("time"), "field": g("field"),
                    "home": g("home team"), "away": g("away team"),
-                   "status": g("status")}
+                   "status": g("status"),
+                   "umpire1": g("umpire 1"), "umpire2": g("umpire 2")}
         for k in ("date", "time", "home", "away"):
             if _clean(expected.get(k)) != now_has[k]:
                 return False, ("This game was changed by someone else while you "
@@ -5662,11 +5726,13 @@ def update_schedule_game(row, expected, form, changed_by):
                 changes.append((key, old, new))
         if not updates:
             return True, "No changes — everything was already as you entered it."
+        if any(c in updates for c in UMPIRE_COLS):
+            cols = _ensure_umpire_columns(ws, hi, cols, rows)
         _schedule_write(ws, cols, row, updates)
         label = "%s vs %s" % (now_has["away"], now_has["home"])
         names = {"division": "Division", "date": "Date", "time": "Time",
                  "field": "Field", "home": "Home team", "away": "Visiting team",
-                 "status": "Status"}
+                 "status": "Status", "umpire1": "Umpire 1", "umpire2": "Umpire 2"}
         for key, old, new in changes:
             _log_schedule_change(vals["division"], label + " (" + now_has["date"] + ")",
                                  names[key], old, new, changed_by)
@@ -5693,7 +5759,11 @@ def add_schedule_game(form, changed_by):
         if spare is None:
             return False, ("There are no spare rows left on the Schedule tab. "
                            "Add some blank rows at the bottom of the tab, then try again.")
-        _schedule_write(ws, cols, spare, {col: vals[key] for key, col in _GAME_COLS})
+        wanted = {col: vals[key] for key, col in _GAME_COLS
+                  if col not in UMPIRE_COLS or vals[key]}
+        if any(c in wanted for c in UMPIRE_COLS):
+            cols = _ensure_umpire_columns(ws, hi, cols, rows)
+        _schedule_write(ws, cols, spare, wanted)
         _log_schedule_change(vals["division"], "%s vs %s (%s)" % (
             vals["away"], vals["home"], vals["date"]), "Game added", "",
             "%s %s, %s" % (vals["date"], vals["time"], vals["field"]), changed_by)
