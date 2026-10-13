@@ -5410,8 +5410,7 @@ def archived_season(name):
 
 # ----------------------------------------------------------------------------
 # Schedule editor — change a game's date, time, field, or teams, or add a game
-# in a spare row. Locked behind its own "Schedule Password" (Site Passwords /
-# Site Settings tab, same arrangement as the Divisions Password).
+# in a spare row. Open to any signed-in board member (no separate password).
 #
 #   * Places a game can be played come from the "Game Fields" tab of the control
 #     sheet (created with the four Jupiter Community Park fields and the two
@@ -5444,12 +5443,6 @@ SCHEDULE_LOG_HEADERS = ["Date", "Time", "Division", "Game", "What changed",
 
 _fields_cache = {"data": None, "ts": 0.0}
 _FIELDS_TTL = 60
-
-
-def schedule_password():
-    """The Schedule Password row (Site Settings / Site Passwords tab). Empty if
-    it hasn't been set, which leaves the editor locked."""
-    return _password("schedule password")
 
 
 def game_field_options():

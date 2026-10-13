@@ -965,19 +965,6 @@ def divisions_access_required(view):
     return wrapped
 
 
-def schedule_access_required(view):
-    """Editing the schedule has its own password (the 'Schedule Password' row),
-    on top of the Board Portal sign-in."""
-    @functools.wraps(view)
-    def wrapped(*args, **kwargs):
-        if not session.get("admin"):
-            return redirect(url_for("admin_login", next=request.path))
-        if not session.get("schedule_unlocked"):
-            return redirect(url_for("admin_schedule_unlock", next=request.path))
-        return view(*args, **kwargs)
-    return wrapped
-
-
 def _normalize_password(s):
     """Fold away the differences that trip board members up: capitalization and
     any spaces. So 'JCP softball', 'jcp softball', 'JCPsoftball' and 'jcpsoftball'
@@ -1814,29 +1801,16 @@ def admin_rules_delete(rid):
 
 
 # ----------------------------------------------------------------------------
-# Schedule editor (admin, behind its own Schedule Password)
+# Schedule editor (admin — any signed-in board member)
 # ----------------------------------------------------------------------------
 @app.route("/admin/schedule/unlock", methods=["GET", "POST"])
-@login_required
 def admin_schedule_unlock():
-    error = None
-    schedule_password = sheets.schedule_password()
-    if request.method == "POST":
-        pw = request.form.get("password", "")
-        if schedule_password and hmac.compare_digest(
-                _normalize_password(pw), _normalize_password(schedule_password)):
-            session["schedule_unlocked"] = True
-            nxt = request.args.get("next") or ""
-            # only ever bounce to a page on this site
-            dest = nxt if nxt.startswith("/admin/") else url_for("admin_schedule")
-            return redirect(dest)
-        error = "Incorrect password."
-    return render_template("admin/schedule-unlock.html", error=error,
-                           configured=bool(schedule_password))
+    # The Schedule Password was retired; keep old bookmarks working.
+    return redirect(url_for("admin_schedule"))
 
 
 @app.route("/admin/schedule")
-@schedule_access_required
+@login_required
 def admin_schedule():
     division = (request.args.get("division") or "RED").strip().upper()
     if division not in ("RED", "WHITE", "BLUE"):
@@ -1858,7 +1832,7 @@ def admin_schedule():
 
 
 @app.route("/admin/schedule/save", methods=["POST"])
-@schedule_access_required
+@login_required
 def admin_schedule_save():
     division = (request.form.get("division") or "RED").strip().upper()
     by = (request.form.get("changed_by") or "").strip()
@@ -1873,7 +1847,7 @@ def admin_schedule_save():
 
 
 @app.route("/admin/schedule/add", methods=["POST"])
-@schedule_access_required
+@login_required
 def admin_schedule_add():
     division = (request.form.get("division") or "RED").strip().upper()
     by = (request.form.get("changed_by") or "").strip()
