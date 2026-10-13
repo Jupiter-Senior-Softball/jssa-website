@@ -1,4 +1,4 @@
-"""The schedule editor: its own password, validation, writing only the cells that
+"""The schedule editor: board sign-in only, validation, writing only the cells that
 changed, refusing stale/scored games, spare-row adds, and the change log.
 Fake Schedule tab; never touches Google."""
 import os, sys, re
@@ -112,25 +112,19 @@ check("a game can be added with an umpire", ok or "spare rows" in msg, msg)
 
 # ---- password and pages ---------------------------------------------------
 import app as appmod
-PW = ["sunshine"]
-sheets.schedule_password = lambda: PW[0]
 sheets.schedule_editor_games = lambda: [dict(row=i + 1, division=ROWS[i][0], date=ROWS[i][1], time=ROWS[i][2], field=ROWS[i][3],
     home=ROWS[i][4], away=ROWS[i][5], score_home=ROWS[i][6], score_away=ROWS[i][7], status=ROWS[i][8],
     played=bool(ROWS[i][6] != "" and ROWS[i][7] != "")) for i in range(1, len(ROWS)) if ROWS[i][4]]
 sheets.schedule_change_log = lambda limit=25: [{"date": "2026-10-09", "time": "1:00 PM", "division": "RED", "game": "x", "what": "Field", "from": "Field 1", "to": "Maplewood Park - East Field", "by": "Tom"}]
 c = appmod.app.test_client()
 check("not signed in -> sent to login", c.get("/admin/schedule").status_code == 302 and "/admin/login" in c.get("/admin/schedule").headers["Location"])
+for path in ("/admin/schedule/save", "/admin/schedule/add"):
+    check("POST %s needs sign-in" % path, c.post(path, data={}).status_code == 302 and "/admin/login" in c.post(path, data={}).headers["Location"])
 with c.session_transaction() as s: s["admin"] = True
 r = c.get("/admin/schedule")
-check("portal sign-in alone is not enough: asks for the Schedule Password", r.status_code == 302 and "/admin/schedule/unlock" in r.headers["Location"])
-for path in ("/admin/schedule/save", "/admin/schedule/add"):
-    check("POST %s is locked too" % path, c.post(path, data={}).status_code == 302 and "unlock" in c.post(path, data={}).headers["Location"])
-check("wrong password refused", "Incorrect password" in c.post("/admin/schedule/unlock", data={"password": "nope"}).get_data(as_text=True))
-PW[0] = ""
-check("no Schedule Password set: stays locked and explains how to set one", "Schedule Password" in c.get("/admin/schedule/unlock").get_data(as_text=True) and c.post("/admin/schedule/unlock", data={"password": ""}).status_code == 200)
-PW[0] = "sunshine"
-r = c.post("/admin/schedule/unlock?next=https://evil.example/x", data={"password": " Sunshine "})
-check("right password unlocks; an outside 'next' address is ignored", r.status_code == 302 and r.headers["Location"].endswith("/admin/schedule"), r.headers.get("Location"))
+check("any signed-in board member gets straight in (no schedule password)", r.status_code == 200 and "password" not in r.get_data(as_text=True).lower())
+r = c.get("/admin/schedule/unlock")
+check("old unlock bookmark just goes to the editor", r.status_code == 302 and r.headers["Location"].endswith("/admin/schedule"))
 page = c.get("/admin/schedule?division=RED").get_data(as_text=True)
 check("page lists the games, the four fields and both Maplewood fields", all(t in page for t in ("Field 4", "Maplewood Park - East Field", "Maplewood Park - West Field", "Mick&#39;s Picks")))
 check("a scored game is shown read-only", "Final" in page and "can't be edited here" in page)
