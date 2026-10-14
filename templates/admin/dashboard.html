@@ -125,12 +125,6 @@
     <a class="mtile" href="{{ url_for('admin_rules') }}"><span class="ic">&#128220;</span> Division Playing Rules</a>
   </div>
 
-  <div class="manage-sub">Seasons</div>
-  <div class="manage-grid">
-    <a class="mtile" href="{{ url_for('admin_schedule') }}"><span class="ic">&#128197;</span> Edit Schedule &amp; Umpires</a>
-    <a class="mtile" href="{{ url_for('admin_archive') }}"><span class="ic">&#128451;&#65039;</span> Save / Manage Past Seasons</a>
-  </div>
-
   <div class="manage-sub">Communications</div>
   <div class="manage-grid">
     <a class="mtile" href="{{ url_for('admin_cancel') }}"
@@ -139,11 +133,33 @@
     <a class="mtile" href="{{ url_for('admin_email_usage') }}"><span class="ic">&#128202;</span> Email Send Counter</a>
   </div>
 
+  {# The two season buttons live in the "Fall and Winter League Management"
+     section. That section is built from the board's "Board Portal Links" sheet
+     tab, so they are drawn first inside it when it exists. If the sheet has no
+     such section (or the sheet can't be read), the section is drawn here with
+     just these two buttons so they never disappear. #}
+  {% macro season_tiles() %}
+    <a class="mtile" href="{{ url_for('admin_schedule') }}"><span class="ic">&#128197;</span> Edit Schedule &amp; Umpires</a>
+    <a class="mtile" href="{{ url_for('admin_archive') }}"><span class="ic">&#128451;&#65039;</span> Save / Manage Past Seasons</a>
+  {% endmacro %}
+  {% set season_heading = "fall and winter league management" %}
+  {% set found = namespace(season=false) %}
+  {% for group in portal_links %}
+    {% if (group.section|trim|lower) == season_heading %}{% set found.season = true %}{% endif %}
+  {% endfor %}
+  {% if not found.season %}
+  <div class="manage-sub">Fall and Winter League Management</div>
+  <div class="manage-grid">
+    {{ season_tiles() }}
+  </div>
+  {% endif %}
+
   {# Self-service section: buttons the board adds from the "Board Portal Links"
      tab of the control sheet. New rows appear here automatically. #}
   {% for group in portal_links %}
     <div class="manage-sub">{{ group.section }}</div>
     <div class="manage-grid">
+      {% if (group.section|trim|lower) == season_heading %}{{ season_tiles() }}{% endif %}
       {% for link in group.links %}
       <a class="mtile" href="{{ link.url }}" target="_blank" rel="noopener"><span class="ic">&#128279;</span> {{ link.name }}</a>
       {% endfor %}
