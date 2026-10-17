@@ -121,9 +121,9 @@ def _members_page_visible():
 @app.route("/")
 def home():
     try:
-        notice = sheets.active_notice()
+        notices = sheets.active_notices()
     except Exception:
-        notice = None
+        notices = []
     # The red "Game Day Rosters Are Posted" button. A manual switch on the
     # Website Controls tab can force it ON or OFF; otherwise (AUTO) it follows
     # the published-rosters + noon-timer logic in game_day_teams().
@@ -141,7 +141,7 @@ def home():
     # contradict each other, so the cancellation wins and the button comes down
     # by itself. It returns as soon as the notice is switched off.
     try:
-        if sheets.notice_is_cancellation(notice):
+        if any(sheets.notice_is_cancellation(n) for n in notices):
             teams_posted = False
     except Exception:
         pass
@@ -163,7 +163,7 @@ def home():
         views = sheets.home_view_count()
     except Exception:
         views = None
-    return render_template("index.html", notice=notice,
+    return render_template("index.html", notices=notices,
                            teams_posted=teams_posted, blackboard=blackboard,
                            board=board, sponsors=sponsor_list,
                            views=views)

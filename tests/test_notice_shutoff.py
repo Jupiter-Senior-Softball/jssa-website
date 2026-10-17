@@ -47,13 +47,13 @@ RECS = [
 ]
 sheets.list_notices = lambda: list(reversed(RECS))
 def shown():
-    sheets._cache.update(notice=None, ts=0.0)
+    sheets._cache.update(notices=[], ts=0.0)
     n = sheets.active_notice()
     return n["message"] if n else None
 check("morning: the cancellation shows", shown() == "CANCELLED — no games today")
 NOW[0] = dt.datetime(2026, 10, 23, 17, 5, tzinfo=UTC)
 sheets._cache["ts"] = 10**12   # cache still 'fresh': must still drop at the shutoff
-sheets._cache["notice"] = {"message": "CANCELLED — no games today", "expires_at": "2026-10-23T17:00:00Z"}
+sheets._cache["notices"] = [{"message": "CANCELLED — no games today", "expires_at": "2026-10-23T17:00:00Z"}]
 check("a cached cancellation disappears at the shutoff without waiting for a refresh", sheets.active_notice() is None)
 check("after 1 PM the normal announcement returns", shown() == "Picnic Saturday")
 RECS[1]["active"] = "FALSE"
