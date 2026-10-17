@@ -36,5 +36,5 @@ sheets.active_notices = lambda: [{"type": "announcement", "message": "A", "url":
 sheets.game_day_teams = lambda: None
 html = appmod.app.test_client().get("/").get_data(as_text=True)
 check("homepage carries every notice to the banner", '"message": "A"' in html and '"message": "B"' in html)
-check("banner has slide controls", "bprev" in html and "bpause" in html)
+check("banner has no extra buttons", "bprev" not in html and "bpause" not in html and "bdot" not in html)
 print("\n%d failure(s)" % len(fails)); sys.exit(1 if fails else 0)

@@ -72,27 +72,15 @@
      cell so the bar is always as tall as the tallest message (no jumping). */
   .topbanner .bstage{flex:1 1 auto;display:grid;min-width:0}
   .topbanner .bslide{grid-area:1/1;display:flex;align-items:center;gap:16px;
-    opacity:0;visibility:hidden;transition:opacity .5s ease,visibility .5s}
-  .topbanner .bslide.on{opacity:1;visibility:visible}
-  .topbanner .bnav{flex:0 0 auto;display:flex;align-items:center;gap:6px}
-  .topbanner .bnav button{background:rgba(255,255,255,.18);border:0;color:inherit;cursor:pointer;
-    min-width:44px;min-height:44px;border-radius:999px;font-size:1.5rem;line-height:1;font-family:var(--display)}
-  .topbanner .bnav button:hover{background:rgba(255,255,255,.3)}
-  .topbanner .bnav .bpause{font-size:1rem}
-  .topbanner .bdots{display:flex;gap:2px}
-  .topbanner .bnav .bdot{min-width:26px;min-height:44px;background:transparent;position:relative}
-  .topbanner .bnav .bdot::after{content:"";position:absolute;left:50%;top:50%;width:12px;height:12px;
-    margin:-6px 0 0 -6px;border-radius:50%;background:currentColor;opacity:.4}
-  .topbanner .bnav .bdot.on::after{opacity:1}
-  .topbanner.is-weather .bnav button:not(.bdot),.topbanner.is-note.is-rosters-up .bnav button:not(.bdot){background:rgba(22,35,63,.12)}
-  .topbanner.is-weather .bnav button:not(.bdot):hover{background:rgba(22,35,63,.22)}
-  .topbanner .bnav .bdot,.topbanner .bnav .bdot:hover{background:transparent}
+    opacity:0;visibility:hidden;transform:translateX(70px);
+    transition:opacity 1.1s ease,transform 1.1s ease,visibility 1.1s}
+  .topbanner .bslide.on{opacity:1;visibility:visible;transform:none}
+  .topbanner .bslide.gone{transform:translateX(-70px)}
   @media(max-width:760px){
-    .topbanner .bwrap{flex-wrap:wrap;padding-right:56px}
+    .topbanner .bwrap{padding-right:56px}
     .topbanner .bstage{flex-basis:100%}
-    .topbanner .bnav{margin:0 auto}
   }
-  @media (prefers-reduced-motion: reduce){.topbanner .bslide{transition:none}}
+  @media (prefers-reduced-motion: reduce){.topbanner .bslide,.topbanner .bslide.gone{transform:none;transition:opacity 1.1s ease,visibility 1.1s}}
 
   header{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
   .nav{display:flex;align-items:center;justify-content:center;height:96px}
@@ -452,30 +440,20 @@
   var slides = list.map(function(n, i){
     return '<div class="bslide'+(i===0?' on':'')+(n.type==='weather'?' wx':'')+'"'+(i===0?'':' aria-hidden="true"')+'>'+slideHtml(n)+'</div>';
   }).join('');
-  var nav = '';
-  if (list.length > 1){
-    nav = '<div class="bnav">'+
-      '<button class="bprev" aria-label="Previous announcement">&#8249;</button>'+
-      '<span class="bdots">'+list.map(function(_, i){
-        return '<button class="bdot'+(i===0?' on':'')+'" aria-label="Show announcement '+(i+1)+' of '+list.length+'"></button>';
-      }).join('')+'</span>'+
-      '<button class="bnext" aria-label="Next announcement">&#8250;</button>'+
-      '<button class="bpause" aria-label="Pause announcements">&#10074;&#10074;</button></div>';
-  }
-  el.innerHTML = stripe + '<div class="bwrap"><div class="bstage" aria-live="off">'+slides+'</div>'+nav+closeBtn+'</div>';
+  el.innerHTML = stripe + '<div class="bwrap"><div class="bstage" aria-live="off">'+slides+'</div>'+closeBtn+'</div>';
   el.querySelector('.close').onclick = function(){ el.remove(); };
   if (list.length < 2) return;
 
-  var els = el.querySelectorAll('.bslide'), dots = el.querySelectorAll('.bdot');
-  var cur = 0, timer = null, paused = false, holding = false;
-  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var els = el.querySelectorAll('.bslide');
+  var cur = 0, timer = null;
   function show(i){
+    var prev = cur;
     cur = (i + els.length) % els.length;
     for (var k = 0; k < els.length; k++){
       var on = k === cur;
       els[k].classList.toggle('on', on);
+      els[k].classList.toggle('gone', k === prev && !on);
       els[k].setAttribute('aria-hidden', on ? 'false' : 'true');
-      dots[k].classList.toggle('on', on);
     }
     // A game-day (weather) notice must be seen: use the yellow look while it shows.
     var wx = els[cur].classList.contains('wx');
@@ -484,29 +462,13 @@
     el.classList.toggle('is-rosters-up', !wx && !!teams);
   }
   function stop(){ if (timer){ clearInterval(timer); timer = null; } }
-  function start(){
-    stop();
-    if (!paused && !holding && !reduce) timer = setInterval(function(){ show(cur + 1); }, 8000);
-  }
-  var pauseBtn = el.querySelector('.bpause');
-  function setPaused(p){
-    paused = p;
-    pauseBtn.innerHTML = p ? '&#9654;' : '&#10074;&#10074;';
-    pauseBtn.setAttribute('aria-label', p ? 'Resume announcements' : 'Pause announcements');
-    start();
-  }
-  el.querySelector('.bprev').onclick = function(){ show(cur - 1); setPaused(true); };
-  el.querySelector('.bnext').onclick = function(){ show(cur + 1); setPaused(true); };
-  pauseBtn.onclick = function(){ setPaused(!paused); };
-  for (var d = 0; d < dots.length; d++){
-    (function(i){ dots[i].onclick = function(){ show(i); setPaused(true); }; })(d);
-  }
+  function start(){ stop(); timer = setInterval(function(){ show(cur + 1); }, 9000); }
   // Hold still while someone is reading, pointing at, or tabbing into the banner.
-  el.addEventListener('mouseenter', function(){ holding = true; stop(); });
-  el.addEventListener('mouseleave', function(){ holding = false; start(); });
-  el.addEventListener('focusin',    function(){ holding = true; stop(); });
-  el.addEventListener('focusout',   function(){ holding = false; start(); });
-  if (reduce) setPaused(true); else start();
+  el.addEventListener('mouseenter', stop);
+  el.addEventListener('mouseleave', start);
+  el.addEventListener('focusin', stop);
+  el.addEventListener('focusout', start);
+  start();
 })();
 </script>
 
