@@ -34,7 +34,7 @@ HEADERS = ["id", "type", "message", "active", "created_by", "created_at", "url",
            "expires_at"]
 
 _CACHE_TTL = 300  # seconds (5 min — reduces API quota pressure)
-_cache = {"notice": None, "ts": 0.0}
+_cache = {"notices": [], "ts": 0.0}
 _lock = threading.Lock()
 
 
@@ -172,48 +172,58 @@ def notice_shutoff_info(rec):
             "expired": notice_expired(rec)}
 
 
-def active_notice():
+MAX_SLIDES = 6   # most notices the sliding banner will rotate through
+
+
+def active_notices():
     """
-    The single notice to show in the site banner, or None.
-    Weather/cancellation notices take priority over announcements.
-    A notice past its shutoff time is skipped.
+    Every notice that should show in the site banner, in display order:
+    weather/cancellation notices first, then announcements (newest first).
+    Notices past their shutoff time are skipped. The banner slides through them
+    when there is more than one.
     Cached for _CACHE_TTL seconds; last good value is kept on error.
     """
     now = time.time()
     with _lock:
         if now - _cache["ts"] < _CACHE_TTL:
-            return _notice_if_current(_cache["notice"])
+            return _notices_if_current(_cache["notices"])
 
-    notice = None
     try:
+        notices = []
         if is_configured():
             actives = [r for r in list_notices()
-                       if _is_true(r.get("active")) and not notice_expired(r)]
+                       if _is_true(r.get("active")) and not notice_expired(r)
+                       and str(r.get("message") or "").strip()]
             weather = [r for r in actives if str(r.get("type")) == "weather"]
-            chosen = (weather or actives)[0] if actives else None
-            if chosen:
-                notice = {
-                    "type": str(chosen.get("type") or "announcement"),
-                    "message": str(chosen.get("message") or ""),
-                    "url": str(chosen.get("url") or "").strip(),
-                    "link_text": str(chosen.get("link_text") or "").strip(),
-                    "expires_at": str(chosen.get("expires_at") or "").strip(),
-                }
+            others = [r for r in actives if str(r.get("type")) != "weather"]
+            for r in (weather + others)[:MAX_SLIDES]:
+                notices.append({
+                    "type": str(r.get("type") or "announcement"),
+                    "message": str(r.get("message") or ""),
+                    "url": str(r.get("url") or "").strip(),
+                    "link_text": str(r.get("link_text") or "").strip(),
+                    "expires_at": str(r.get("expires_at") or "").strip(),
+                })
         with _lock:
-            _cache["notice"] = notice
+            _cache["notices"] = notices
             _cache["ts"] = now
-        return notice
+        return _notices_if_current(notices)
     except Exception:
         # On any API hiccup, keep showing the last known value rather than break.
-        return _notice_if_current(_cache["notice"])
+        return _notices_if_current(_cache["notices"])
 
 
-def _notice_if_current(notice):
-    """A cached notice may outlive its shutoff time (the cache lasts minutes):
-    drop it the moment its time passes rather than when the cache refreshes."""
-    if notice and notice_expired(notice):
-        return None
-    return notice
+def active_notice():
+    """The single most important notice (or None). Kept for callers that only
+    need to know what is showing first, e.g. cancellation checks."""
+    notices = active_notices()
+    return notices[0] if notices else None
+
+
+def _notices_if_current(notices):
+    """Cached notices may outlive their shutoff time (the cache lasts minutes):
+    drop each one the moment its time passes rather than when the cache refreshes."""
+    return [n for n in (notices or []) if not notice_expired(n)]
 
 
 def _invalidate():
