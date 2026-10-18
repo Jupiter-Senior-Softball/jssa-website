@@ -63,6 +63,9 @@ dp = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "templa
 assert "divpicked" in dp and "window.jssaPickDivision" in dp
 
 # ---- other league pages (standings, teams) are untouched: no team picker
-season["standings"] = {"RED": [{"team": "X", "w": 1, "l": 0}], "WHITE": [], "BLUE": []}
-assert 'id="teampick"' not in c.get("/league/standings").get_data(as_text=True)
+season["standings"] = {"RED": [{"team": "X", "wins": "1", "losses": "0", "pct": ".1000", "gb": "-",
+                                "rf": "5", "ra": "2", "diff": "3"}], "WHITE": [], "BLUE": []}
+resp = c.get("/league/standings")
+assert resp.status_code == 200, resp.status_code      # a real page, not an error page
+assert "X" in resp.get_data(as_text=True) and 'id="teampick"' not in resp.get_data(as_text=True)
 print("ok")
