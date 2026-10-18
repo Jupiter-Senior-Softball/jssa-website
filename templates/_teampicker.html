@@ -16,10 +16,20 @@
   .teampick{display:none;text-align:center;margin:-6px 0 26px}
   .teampick .tp-label{font-family:var(--display);font-weight:700;font-size:1.15rem;
     color:var(--navy);margin-bottom:12px}
-  .teampick .tp-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
-  .teampick .tp-btn{font-family:var(--display);font-weight:700;font-size:1.15rem;
-    min-height:56px;padding:12px 22px;border-radius:12px;cursor:pointer;
+  /* One row for up to about six teams: the buttons share the width and shrink to fit, and a
+     long name wraps INSIDE its button. "All teams" keeps its natural width. Each team button
+     is never narrower than 84px, so a division with MORE teams than fit wraps onto a second
+     row instead of cutting names off. Buttons are capped at 220px so a division with only
+     two teams does not get giant buttons. On a narrow phone they wrap as well. */
+  .teampick .tp-row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:stretch}
+  .teampick .tp-btn{flex:1 1 0;min-width:84px;max-width:220px;
+    font-family:var(--display);font-weight:700;font-size:clamp(.9rem,1.5vw,1.05rem);line-height:1.2;
+    min-height:52px;padding:8px;border-radius:12px;cursor:pointer;overflow-wrap:anywhere;
     border:3px solid var(--navy);background:#fff;color:var(--navy)}
+  .teampick .tp-btn[data-team=""]{flex:0 0 auto;padding:8px 14px}
+  @media(max-width:700px){
+    .teampick .tp-btn{flex:0 1 auto;max-width:none;min-width:0;font-size:1.05rem;padding:10px 16px}
+  }
   .teampick .tp-btn:hover{background:var(--blue-tint,#eef2fc)}
   .teampick .tp-btn[aria-pressed="true"]{background:var(--navy);color:#fff}
   .teampick .tp-btn:focus-visible,.teampick .tp-link:focus-visible{outline:3px solid var(--blue);outline-offset:3px}
