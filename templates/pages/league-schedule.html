@@ -34,10 +34,11 @@
 </style>
 {% set picker_label = 'schedule' %}
 {% include "_divpicker.html" %}
+{% include "_teampicker.html" %}
 <div class="sch">
   {% for g in season.schedule %}
   {% set final = g.score_home != '' and g.score_away != '' %}
-  <div class="gcard {{ g.division }}" data-div="{{ g.division }}">
+  <div class="gcard {{ g.division }}" data-div="{{ g.division }}" data-teams="{{ g.away }}||{{ g.home }}" data-also="{{ (g.umpires or [])|join('||') }}">
     <div class="gwhen">
       <div class="d">{% if g.dow %}<span style="display:block;color:var(--red)">{{ g.dow }}</span>{% endif %}{{ g.date }}</div>
       <div class="t">{{ g.time }}{% if g.field %} · {{ g.field }}{% endif %}</div>

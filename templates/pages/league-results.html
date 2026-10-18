@@ -21,10 +21,11 @@
 </style>
 {% set picker_label = 'results' %}
 {% include "_divpicker.html" %}
+{% include "_teampicker.html" %}
 <div class="res">
   {% for g in season.results %}
   {% set hs = g.home_score|int(-1) %}{% set as = g.away_score|int(-1) %}
-  <div class="rcard {{ g.division }}" data-div="{{ g.division }}">
+  <div class="rcard {{ g.division }}" data-div="{{ g.division }}" data-teams="{{ g.away }}||{{ g.home }}">
     <div class="rtop">
       <span class="rwhen">{% if g.dow %}{{ g.dow }}, {% endif %}{{ g.date }}{% if g.time %} · {{ g.time }}{% endif %}</span>
       <span class="rfield">{{ g.field }}</span>
