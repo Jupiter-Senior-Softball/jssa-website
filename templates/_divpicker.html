@@ -37,7 +37,11 @@
       });
       btns.forEach(function(b){b.classList.toggle('on',b.getAttribute('data-pick')===pick);});
       if(prompt)prompt.style.display=anyShown?'none':'block';
+      // Tell the team picker (_teampicker.html) which division is open.
+      document.dispatchEvent(new CustomEvent('divpicked',{detail:{div:pick}}));
     }
+    // The team picker uses this to open a division for a remembered/linked team.
+    window.jssaPickDivision=apply;
     btns.forEach(function(b){b.addEventListener('click',function(){apply(b.getAttribute('data-pick'));});});
     // Start with every division hidden until the visitor opens one.
     items.forEach(function(el){el.style.display='none';});

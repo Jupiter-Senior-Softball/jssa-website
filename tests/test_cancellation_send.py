@@ -36,7 +36,7 @@ def fake_post(url, subject, body, recipients, test_to=""):
 sheets._post_to_sender = fake_post
 
 banners = []
-sheets.add_notice = lambda t, m, by, url="", lt="": banners.append((t, m, by))
+sheets.add_notice = lambda t, m, by, url="", lt="", **kw: banners.append((t, m, by))
 sheets._mark_league_games_cancelled = lambda d: 1
 logged = []
 sheets._log_cancellation = lambda *a: logged.append(a)

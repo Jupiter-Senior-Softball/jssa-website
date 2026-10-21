@@ -133,11 +133,33 @@
     <a class="mtile" href="{{ url_for('admin_email_usage') }}"><span class="ic">&#128202;</span> Email Send Counter</a>
   </div>
 
+  {# The two season buttons live in the "Fall and Winter League Management"
+     section. That section is built from the board's "Board Portal Links" sheet
+     tab, so they are drawn first inside it when it exists. If the sheet has no
+     such section (or the sheet can't be read), the section is drawn here with
+     just these two buttons so they never disappear. #}
+  {% macro season_tiles() %}
+    <a class="mtile" href="{{ url_for('admin_schedule') }}"><span class="ic">&#128197;</span> Edit Schedule &amp; Umpires</a>
+    <a class="mtile" href="{{ url_for('admin_archive') }}"><span class="ic">&#128451;&#65039;</span> Save / Manage Past Seasons</a>
+  {% endmacro %}
+  {% set season_heading = "fall and winter league management" %}
+  {% set found = namespace(season=false) %}
+  {% for group in portal_links %}
+    {% if (group.section|trim|lower) == season_heading %}{% set found.season = true %}{% endif %}
+  {% endfor %}
+  {% if not found.season %}
+  <div class="manage-sub">Fall and Winter League Management</div>
+  <div class="manage-grid">
+    {{ season_tiles() }}
+  </div>
+  {% endif %}
+
   {# Self-service section: buttons the board adds from the "Board Portal Links"
      tab of the control sheet. New rows appear here automatically. #}
   {% for group in portal_links %}
     <div class="manage-sub">{{ group.section }}</div>
     <div class="manage-grid">
+      {% if (group.section|trim|lower) == season_heading %}{{ season_tiles() }}{% endif %}
       {% for link in group.links %}
       <a class="mtile" href="{{ link.url }}" target="_blank" rel="noopener"><span class="ic">&#128279;</span> {{ link.name }}</a>
       {% endfor %}
@@ -165,6 +187,15 @@
           <td><span class="badge {{ n.type }}">{{ n.type }}</span></td>
           <td>
             <span id="text-{{ n.id }}">{{ n.message }}</span>
+            {% if n.type == 'weather' %}
+            <form method="post" action="{{ url_for('admin_shutoff', nid=n.id) }}" style="margin-top:10px">
+              <label for="so-{{ n.id }}" style="font-weight:600">Banner comes down at</label>
+              <input type="time" id="so-{{ n.id }}" name="shutoff" value="{{ n.shutoff.value if n.shutoff else '' }}"
+                     style="font-size:1.05rem;padding:8px 10px;border:1px solid var(--line);border-radius:8px">
+              <button class="mini on" type="submit">Change time</button>
+              <div class="hint" style="margin-top:4px">{% if n.shutoff %}{% if n.shutoff.expired %}It came down automatically at {{ n.shutoff.label }}.{% else %}It comes down by itself at {{ n.shutoff.label }}.{% endif %}{% else %}No automatic shutoff — turn it off by hand. Pick a time to add one.{% endif %}</div>
+            </form>
+            {% endif %}
             <form id="edit-{{ n.id }}" class="edit-form" style="display:none;margin-top:6px"
                   method="post" action="{{ url_for('admin_edit', nid=n.id) }}">
               <textarea name="message" rows="3" required>{{ n.message }}</textarea>
@@ -177,7 +208,8 @@
           <td>{{ n.created_by }}</td>
           <td>
             {% set is_on = (n.active|string|upper) in ['TRUE','1','YES'] %}
-            {% if is_on %}<span class="status-on">● Live</span>{% else %}<span class="status-off">○ Off</span>{% endif %}
+            {% if is_on and n.shutoff and n.shutoff.expired %}<span class="status-off">○ Came down automatically</span>
+            {% elif is_on %}<span class="status-on">● Live</span>{% else %}<span class="status-off">○ Off</span>{% endif %}
           </td>
           <td style="white-space:nowrap">
             <button class="mini" type="button" onclick="startEdit('{{ n.id }}')">Edit</button>

@@ -1,0 +1,86 @@
+{% extends "page_base.html" %}
+{% block eyebrow %}Admin{% endblock %}
+{% block sub %}<p class="sub">Save a finished season so its schedule, scores, standings and rosters stay on the website for good — even after you load the next season.</p>{% endblock %}
+{% block body %}
+<style>
+  html{font-size:112.5%}
+  .adminbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px}
+  .adminbar a{font-weight:600}
+  .good{background:#e8f6ee;border:1px solid #bfe3cd;color:#1a7f4b;border-radius:12px;padding:14px 20px;margin-bottom:20px;font-weight:600}
+  .bad{background:var(--red-tint);border:1px solid #f0c9cb;color:#b3151b;border-radius:12px;padding:14px 20px;margin-bottom:20px;font-weight:600}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px 24px;margin-bottom:28px}
+  .card h2{margin:0 0 10px}
+  .card label{display:block;font-family:var(--display);font-weight:600;color:var(--navy);margin:0 0 7px}
+  .card input[type=text]{width:100%;max-width:420px;font-size:1.15rem;padding:14px 16px;border:1px solid var(--line);border-radius:10px}
+  .hint{color:var(--muted);font-size:.95rem;margin:8px 0 18px}
+  .live{background:var(--blue-tint);border:1px solid #cfe0ff;border-radius:10px;padding:12px 16px;margin:0 0 18px;color:var(--navy)}
+  .bigbtn{font-family:var(--display);font-weight:800;font-size:1.15rem;color:#fff;background:var(--blue);
+    border:0;border-radius:12px;padding:16px 28px;min-height:56px;cursor:pointer}
+  table.seasons{width:100%;border-collapse:collapse}
+  table.seasons th{text-align:left;font-family:var(--display);font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:8px 10px;border-bottom:2px solid var(--line)}
+  table.seasons td{padding:14px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+  .sname{font-family:var(--display);font-weight:800;color:var(--navy);font-size:1.15rem}
+  .mini{font-family:var(--display);font-weight:600;font-size:.9rem;padding:9px 15px;border-radius:8px;border:1px solid var(--line);background:#fff;cursor:pointer;text-decoration:none;color:var(--navy)}
+  .mini.del{color:#b3151b;border-color:#f0c9cb}
+  .inline{display:inline;margin-left:6px}
+</style>
+
+<div class="adminbar">
+  <a href="{{ url_for('admin_dashboard') }}">← Back to dashboard</a>
+  <a href="{{ url_for('admin_logout') }}">Sign out</a>
+</div>
+
+{% if saved %}<div class="good">✓ {{ saved }}</div>{% endif %}
+{% if problem %}<div class="bad">{{ problem }}</div>{% endif %}
+{% if error %}<div class="bad">Couldn't read the saved seasons: {{ error }}</div>{% endif %}
+
+{% if not configured %}
+<div class="bad">The Google Sheet isn't connected on this server, so seasons can't be saved from here.</div>
+{% else %}
+<div class="card">
+  <h2>Save this season</h2>
+  {% if live %}
+  <div class="live">Right now the live sheet has <strong>{{ live.games }} game{{ '' if live.games == 1 else 's' }}</strong>
+    ({{ live.scored }} with a final score) and <strong>{{ live.teams }} team{{ '' if live.teams == 1 else 's' }}</strong> with rosters.</div>
+  {% endif %}
+  <form method="post" action="{{ url_for('admin_archive_save') }}">
+    <label for="season">Season name</label>
+    <input type="text" id="season" name="season" maxlength="40" required
+           value="{{ suggestion }}" placeholder="e.g. Fall 2026">
+    <p class="hint">Saving copies the current schedule, scores and rosters. It does <strong>not</strong> change or clear the live pages.
+      Saving the same name again just refreshes that season with the latest scores — it never makes a duplicate.</p>
+    <button class="bigbtn" type="submit">Save this season</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Saved seasons</h2>
+  {% if seasons %}
+  <table class="seasons">
+    <thead><tr><th>Season</th><th>Games</th><th>Teams</th><th></th></tr></thead>
+    <tbody>
+    {% for s in seasons %}
+      <tr>
+        <td class="sname">{{ s.name }}</td>
+        <td>{{ s.games }} ({{ s.scored }} scored)</td>
+        <td>{{ s.teams }}</td>
+        <td>
+          <a class="mini" href="{{ url_for('past_seasons', season=s.name) }}">View</a>
+          <form class="inline" method="post" action="{{ url_for('admin_archive_delete') }}"
+                onsubmit="return confirm('Remove {{ s.name|e }} from the archive? Only do this if it was saved by mistake. The live pages are not affected.');">
+            <input type="hidden" name="season" value="{{ s.name }}">
+            <button class="mini del" type="submit">Remove</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="hint">No seasons saved yet. When a season is finished, type its name above and click <strong>Save this season</strong>.</p>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}
+{% block footer_btns %}<a class="btn btn-navy" href="{{ url_for('admin_dashboard') }}">← Back to dashboard</a>{% endblock %}
+{% block extra_btns %}{% endblock %}

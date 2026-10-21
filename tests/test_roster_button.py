@@ -17,7 +17,7 @@ webapp.app.config["TESTING"] = True
 c = webapp.app.test_client()
 
 def page(notice):
-    sheets.active_notice = lambda: notice
+    sheets.active_notices = lambda: [notice] if notice else []
     return c.get("/").get_data(as_text=True)
 
 cases = [

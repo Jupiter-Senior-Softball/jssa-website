@@ -77,10 +77,15 @@ def _season_context():
         name = sheets.season_name()
     except Exception:
         mode, name = "PICKUP", "League Season"
+    try:
+        first_pitch = sheets.season_first_pitch()
+    except Exception:
+        first_pitch = ""
     peek = (request.args.get("season") or "").strip().upper()
     if peek in ("LEAGUE", "PICKUP"):
         mode = peek
     return {"season_mode": mode, "season_name": name,
+            "season_first_pitch": first_pitch,
             "members_page_on": _members_page_visible(),
             "photo_gallery_on": _photo_gallery_visible()}
 
@@ -116,9 +121,9 @@ def _members_page_visible():
 @app.route("/")
 def home():
     try:
-        notice = sheets.active_notice()
+        notices = sheets.active_notices()
     except Exception:
-        notice = None
+        notices = []
     # The red "Game Day Rosters Are Posted" button. A manual switch on the
     # Website Controls tab can force it ON or OFF; otherwise (AUTO) it follows
     # the published-rosters + noon-timer logic in game_day_teams().
@@ -136,7 +141,7 @@ def home():
     # contradict each other, so the cancellation wins and the button comes down
     # by itself. It returns as soon as the notice is switched off.
     try:
-        if sheets.notice_is_cancellation(notice):
+        if any(sheets.notice_is_cancellation(n) for n in notices):
             teams_posted = False
     except Exception:
         pass
@@ -158,7 +163,7 @@ def home():
         views = sheets.home_view_count()
     except Exception:
         views = None
-    return render_template("index.html", notice=notice,
+    return render_template("index.html", notices=notices,
                            teams_posted=teams_posted, blackboard=blackboard,
                            board=board, sponsors=sponsor_list,
                            views=views)
@@ -334,6 +339,22 @@ def league_debug():
         }
     except Exception as e:
         out["profiles_error"] = "%s: %s" % (type(e).__name__, e)
+    # Site Settings tab + the season/countdown values parsed from it. Any row
+    # whose label contains "password" is redacted — this page has no login,
+    # so it must never echo a secret back.
+    try:
+        sheets._site_settings_cache["ts"] = 0.0   # force a fresh read
+        raw = sheets._site_settings()
+        out["site_settings"] = {
+            k: ("(redacted)" if "password" in k else v) for k, v in raw.items()
+        }
+        out["season_mode"] = sheets.season_mode()
+        out["season_name"] = sheets.season_name()
+        out["season_first_pitch_matched"] = sheets._setting(
+            "Season First Pitch", "First Pitch")
+        out["season_first_pitch_parsed"] = sheets.season_first_pitch()
+    except Exception as e:
+        out["site_settings_error"] = "%s: %s" % (type(e).__name__, e)
     # Can the service account actually READ each submitted photo? 200 = yes
     # (and shows the type); 403/404 = the upload folder isn't shared with it.
     try:
@@ -610,6 +631,28 @@ LEAGUE_SECTIONS = {
 }
 
 
+@app.route("/league/past-seasons")
+def past_seasons():
+    """Public archive of finished seasons. ?season=Fall%202026 picks one;
+    with no choice the newest saved season is shown."""
+    try:
+        seasons = sheets.archived_seasons()
+    except Exception:
+        seasons = []
+    chosen = None
+    wanted = (request.args.get("season") or "").strip()
+    if seasons:
+        try:
+            chosen = sheets.archived_season(wanted or seasons[0]["name"])
+        except Exception:
+            chosen = None
+        if wanted and chosen is None:
+            abort(404)
+    return render_template("pages/past-seasons.html",
+                           page_title="Past Seasons", section_eyebrow="Organized League",
+                           seasons=seasons, chosen=chosen)
+
+
 @app.route("/league/<section>")
 def league_section(section):
     meta = LEAGUE_SECTIONS.get(section)
@@ -623,6 +666,17 @@ def league_section(section):
                   "schedule": [], "results": [],
                   "rosters": {"RED": [], "WHITE": [], "BLUE": []},
                   "teams": {"RED": [], "WHITE": [], "BLUE": []}}
+    # The schedule page lists games by date and then time of day, whatever order
+    # the rows happen to be in on the sheet (9:00 AM before 10:30 AM each day).
+    # Done on a copy: the scoring tools rely on the sheet's own row order.
+    if section == "schedules":
+        season = dict(season, schedule=sorted(season["schedule"],
+                                              key=sheets.game_sort_key))
+    # The results page lists the newest day first, with each day's games in
+    # time order (9:00 AM, then 10:30 AM), regardless of the sheet's row order.
+    if section == "results":
+        season = dict(season, results=sorted(season["results"],
+                                             key=sheets.result_sort_key))
     # Does this section have any data to show yet? If not, the template falls
     # back to the friendly "off-season" message.
     has_data = {
@@ -951,6 +1005,9 @@ def admin_dashboard():
     if configured:
         try:
             notices = sheets.list_notices()
+            for n in notices:
+                n["shutoff"] = (sheets.notice_shutoff_info(n)
+                                if n.get("type") == "weather" else None)
         except Exception as e:
             error = str(e)
         try:
@@ -1174,9 +1231,11 @@ def admin_cancel_send():
     location = (request.form.get("location") or "").strip()
     sent_by = (request.form.get("sent_by") or "").strip()
     banner_only = request.form.get("banner_only") == "1"
+    shutoff = (request.form.get("shutoff") or "").strip()
     try:
         result = sheets.send_cancellation(reason, location, sent_by,
-                                          banner_only=banner_only)
+                                          banner_only=banner_only,
+                                          shutoff=shutoff)
     except Exception as e:
         result = {"ok": False, "emailed": 0, "missed": [], "banner": False,
                   "note": "Something went wrong: %s" % e}
@@ -1214,6 +1273,17 @@ def admin_toggle(nid):
     active = request.form.get("active") == "1"
     try:
         sheets.set_active(nid, active)
+    except Exception:
+        pass
+    return redirect(url_for("admin_dashboard"))
+
+
+@app.route("/admin/notices/<nid>/shutoff", methods=["POST"])
+@login_required
+def admin_shutoff(nid):
+    """Change the time a weather banner comes down by itself."""
+    try:
+        sheets.set_notice_shutoff(nid, request.form.get("shutoff", ""))
     except Exception:
         pass
     return redirect(url_for("admin_dashboard"))
@@ -1728,6 +1798,120 @@ def admin_rules_delete(rid):
     except Exception:
         pass
     return redirect(url_for("admin_rules", saved="1"))
+
+
+# ----------------------------------------------------------------------------
+# Schedule editor (admin — any signed-in board member)
+# ----------------------------------------------------------------------------
+@app.route("/admin/schedule/unlock", methods=["GET", "POST"])
+def admin_schedule_unlock():
+    # The Schedule Password was retired; keep old bookmarks working.
+    return redirect(url_for("admin_schedule"))
+
+
+@app.route("/admin/schedule")
+@login_required
+def admin_schedule():
+    division = (request.args.get("division") or "RED").strip().upper()
+    if division not in ("RED", "WHITE", "BLUE"):
+        division = "RED"
+    games = [g for g in sheets.schedule_editor_games() if g["division"] == division]
+    try:
+        changes = sheets.schedule_change_log()
+    except Exception:
+        changes = []
+    teams = sheets.schedule_team_options()
+    return render_template(
+        "admin/schedule.html", page_title="Edit Schedule & Umpires",
+        division=division, games=games, teams=teams[division],
+        fields=sheets.game_field_options(), statuses=sheets.SCHEDULE_STATUSES,
+        umpires=sheets.umpire_options()[division],
+        changes=changes, saved=request.args.get("saved"),
+        problem=request.args.get("problem"),
+        changed_by=session.get("schedule_by", ""))
+
+
+@app.route("/admin/schedule/save", methods=["POST"])
+@login_required
+def admin_schedule_save():
+    division = (request.form.get("division") or "RED").strip().upper()
+    by = (request.form.get("changed_by") or "").strip()
+    if by:
+        session["schedule_by"] = by
+    expected = {k: request.form.get("was_" + k, "")
+                for k in ("date", "time", "home", "away")}
+    ok, message = sheets.update_schedule_game(
+        request.form.get("row", ""), expected, request.form, by or "Admin")
+    return redirect(url_for("admin_schedule", division=division,
+                            **({"saved": message} if ok else {"problem": message})))
+
+
+@app.route("/admin/schedule/add", methods=["POST"])
+@login_required
+def admin_schedule_add():
+    division = (request.form.get("division") or "RED").strip().upper()
+    by = (request.form.get("changed_by") or "").strip()
+    if by:
+        session["schedule_by"] = by
+    ok, message = sheets.add_schedule_game(request.form, by or "Admin")
+    return redirect(url_for("admin_schedule", division=division,
+                            **({"saved": message} if ok else {"problem": message})))
+
+
+# ----------------------------------------------------------------------------
+# Past Seasons archive (admin) — save a finished season for good
+# ----------------------------------------------------------------------------
+@app.route("/admin/archive")
+@login_required
+def admin_archive():
+    configured = sheets.archive_configured()
+    seasons, live, error = [], None, None
+    if configured:
+        try:
+            seasons = sheets.archived_seasons()
+        except Exception as e:
+            error = str(e)
+        try:
+            cur = sheets.league_season()
+            games = cur.get("schedule", [])
+            live = {"games": len(games),
+                    "scored": sum(1 for g in games if g["score_home"] != ""
+                                  and g["score_away"] != ""),
+                    "teams": sum(len(v) for v in cur.get("rosters", {}).values())}
+        except Exception:
+            live = None
+    return render_template("admin/archive.html", page_title="Past Seasons",
+                           configured=configured, seasons=seasons, live=live,
+                           error=error, saved=request.args.get("saved"),
+                           problem=request.args.get("problem"),
+                           suggestion=re.sub(r"\s+Season$", "", sheets.season_name() or "", flags=re.I) if configured else "")
+
+
+@app.route("/admin/archive/save", methods=["POST"])
+@login_required
+def admin_archive_save():
+    name = sheets.clean_season_name(request.form.get("season"))
+    try:
+        result = sheets.archive_current_season(name)
+    except ValueError as e:
+        return redirect(url_for("admin_archive", problem=str(e)))
+    except Exception as e:
+        return redirect(url_for("admin_archive",
+                                problem="Couldn't save the season: %s" % e))
+    return redirect(url_for("admin_archive", saved=(
+        "%s saved: %d games (%d with final scores) and %d players on %d teams."
+        % (name, result["games"], result["scored"], result["players"], result["teams"]))))
+
+
+@app.route("/admin/archive/delete", methods=["POST"])
+@login_required
+def admin_archive_delete():
+    name = sheets.clean_season_name(request.form.get("season"))
+    try:
+        sheets.delete_archived_season(name)
+    except Exception as e:
+        return redirect(url_for("admin_archive", problem="Couldn't remove it: %s" % e))
+    return redirect(url_for("admin_archive", saved="%s removed from the archive." % name))
 
 
 if __name__ == "__main__":

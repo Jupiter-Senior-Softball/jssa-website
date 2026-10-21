@@ -1,0 +1,153 @@
+{# Team picker — shared by the league Schedule, Results and Rosters pages.
+   Sits under the division buttons (_divpicker.html). Once a division is open it shows
+   one big button per team in that division, plus "All teams". Picking a team hides
+   every card that is not that team's. Runs entirely in the browser; the team names come
+   from the cards themselves, so a new or renamed team in the sheet shows up by itself.
+
+   A card opts in with  data-teams="Team A||Team B"  (the teams it belongs to).
+   Schedule cards may also carry  data-also="Team C||..."  (teams that umpire the game):
+   those games show for that team too, but "Team C" is not offered as a team button
+   unless it plays somewhere.
+
+   Remembering: the chosen team is kept on THIS device (localStorage), and the page address
+   is updated to  ?div=RED&team=Jackals  so it can be bookmarked or shared. If the browser
+   will not store anything, everything still works; it just does not remember. #}
+<style>
+  .teampick{display:none;text-align:center;margin:-6px 0 26px}
+  .teampick .tp-label{font-family:var(--display);font-weight:700;font-size:1.15rem;
+    color:var(--navy);margin-bottom:12px}
+  /* One row for up to about six teams: the buttons share the width and shrink to fit, and a
+     long name wraps INSIDE its button. "All teams" keeps its natural width. Each team button
+     is never narrower than 84px, so a division with MORE teams than fit wraps onto a second
+     row instead of cutting names off. Buttons are capped at 220px so a division with only
+     two teams does not get giant buttons. On a narrow phone they wrap as well. */
+  .teampick .tp-row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:stretch}
+  .teampick .tp-btn{flex:1 1 0;min-width:84px;max-width:220px;
+    font-family:var(--display);font-weight:700;font-size:clamp(.9rem,1.5vw,1.05rem);line-height:1.2;
+    min-height:52px;padding:8px;border-radius:12px;cursor:pointer;overflow-wrap:anywhere;
+    border:3px solid var(--navy);background:#fff;color:var(--navy)}
+  .teampick .tp-btn[data-team=""]{flex:0 0 auto;padding:8px 14px}
+  @media(max-width:700px){
+    .teampick .tp-btn{flex:0 1 auto;max-width:none;min-width:0;font-size:1.05rem;padding:10px 16px}
+  }
+  .teampick .tp-btn:hover{background:var(--blue-tint,#eef2fc)}
+  .teampick .tp-btn[aria-pressed="true"]{background:var(--navy);color:#fff}
+  .teampick .tp-btn:focus-visible,.teampick .tp-link:focus-visible{outline:3px solid var(--blue);outline-offset:3px}
+  .teampick .tp-note{margin-top:12px;color:var(--muted);font-size:1.02rem;min-height:1.4em}
+  .teampick .tp-link{font:inherit;color:var(--blue);background:none;border:0;padding:10px 6px;
+    min-height:44px;text-decoration:underline;cursor:pointer}
+</style>
+<div class="teampick" id="teampick">
+  <div class="tp-label" id="tp-label">Show just one team:</div>
+  <div class="tp-row" id="tp-row" role="group" aria-labelledby="tp-label"></div>
+  <div class="tp-note" id="tp-note" aria-live="polite"></div>
+</div>
+<script>
+(function(){
+  var KEY='jssa_my_team', SEP='||';
+  var box=document.getElementById('teampick');
+  var row=document.getElementById('tp-row');
+  var note=document.getElementById('tp-note');
+  var cur={div:'',team:''};
+
+  function all(){return Array.prototype.slice.call(document.querySelectorAll('[data-teams]'));}
+  function divOf(el){var d=el.closest('[data-div]');return d?d.getAttribute('data-div'):'';}
+  function split(v){return (v||'').split(SEP).map(function(x){return x.trim();}).filter(Boolean);}
+  // Compare names without caring about case, spacing or curly vs straight apostrophes.
+  function norm(t){return (t||'').replace(/[‘’ʼ]/g,"'").replace(/\s+/g,' ').trim().toLowerCase();}
+  function teamsOf(el){return split(el.getAttribute('data-teams'));}
+  function alsoOf(el){return split(el.getAttribute('data-also'));}
+  function has(list,team){var n=norm(team);return list.some(function(x){return norm(x)===n;});}
+
+  function teamsInDivision(div){
+    var seen={},out=[];
+    all().forEach(function(el){
+      if(divOf(el)!==div)return;
+      teamsOf(el).forEach(function(t){var k=norm(t);if(!seen[k]){seen[k]=1;out.push(t);}});
+    });
+    out.sort(function(a,b){return a.toLowerCase().localeCompare(b.toLowerCase());});
+    return out;
+  }
+  function divisionOfTeam(team){
+    var found='';
+    all().some(function(el){if(has(teamsOf(el),team)){found=divOf(el);return true;}return false;});
+    return found;
+  }
+  function canonical(div,team){            // the spelling the page itself uses
+    var list=teamsInDivision(div),n=norm(team),hit='';
+    list.some(function(t){if(norm(t)===n){hit=t;return true;}return false;});
+    return hit;
+  }
+
+  function remember(div,team){try{if(team)localStorage.setItem(KEY,JSON.stringify({div:div,team:team}));else localStorage.removeItem(KEY);}catch(e){}}
+  function recall(){try{return JSON.parse(localStorage.getItem(KEY)||'null');}catch(e){return null;}}
+  function setAddress(){
+    try{
+      var q=new URLSearchParams(location.search);
+      q.delete('div');q.delete('team');
+      if(cur.div)q.set('div',cur.div);
+      if(cur.team)q.set('team',cur.team);
+      var s=q.toString();
+      history.replaceState(null,'',location.pathname+(s?'?'+s:'')+location.hash);
+    }catch(e){}
+  }
+
+  function filter(){
+    all().forEach(function(el){
+      if(divOf(el)!==cur.div)return;          // other divisions stay hidden by the division picker
+      var show=!cur.team||has(teamsOf(el),cur.team)||has(alsoOf(el),cur.team);
+      el.style.display=show?'':'none';
+    });
+    Array.prototype.forEach.call(row.querySelectorAll('.tp-btn'),function(b){
+      b.setAttribute('aria-pressed',String((b.getAttribute('data-team')||'')===cur.team));
+    });
+    note.textContent='';
+    if(cur.team){
+      note.appendChild(document.createTextNode('Showing '+cur.team+'. We’ll remember your team on this device. '));
+      var f=document.createElement('button');f.type='button';f.className='tp-link';f.textContent='Stop remembering';
+      f.addEventListener('click',function(){pick('');});
+      note.appendChild(f);
+    }
+    setAddress();
+  }
+
+  function pick(team){
+    cur.team=team;
+    remember(cur.div,team);
+    filter();
+  }
+
+  function build(){
+    row.innerHTML='';
+    var teams=teamsInDivision(cur.div);
+    if(!teams.length){box.style.display='none';return;}
+    function mk(label,team){
+      var b=document.createElement('button');
+      b.type='button';b.className='tp-btn';b.textContent=label;b.setAttribute('data-team',team);
+      b.addEventListener('click',function(){pick(team);});
+      row.appendChild(b);
+    }
+    mk('All teams','');
+    teams.forEach(function(t){mk(t,t);});
+    box.style.display='block';
+  }
+
+  var pending='';   // a team to open as soon as its division opens (link or remembered)
+  document.addEventListener('divpicked',function(e){
+    cur.div=e.detail.div;
+    cur.team=pending?canonical(cur.div,pending):(cur.team&&canonical(cur.div,cur.team)?canonical(cur.div,cur.team):'');
+    pending='';
+    build();filter();
+  });
+
+  function boot(){
+    if(!window.jssaPickDivision)return;
+    var q=new URLSearchParams(location.search);
+    var team=q.get('team'),div=q.get('div'),saved=recall();
+    if(!team&&saved&&!div){team=saved.team;div=saved.div;}   // a link always beats what is remembered
+    if(team&&!div)div=divisionOfTeam(team);
+    if(div){pending=team||'';window.jssaPickDivision(div);}
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>

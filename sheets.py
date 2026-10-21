@@ -30,10 +30,11 @@ SHEET_ID = os.environ.get("SHEET_ID", "").strip()
 _SA_JSON = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", "").strip()
 
 NOTICES_TAB = "WebsiteNotices"
-HEADERS = ["id", "type", "message", "active", "created_by", "created_at", "url", "link_text"]
+HEADERS = ["id", "type", "message", "active", "created_by", "created_at", "url", "link_text",
+           "expires_at"]
 
 _CACHE_TTL = 300  # seconds (5 min — reduces API quota pressure)
-_cache = {"notice": None, "ts": 0.0}
+_cache = {"notices": [], "ts": 0.0}
 _lock = threading.Lock()
 
 
@@ -99,37 +100,130 @@ def list_notices():
     return list(reversed(records))
 
 
-def active_notice():
+# Weather / cancellation banners come down by themselves. Each weather post
+# carries a "shuts off at" time (the `expires_at` column, stored in UTC). It
+# defaults to 1:00 PM Eastern and the person posting can change it. Nothing runs
+# on a timer: the homepage simply skips a notice whose time has passed.
+NOTICE_TZ = "America/New_York"
+DEFAULT_SHUTOFF = "13:00"
+
+
+def _notice_tz():
+    import zoneinfo
+    return zoneinfo.ZoneInfo(NOTICE_TZ)
+
+
+def parse_shutoff_time(text):
+    """'13:00' or '1:00 PM' -> (13, 0), or None if it isn't a time."""
+    t = str(text or "").strip().upper().replace(".", "")
+    for fmt in ("%H:%M", "%I:%M %p", "%I:%M%p", "%I %p"):
+        try:
+            d = datetime.datetime.strptime(t, fmt)
+            return d.hour, d.minute
+        except ValueError:
+            pass
+    return None
+
+
+def _parse_expiry(text):
+    """The stored expires_at -> an aware UTC datetime, or None (never expires)."""
+    t = str(text or "").strip()
+    if not t:
+        return None
+    try:
+        d = datetime.datetime.fromisoformat(t.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return d if d.tzinfo else d.replace(tzinfo=datetime.timezone.utc)
+
+
+def shutoff_for_new_post(hhmm, now=None):
+    """The expires_at to store for a notice posted now, with the shutoff given
+    as a time of day (blank = the 1:00 PM default). If that time has already
+    passed today, the banner stays up until 11:59 PM tonight instead, so a late
+    post is never taken down the instant it appears and never lingers into
+    tomorrow. Returns (utc ISO string, fell_back)."""
+    hm = parse_shutoff_time(hhmm) or parse_shutoff_time(DEFAULT_SHUTOFF)
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    local = now.astimezone(_notice_tz())
+    target = local.replace(hour=hm[0], minute=hm[1], second=0, microsecond=0)
+    fell_back = target <= local
+    if fell_back:
+        target = local.replace(hour=23, minute=59, second=0, microsecond=0)
+    return (target.astimezone(datetime.timezone.utc)
+            .isoformat(timespec="seconds").replace("+00:00", "Z"), fell_back)
+
+
+def notice_expired(rec, now=None):
+    exp = _parse_expiry(rec.get("expires_at"))
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    return bool(exp and now >= exp)
+
+
+def notice_shutoff_info(rec):
+    """For the admin list: {'value': '13:00', 'label': '1:00 PM', 'expired': bool}
+    — or None for a notice with no automatic shutoff."""
+    exp = _parse_expiry(rec.get("expires_at"))
+    if not exp:
+        return None
+    local = exp.astimezone(_notice_tz())
+    return {"value": local.strftime("%H:%M"),
+            "label": local.strftime("%I:%M %p").lstrip("0"),
+            "expired": notice_expired(rec)}
+
+
+MAX_SLIDES = 6   # most notices the sliding banner will rotate through
+
+
+def active_notices():
     """
-    The single notice to show in the site banner, or None.
-    Weather/cancellation notices take priority over announcements.
+    Every notice that should show in the site banner, in display order:
+    weather/cancellation notices first, then announcements (newest first).
+    Notices past their shutoff time are skipped. The banner slides through them
+    when there is more than one.
     Cached for _CACHE_TTL seconds; last good value is kept on error.
     """
     now = time.time()
     with _lock:
         if now - _cache["ts"] < _CACHE_TTL:
-            return _cache["notice"]
+            return _notices_if_current(_cache["notices"])
 
-    notice = None
     try:
+        notices = []
         if is_configured():
-            actives = [r for r in list_notices() if _is_true(r.get("active"))]
+            actives = [r for r in list_notices()
+                       if _is_true(r.get("active")) and not notice_expired(r)
+                       and str(r.get("message") or "").strip()]
             weather = [r for r in actives if str(r.get("type")) == "weather"]
-            chosen = (weather or actives)[0] if actives else None
-            if chosen:
-                notice = {
-                    "type": str(chosen.get("type") or "announcement"),
-                    "message": str(chosen.get("message") or ""),
-                    "url": str(chosen.get("url") or "").strip(),
-                    "link_text": str(chosen.get("link_text") or "").strip(),
-                }
+            others = [r for r in actives if str(r.get("type")) != "weather"]
+            for r in (weather + others)[:MAX_SLIDES]:
+                notices.append({
+                    "type": str(r.get("type") or "announcement"),
+                    "message": str(r.get("message") or ""),
+                    "url": str(r.get("url") or "").strip(),
+                    "link_text": str(r.get("link_text") or "").strip(),
+                    "expires_at": str(r.get("expires_at") or "").strip(),
+                })
         with _lock:
-            _cache["notice"] = notice
+            _cache["notices"] = notices
             _cache["ts"] = now
-        return notice
+        return _notices_if_current(notices)
     except Exception:
         # On any API hiccup, keep showing the last known value rather than break.
-        return _cache["notice"]
+        return _notices_if_current(_cache["notices"])
+
+
+def active_notice():
+    """The single most important notice (or None). Kept for callers that only
+    need to know what is showing first, e.g. cancellation checks."""
+    notices = active_notices()
+    return notices[0] if notices else None
+
+
+def _notices_if_current(notices):
+    """Cached notices may outlive their shutoff time (the cache lasts minutes):
+    drop each one the moment its time passes rather than when the cache refreshes."""
+    return [n for n in (notices or []) if not notice_expired(n)]
 
 
 def _invalidate():
@@ -137,7 +231,7 @@ def _invalidate():
         _cache["ts"] = 0.0
 
 
-def add_notice(ntype, message, created_by, url="", link_text=""):
+def add_notice(ntype, message, created_by, url="", link_text="", expires_at=""):
     ntype = "weather" if ntype == "weather" else "announcement"
     row = [
         uuid.uuid4().hex[:8],
@@ -148,6 +242,7 @@ def add_notice(ntype, message, created_by, url="", link_text=""):
         datetime.datetime.utcnow().isoformat(timespec="seconds") + "Z",
         url.strip() if url else "",
         link_text.strip() if link_text else "",
+        expires_at or "",
     ]
     ws = _worksheet()
     ws.append_row(row, value_input_option="USER_ENTERED")
@@ -161,8 +256,39 @@ def set_active(notice_id, active):
     for i, rec in enumerate(records):
         if str(rec.get("id")) == str(notice_id):
             ws.update_cell(i + 2, col, "TRUE" if active else "FALSE")
+            if active and str(rec.get("expires_at") or "").strip():
+                # Turning a notice back on means "show it" — don't let an old
+                # shutoff time hide it again straight away.
+                ws.update_cell(i + 2, HEADERS.index("expires_at") + 1, "")
             break
     _invalidate()
+
+
+def set_notice_shutoff(notice_id, hhmm):
+    """Change when a notice comes down, as a time of day on the day it was
+    posted. Blank removes the automatic shutoff. A time already past takes the
+    notice down. Returns False if the time can't be understood."""
+    hhmm = str(hhmm or "").strip()
+    hm = parse_shutoff_time(hhmm) if hhmm else None
+    if hhmm and hm is None:
+        return False
+    ws = _worksheet()
+    col = HEADERS.index("expires_at") + 1
+    for i, rec in enumerate(ws.get_all_records(expected_headers=HEADERS)):
+        if str(rec.get("id")) != str(notice_id):
+            continue
+        value = ""
+        if hm:
+            posted = _parse_expiry(rec.get("created_at")) or datetime.datetime.now(
+                datetime.timezone.utc)
+            day = posted.astimezone(_notice_tz())
+            target = day.replace(hour=hm[0], minute=hm[1], second=0, microsecond=0)
+            value = (target.astimezone(datetime.timezone.utc)
+                     .isoformat(timespec="seconds").replace("+00:00", "Z"))
+        ws.update_cell(i + 2, col, value)
+        break
+    _invalidate()
+    return True
 
 
 def delete_notice(notice_id):
@@ -668,6 +794,27 @@ def season_name():
     return _setting("Season Name") or "League Season"
 
 
+def season_first_pitch():
+    """ISO8601 datetime (Eastern) for the homepage 'Countdown to First Pitch'
+    badge, parsed from the 'Season First Pitch' row on the Site Settings tab
+    (e.g. 'October 19, 2026 9:00 AM', '10/19/2026 9:00 AM', or
+    '2026-10-19 09:00'). Returns '' if the row is blank or doesn't match one
+    of those formats — never raises, so a typo just hides the badge instead
+    of breaking the homepage."""
+    raw = _clean(_setting("Season First Pitch", "First Pitch"))
+    if not raw:
+        return ""
+    for fmt in ("%B %d, %Y %I:%M %p", "%B %d %Y %I:%M %p",
+                "%m/%d/%Y %I:%M %p", "%m/%d/%Y %H:%M",
+                "%Y-%m-%d %I:%M %p", "%Y-%m-%d %H:%M"):
+        try:
+            return datetime.datetime.strptime(raw, fmt).replace(
+                tzinfo=_EASTERN).isoformat()
+        except ValueError:
+            continue
+    return ""
+
+
 def _password(label):
     """A password from the Site Settings tab, else the older Site Passwords tab."""
     val = _site_settings().get(_squash(label), "").strip()
@@ -943,6 +1090,8 @@ def _parse_schedule_grid(rows, ref):
     for r in rows[phdr + 1:]:
         if len(r) <= gc or not _clean(r[gc]):
             continue  # blank cell = not signed up for this game
+        if _clean(r[gc]).lower() == "league":
+            continue  # greyed "League" label: in a league game that day, NOT signed up for pickup
         first = _clean(r[first_i]) if len(r) > first_i else ""
         last = _clean(r[last_i]) if len(r) > last_i else ""
         name = (first + " " + last).strip()
@@ -3087,6 +3236,7 @@ def player_cards():
                     "last": parts[-1] if parts else nm,
                     "team": t.get("team", ""), "division": div,
                     "position": position,
+                    "is_manager": bool(p.get("is_manager")),
                     "photo_url": photo_url,
                 }
     return out
@@ -3112,6 +3262,18 @@ def _league_team_list(rosters, extra):
             seen[div].add(_team_key(team))
             out[div].append({"team": team, "players": [], "manager": "", "count": 0})
     return out
+
+
+def _weekday_prefix(date_text):
+    """'10/19/2026' -> 'Monday'. Returns '' if the date can't be understood, so a
+    odd-looking date in the sheet simply shows as typed."""
+    t = (date_text or "").strip()
+    for fmt in ("%m/%d/%Y", "%m/%d/%y", "%Y-%m-%d", "%B %d, %Y", "%b %d, %Y"):
+        try:
+            return datetime.datetime.strptime(t, fmt).strftime("%A")
+        except ValueError:
+            pass
+    return ""
 
 
 def league_season():
@@ -3169,11 +3331,15 @@ def league_season():
                         continue
                     data["schedule"].append({
                         "division": _norm_div(g("division")),
-                        "date": g("date"), "time": g("time"), "field": g("field"),
+                        "date": g("date"), "dow": _weekday_prefix(g("date")),
+                        "time": g("time"), "field": g("field"),
                         "home": home, "away": away,
                         "score_home": g("score home"), "score_away": g("score away"),
                         "status": g("status"),
+                        "umpires": [u for u in (g("umpire 1"), g("umpire 2")) if u],
                     })
+                # Only show "Umpires: TBD" once the sheet has the umpire columns.
+                data["umpires_enabled"] = "umpire 1" in cols
 
             # --- Results ---
             _, rows, hi, cols = _match_tab(tabs, ["result"])
@@ -3187,7 +3353,8 @@ def league_season():
                         continue
                     data["results"].append({
                         "division": _norm_div(g("division")),
-                        "date": g("date"), "time": g("time"), "field": g("field"),
+                        "date": g("date"), "dow": _weekday_prefix(g("date")),
+                        "time": g("time"), "field": g("field"),
                         "home": home, "away": away,
                         "home_score": g("home score", "score home"),
                         "away_score": g("away score", "score away"),
@@ -3214,7 +3381,8 @@ def league_season():
                         bucket[key] = {"players": [], "manager": ""}
                         order.append(key)
                     bucket[key]["players"].append(
-                        {"name": name, "position": g("position", "pos")})
+                        {"name": name, "position": g("position", "pos"),
+                         "is_manager": bool(g("manager"))})
                     if g("manager") and not bucket[key]["manager"]:
                         bucket[key]["manager"] = name
                 for (div, team) in order:
@@ -3223,6 +3391,7 @@ def league_season():
                                    key=lambda p: p["name"].split()[-1].lower())
                     players = [{"name": p["name"], "slug": _slug(p["name"]),
                                 "position": p["position"],
+                                "is_manager": p["is_manager"],
                                 "has_profile": _slug(p["name"]) in profiles}
                                for p in plist]
                     data["rosters"][div].append({
@@ -3297,6 +3466,7 @@ def schedule_games_for_scoring():
                 "home": home, "away": away,
                 "score_home": g("score home"), "score_away": g("score away"),
                 "status": g("status"),
+                "umpire1": g("umpire 1"), "umpire2": g("umpire 2"),
             })
         # Order for the admin score form: games that still need a score come
         # first, in date order (soonest/next game at the top). Games that
@@ -3572,8 +3742,124 @@ def survey_results():
         return _survey_cache["data"] or _empty_survey(True)
 
 
+SPONSOR_FORM_TAB = "Sponsor Form Responses"
+
+
+def _sponsor_web_url(raw):
+    """A sponsor's website as a safe, clickable link. Adds https:// when the
+    sponsor typed a bare domain, and drops anything that points at a Google
+    Sheet/Doc (a private link must never be shown as 'Visit website')."""
+    u = str(raw or "").strip()
+    if not u:
+        return ""
+    low = u.lower()
+    if "docs.google.com" in low or "drive.google.com" in low:
+        return ""
+    if not re.match(r"^[a-z][a-z0-9+.-]*://", low):
+        u = "https://" + u.lstrip("/")
+    return u
+
+
+def _sponsor_key(url):
+    """'http://www.Example.com/path/' -> 'example.com/path' (for matching)."""
+    u = re.sub(r"^[a-z][a-z0-9+.-]*://", "", str(url or "").strip().lower())
+    u = re.sub(r"^www\.", "", u).split("?")[0].split("#")[0].rstrip("/")
+    return u
+
+
+def _builtin_logos():
+    """website -> logo, from the logos the site already had for these sponsors
+    (the built-in list). Used only when the sheet row has no logo of its own."""
+    out = {}
+    for _n, _t, u, logo, _p in _SPONSOR_SEED:
+        k = _sponsor_key(u)
+        if k and logo:
+            out[k] = _img_url(_LEGACY_LOGO_FIX.get(logo, logo))
+    return out
+
+
+def _form_sponsors(rows):
+    """Turn the raw Sponsor Form Responses rows into homepage sponsors.
+
+    A sponsor shows ONLY when its 'Website Enabled' box is checked. Order is
+    the 'Sort Order' column (lowest first); rows with no number keep sheet
+    order, after the numbered ones."""
+    if not rows:
+        return []
+    head = [str(h or "").strip().lower() for h in rows[0]]
+
+    def col(*names, prefix=False):
+        for i, h in enumerate(head):
+            for n in names:
+                if h == n or (prefix and h.startswith(n)):
+                    return i
+        return -1
+
+    c_name = col("business or individual", prefix=True)
+    c_tag = col("businesstag", "business tag", prefix=True)
+    c_url = col("website url")
+    c_logo = col("website logo url")
+    c_logo0 = col("logo url")
+    c_phone = col("phone")
+    c_order = col("sort order")
+    c_on = col("website enabled", "website enable")
+    if c_name < 0 or c_on < 0:
+        return []
+
+    def cell(r, i):
+        return str(r[i]).strip() if 0 <= i < len(r) else ""
+
+    fallback_logos = _builtin_logos()
+    out = []
+    for pos, r in enumerate(rows[1:]):
+        name = " ".join(cell(r, c_name).replace("\n", " ").split()).strip(" ,")
+        if not name or not _is_true(cell(r, c_on)):
+            continue
+        order = cell(r, c_order)
+        url = _sponsor_web_url(cell(r, c_url))
+        logo = _img_url(cell(r, c_logo) or cell(r, c_logo0))
+        if not logo:
+            logo = fallback_logos.get(_sponsor_key(url), "")
+        out.append({
+            "n": name,
+            "t": " ".join(cell(r, c_tag).split()),
+            "u": url,
+            # the sheet's 'Website Logo URL' first, then the raw form upload, then
+            # the logo the site already had; the page shows initials if none loads
+            "l": logo,
+            "p": cell(r, c_phone),
+            "order": int(order) if order.isdigit() else 10 ** 6 + pos,
+        })
+    out.sort(key=lambda x: x["order"])
+    return out
+
+
 def sponsors():
-    """Active sponsors, ordered. Shaped for the homepage script (n,t,u,l,p).
+    """Sponsors for the homepage (n,t,u,l,p), in display order.
+
+    Source of truth: the 'Sponsor Form Responses' tab of the control sheet —
+    a sponsor shows when its 'Website Enabled' box is checked. If that tab
+    can't be read, fall back to the older admin-managed 'Sponsors' tab, and
+    then to the homepage's built-in list (returns [])."""
+    now = time.time()
+    with _lock:
+        if _sponsor_cache["data"] is not None and now - _sponsor_cache["ts"] < _CACHE_TTL:
+            return _sponsor_cache["data"]
+    try:
+        if CONTROL_SHEET_ID and _SA_JSON:
+            rows = _control_sheet(readonly=True).worksheet(SPONSOR_FORM_TAB).get_all_values()
+            out = _form_sponsors(rows)
+            with _lock:
+                _sponsor_cache["data"] = out
+                _sponsor_cache["ts"] = now
+            return out
+    except Exception:
+        pass  # tab missing / Google hiccup -> older list below
+    return _admin_sponsors()
+
+
+def _admin_sponsors():
+    """The older admin-managed 'Sponsors' tab (fallback).
     [] if not set up -> homepage falls back to its built-in list."""
     now = time.time()
     with _lock:
@@ -4339,7 +4625,8 @@ def _log_cancellation(plan, reason, location, sent_by, emailed, missed, result):
         pass
 
 
-def send_cancellation(reason, location, sent_by, plan=None, banner_only=False):
+def send_cancellation(reason, location, sent_by, plan=None, banner_only=False,
+                      shutoff=""):
     """Call off today's games. Posts the website banner, emails today's
     scheduled players, marks the league games cancelled, and logs it.
 
@@ -4369,14 +4656,19 @@ def send_cancellation(reason, location, sent_by, plan=None, banner_only=False):
         headline += " " + reason
         if not headline.endswith((".", "!", "?")):
             headline += "."
+    expires_at, shutoff_fell_back = shutoff_for_new_post(shutoff)
     try:
-        add_notice("weather", headline, sent_by or "Admin")
+        add_notice("weather", headline, sent_by or "Admin", expires_at=expires_at)
         banner_ok = True
     except Exception:
         pass
 
     # 2. The emails.
     emailed, notes = 0, []
+    if banner_ok and shutoff_fell_back:
+        notes.append("That shutoff time had already passed, so the banner will "
+                     "come down at 11:59 PM tonight. You can change it on the "
+                     "dashboard.")
     attempted = False        # did we actually reach the sender script?
     send_failures = []       # addresses a failed batch never reached
     addresses = [p["email"] for p in plan["recipients"]]
@@ -4832,3 +5124,652 @@ def rules_blocks(body):
         if buf:
             out.append({"p": " ".join(buf)})
     return out
+
+
+# ----------------------------------------------------------------------------
+# Past Seasons archive — a permanent copy of each finished season.
+#
+# At the end of a season the admin clicks "Save this season". That copies the
+# live Schedule (with every score) and the live team rosters into two archive
+# tabs on the Control Sheet, each row stamped with a season name such as
+# "Fall 2026". The live tabs are never touched. Standings are not stored: they
+# are worked out again from the archived scores, exactly as they are for the
+# current season, so they can never drift out of step with the games.
+#
+# The archive tabs deliberately use DIFFERENT column headings from the live
+# tabs ("Home"/"Away", not "Home Team"/"Away Team"; "Player", not "Player First
+# Name"). The live pages find their tabs by heading, and an archive tab that
+# looked like a live one could be picked up in its place.
+# ----------------------------------------------------------------------------
+ARCHIVE_SCHEDULE_TAB = "Archive Schedule"
+ARCHIVE_SCHEDULE_HEADERS = ["Season", "Division", "Date", "Time", "Field",
+                            "Home", "Away", "Home Score", "Away Score",
+                            "Game Status"]
+ARCHIVE_ROSTERS_TAB = "Archive Rosters"
+ARCHIVE_ROSTERS_HEADERS = ["Season", "Division", "Team", "Player",
+                           "Position", "Manager"]
+ARCHIVE_SEASON_MAX = 40
+
+_archive_cache = {"data": None, "ts": 0.0}
+_ARCHIVE_TTL = 60  # seconds
+
+
+def archive_configured():
+    return bool(CONTROL_SHEET_ID and _SA_JSON)
+
+
+def _archive_invalidate():
+    with _lock:
+        _archive_cache["data"] = None
+        _archive_cache["ts"] = 0.0
+
+
+def clean_season_name(name):
+    """Tidy a typed season name ('  Fall   2026 ' -> 'Fall 2026')."""
+    return " ".join(str(name or "").split())
+
+
+def _same_season(a, b):
+    return clean_season_name(a).lower() == clean_season_name(b).lower()
+
+
+def _season_sort_key(name, index):
+    """Newest first: by year, then Winter < Spring < Summer < Fall within the
+    year; anything unrecognised falls back to the order it was saved in."""
+    m = re.search(r"(19|20)\d{2}", name)
+    year = int(m.group(0)) if m else 0
+    low = name.lower()
+    rank = 0
+    for i, word in enumerate(("winter", "spring", "summer", "fall")):
+        if word in low:
+            rank = i + 1
+    return (year, rank, index)
+
+
+def game_sort_key(g):
+    """Order games by date, then time of day (9:00 AM before 10:30 AM), then
+    division and field. A game with an unreadable date goes last."""
+    d = g.get("date", "")
+    stamp = None
+    for fmt in ("%m/%d/%Y", "%m/%d/%y", "%Y-%m-%d"):
+        try:
+            stamp = datetime.datetime.strptime(d.strip(), fmt)
+            break
+        except ValueError:
+            pass
+    minutes = 0
+    t = g.get("time", "").strip()
+    for fmt in ("%I:%M %p", "%I %p", "%H:%M"):
+        try:
+            tt = datetime.datetime.strptime(t.upper(), fmt)
+            minutes = tt.hour * 60 + tt.minute
+            break
+        except ValueError:
+            pass
+    return (0 if stamp else 1, stamp or datetime.datetime.max, minutes,
+            g.get("division", ""), g.get("field", ""))
+
+
+def result_sort_key(g):
+    """Results order: the most recent day first, but within a day the earlier
+    game first (9:00 AM above 10:30 AM). Unreadable dates go last."""
+    unreadable, stamp, minutes, div, field = game_sort_key(g)
+    return (unreadable, 0 if unreadable else -stamp.toordinal(), minutes, div, field)
+
+
+def _archive_replace(sh, title, headers, season, new_rows):
+    """Make `season`'s rows in tab `title` exactly `new_rows`, leaving every
+    other season alone. The new contents are written in ONE update before any
+    old rows are blanked, so a failure part-way can't lose another season."""
+    import gspread
+    try:
+        ws = sh.worksheet(title)
+    except gspread.WorksheetNotFound:
+        ws = sh.add_worksheet(title=title, rows=200, cols=len(headers))
+    existing = ws.get_all_values()
+    width = len(headers)
+    kept = []
+    for r in existing[1:]:
+        r = list(r) + [""] * (width - len(r))
+        if not any(str(c).strip() for c in r):
+            continue
+        if _same_season(r[0], season):
+            continue
+        kept.append(r[:width])
+    out = [list(headers)] + kept + [list(r) for r in new_rows]
+    total = len(out)
+    blanks = max(0, len(existing) - total)
+    out += [[""] * width for _ in range(blanks)]
+    if ws.row_count < len(out) + 20:
+        ws.resize(rows=len(out) + 50, cols=max(ws.col_count, width))
+    ws.update(out, "A1", value_input_option="RAW")
+
+
+def archive_current_season(season):
+    """Copy the live Schedule and rosters into the archive under `season`.
+    Saving the same name again refreshes that season (never duplicates it).
+    Returns {'games', 'scored', 'players', 'teams'}; raises ValueError with a
+    plain-English reason when there is nothing sensible to save."""
+    season = clean_season_name(season)
+    if not season:
+        raise ValueError("Please type a season name, such as Fall 2026.")
+    if len(season) > ARCHIVE_SEASON_MAX:
+        raise ValueError("That season name is too long. Keep it short, such as Fall 2026.")
+    if not archive_configured():
+        raise ValueError("The Google Sheet isn't connected, so nothing was saved.")
+
+    # Re-saving "fall 2026" over "Fall 2026" refreshes it under its original
+    # spelling rather than renaming it.
+    sh = _control_sheet(readonly=False)
+    for title in (ARCHIVE_SCHEDULE_TAB, ARCHIVE_ROSTERS_TAB):
+        try:
+            for row in sh.worksheet(title).get_all_values()[1:]:
+                if row and _same_season(row[0], season):
+                    season = clean_season_name(row[0])
+                    break
+        except Exception:
+            pass
+
+    # Always archive what is on the sheet right now, not a cached copy.
+    started = time.time()
+    with _lock:
+        _season_cache["ts"] = 0.0
+    live = league_season()
+    if _season_cache["ts"] < started:
+        raise ValueError("Couldn't read the live schedule from Google just now. "
+                         "Nothing was saved — please try again in a minute.")
+    schedule = live.get("schedule", [])
+    rosters = live.get("rosters", {})
+    if not schedule and not any(rosters.values()):
+        raise ValueError("There is no schedule or roster on the live sheet to save.")
+
+    games = [[season, g["division"], g["date"], g["time"], g["field"],
+              g["home"], g["away"], g["score_home"], g["score_away"],
+              g["status"]] for g in schedule]
+    players = []
+    team_count = 0
+    for div in ("RED", "WHITE", "BLUE"):
+        for t in rosters.get(div, []):
+            team_count += 1
+            for p in t["players"]:
+                players.append([season, div, t["team"], p["name"],
+                                p.get("position", ""),
+                                "Yes" if p.get("is_manager") else ""])
+
+    _archive_replace(sh, ARCHIVE_SCHEDULE_TAB, ARCHIVE_SCHEDULE_HEADERS, season, games)
+    _archive_replace(sh, ARCHIVE_ROSTERS_TAB, ARCHIVE_ROSTERS_HEADERS, season, players)
+    _archive_invalidate()
+    scored = sum(1 for g in schedule
+                 if _parse_score(g["score_home"]) is not None
+                 and _parse_score(g["score_away"]) is not None)
+    return {"games": len(games), "scored": scored,
+            "players": len(players), "teams": team_count}
+
+
+def delete_archived_season(season):
+    """Remove one saved season (for a mistyped name). Live tabs are untouched."""
+    season = clean_season_name(season)
+    if not season or not archive_configured():
+        return False
+    sh = _control_sheet(readonly=False)
+    _archive_replace(sh, ARCHIVE_SCHEDULE_TAB, ARCHIVE_SCHEDULE_HEADERS, season, [])
+    _archive_replace(sh, ARCHIVE_ROSTERS_TAB, ARCHIVE_ROSTERS_HEADERS, season, [])
+    _archive_invalidate()
+    return True
+
+
+def _archive_load():
+    """Read both archive tabs once and group them by season. Cached briefly;
+    a Google hiccup keeps the last good copy. {'order': [names newest first],
+    'games': {name: [game]}, 'rosters': {name: {RED/WHITE/BLUE: [team]}}}"""
+    now = time.time()
+    with _lock:
+        if _archive_cache["data"] is not None and now - _archive_cache["ts"] < _ARCHIVE_TTL:
+            return _archive_cache["data"]
+    empty = {"order": [], "games": {}, "rosters": {}}
+    if not archive_configured():
+        return empty
+    try:
+        import gspread
+        sh = _control_sheet(readonly=True)
+
+        def rows_of(title, headers):
+            try:
+                vals = sh.worksheet(title).get_all_values()
+            except gspread.WorksheetNotFound:
+                return []
+            return [list(r) + [""] * (len(headers) - len(r)) for r in vals[1:]
+                    if r and str(r[0]).strip()]
+
+        names, games, rosters = [], {}, {}
+
+        def canon(name):
+            for n in names:
+                if _same_season(n, name):
+                    return n
+            names.append(clean_season_name(name))
+            return names[-1]
+
+        for r in rows_of(ARCHIVE_SCHEDULE_TAB, ARCHIVE_SCHEDULE_HEADERS):
+            n = canon(r[0])
+            games.setdefault(n, []).append({
+                "division": _norm_div(r[1]), "date": _clean(r[2]),
+                "dow": _weekday_prefix(r[2]), "time": _clean(r[3]),
+                "field": _clean(r[4]), "home": _clean(r[5]), "away": _clean(r[6]),
+                "score_home": _clean(r[7]), "score_away": _clean(r[8]),
+                "status": _clean(r[9])})
+        buckets = {}
+        for r in rows_of(ARCHIVE_ROSTERS_TAB, ARCHIVE_ROSTERS_HEADERS):
+            n = canon(r[0])
+            div = _norm_div(r[1])
+            if not div:
+                continue
+            b = buckets.setdefault(n, {}).setdefault((div, _clean(r[2])), [])
+            b.append({"name": _clean(r[3]), "position": _clean(r[4]),
+                      "is_manager": bool(_clean(r[5]))})
+        for n, teams in buckets.items():
+            out = {"RED": [], "WHITE": [], "BLUE": []}
+            for (div, team), plist in teams.items():
+                plist.sort(key=lambda p: p["name"].split()[-1].lower() if p["name"].split() else "")
+                mgr = next((p["name"] for p in plist if p["is_manager"]), "")
+                out[div].append({"team": team, "players": plist,
+                                 "manager": mgr, "count": len(plist)})
+            rosters[n] = out
+        for g in games.values():
+            g.sort(key=game_sort_key)
+        order = [n for _, n in sorted(
+            ((_season_sort_key(n, i), n) for i, n in enumerate(names)), reverse=True)]
+        data = {"order": order, "games": games, "rosters": rosters}
+        with _lock:
+            _archive_cache["data"] = data
+            _archive_cache["ts"] = now
+        return data
+    except Exception:
+        return _archive_cache["data"] or empty
+
+
+def archived_seasons():
+    """Every saved season, newest first, with simple counts for the pickers."""
+    data = _archive_load()
+    out = []
+    for n in data["order"]:
+        games = data["games"].get(n, [])
+        teams = data["rosters"].get(n, {"RED": [], "WHITE": [], "BLUE": []})
+        out.append({
+            "name": n, "games": len(games),
+            "scored": sum(1 for g in games
+                          if _parse_score(g["score_home"]) is not None
+                          and _parse_score(g["score_away"]) is not None),
+            "teams": sum(len(v) for v in teams.values())})
+    return out
+
+
+def archived_season(name):
+    """One saved season in the same shape the live pages use:
+    {'name', 'schedule', 'standings', 'rosters'} — or None if not found."""
+    data = _archive_load()
+    for n in data["order"]:
+        if _same_season(n, name):
+            schedule = data["games"].get(n, [])
+            return {"name": n, "schedule": schedule,
+                    "standings": _standings_from_schedule(schedule),
+                    "rosters": data["rosters"].get(
+                        n, {"RED": [], "WHITE": [], "BLUE": []})}
+    return None
+
+
+# ----------------------------------------------------------------------------
+# Schedule editor — change a game's date, time, field, or teams, or add a game
+# in a spare row. Open to any signed-in board member (no separate password).
+#
+#   * Places a game can be played come from the "Game Fields" tab of the control
+#     sheet (created with the four Jupiter Community Park fields and the two
+#     Maplewood Park fields the first time it is needed). Add a line there to
+#     offer a new place — no code change.
+#   * Only the cells that actually changed are written, into that game's own
+#     row, so the sheet's formulas keep working.
+#   * A game that already has a final score is read-only here (scores are
+#     changed on the scoring page).
+#   * Every change is logged on a "Schedule Changes" tab: what, from, to, who.
+# ----------------------------------------------------------------------------
+SCHEDULE_FIELDS_TAB = "Game Fields"
+SCHEDULE_FIELDS_HEADERS = ["Field / location", "Notes"]
+SCHEDULE_FIELDS_SEED = [
+    ["Field 1", "Jupiter Community Park"],
+    ["Field 2", "Jupiter Community Park"],
+    ["Field 3", "Jupiter Community Park"],
+    ["Field 4", "Jupiter Community Park"],
+    ["Maplewood Park - East Field", "Maplewood Park"],
+    ["Maplewood Park - West Field", "Maplewood Park"],
+]
+SCHEDULE_STATUSES = ["Scheduled", "Postponed", "Cancelled"]
+# Volunteer umpires: one row per umpire, an X under each division they may work.
+UMPIRES_TAB = "Umpires"
+UMPIRES_HEADERS = ["Umpire", "Red", "White", "Blue"]
+UMPIRE_COLS = ("umpire 1", "umpire 2")
+SCHEDULE_LOG_TAB = "Schedule Changes"
+SCHEDULE_LOG_HEADERS = ["Date", "Time", "Division", "Game", "What changed",
+                        "From", "To", "Changed by"]
+
+_fields_cache = {"data": None, "ts": 0.0}
+_FIELDS_TTL = 60
+
+
+def game_field_options():
+    """The places a game can be played, in the order listed on the Game Fields
+    tab. Falls back to the built-in list if the sheet can't be read."""
+    now = time.time()
+    with _lock:
+        if _fields_cache["data"] is not None and now - _fields_cache["ts"] < _FIELDS_TTL:
+            return list(_fields_cache["data"])
+    names = []
+    try:
+        if CONTROL_SHEET_ID and _SA_JSON:
+            rows = _control_tab_rows(SCHEDULE_FIELDS_TAB, SCHEDULE_FIELDS_HEADERS,
+                                     SCHEDULE_FIELDS_SEED)
+            for r in rows[1:]:
+                v = _clean(r[0]) if r else ""
+                if v and v not in names:
+                    names.append(v)
+    except Exception:
+        names = []
+    if not names:
+        names = [r[0] for r in SCHEDULE_FIELDS_SEED]
+    with _lock:
+        _fields_cache["data"] = names
+        _fields_cache["ts"] = now
+    return list(names)
+
+
+def umpire_options():
+    """{'RED': [name, ...], 'WHITE': [...], 'BLUE': [...]} from the Umpires tab.
+    An umpire can be on more than one division's list. Empty lists if the tab
+    can't be read (the editor then explains how to fill it in)."""
+    out = {"RED": [], "WHITE": [], "BLUE": []}
+    try:
+        if not (CONTROL_SHEET_ID and _SA_JSON):
+            return out
+        rows = _control_tab_rows(UMPIRES_TAB, UMPIRES_HEADERS, [])
+        if not rows:
+            return out
+        head = [_clean(c).lower() for c in rows[0]]
+        for r in rows[1:]:
+            name = _clean(r[0]) if r else ""
+            if not name:
+                continue
+            for div in out:
+                ci = head.index(div.lower()) if div.lower() in head else None
+                mark = _clean(r[ci]).lower() if ci is not None and len(r) > ci else ""
+                if mark and mark not in ("no", "n", "0", "false", "-"):
+                    if name not in out[div]:
+                        out[div].append(name)
+        for div in out:
+            out[div].sort(key=str.lower)
+    except Exception:
+        pass
+    return out
+
+
+def _ensure_umpire_columns(ws, hi, cols, rows):
+    """Add 'Umpire 1' / 'Umpire 2' headers to the right of the Schedule tab's
+    header row if they aren't there yet. Returns the updated column map."""
+    missing = [c for c in UMPIRE_COLS if c not in cols]
+    if not missing:
+        return cols
+    cols = dict(cols)
+    width = max(list(cols.values()) + [len(rows[hi]) - 1]) + 1
+    if width + len(missing) > ws.col_count:
+        ws.add_cols(width + len(missing) - ws.col_count)
+    for name in missing:
+        ws.update_cell(hi + 1, width + 1, name.title())
+        cols[name] = width
+        width += 1
+    return cols
+
+
+def _norm_game_date(text):
+    """'10/9/26', '2026-10-19', ... -> '10/19/2026'. None if not a date."""
+    d = _parse_game_date(text, datetime.datetime.now(_notice_tz()).date())
+    return "%d/%d/%d" % (d.month, d.day, d.year) if d else None
+
+
+def _norm_game_time(text):
+    """'9am', '9:00 am', '13:30' -> '9:00 AM' / '1:30 PM'. None if not a time."""
+    t = _clean(text).upper().replace(".", "")
+    t = re.sub(r"\s+", " ", t)
+    t = re.sub(r"(\d)(AM|PM)$", r"\1 \2", t)
+    for fmt in ("%I:%M %p", "%I %p", "%H:%M"):
+        try:
+            d = datetime.datetime.strptime(t, fmt)
+            return d.strftime("%I:%M %p").lstrip("0")
+        except ValueError:
+            pass
+    return None
+
+
+def _schedule_tab():
+    """(worksheet, header_row_index, {column: index}, rows) of the Schedule tab."""
+    sh = _control_sheet(readonly=False)
+    tabs = _control_tabs(sh)
+    title, rows, hi, cols = _match_tab(tabs, ["home team", "away team", "status"])
+    if title is None:
+        raise ValueError("Couldn't find the Schedule tab.")
+    return sh.worksheet(title), hi, cols, rows
+
+
+def schedule_editor_games():
+    """Every scheduled game for the editor, in date/time order, each tagged with
+    its sheet row. 'played' is True once it has a final score."""
+    games = [dict(g, played=(g["score_home"] != "" and g["score_away"] != ""))
+             for g in schedule_games_for_scoring()]
+    games.sort(key=game_sort_key)
+    return games
+
+
+def schedule_team_options():
+    """{'RED': [team, ...], ...} — the team names to offer in the editor."""
+    out = {"RED": [], "WHITE": [], "BLUE": []}
+    try:
+        data = league_season()
+        for div in out:
+            for t in data.get("teams", {}).get(div, []):
+                if t["team"] not in out[div]:
+                    out[div].append(t["team"])
+            out[div].sort(key=str.lower)
+    except Exception:
+        pass
+    return out
+
+
+def _log_schedule_change(division, game, what, old, new, changed_by):
+    """Append one line to the Schedule Changes tab. Never raises."""
+    try:
+        if not (CONTROL_SHEET_ID and _SA_JSON):
+            return
+        _control_tab_rows(SCHEDULE_LOG_TAB, SCHEDULE_LOG_HEADERS, [])
+        ws = _control_sheet(readonly=False).worksheet(SCHEDULE_LOG_TAB)
+        now = datetime.datetime.now(_notice_tz())
+        ws.append_row([now.date().isoformat(), now.strftime("%-I:%M %p"), division,
+                       game, what, old, new, changed_by],
+                      value_input_option="USER_ENTERED")
+    except Exception:
+        pass
+
+
+def schedule_change_log(limit=25):
+    """Most recent schedule changes, newest first."""
+    try:
+        if not (CONTROL_SHEET_ID and _SA_JSON):
+            return []
+        rows = _control_tab_rows(SCHEDULE_LOG_TAB, SCHEDULE_LOG_HEADERS, [])
+        out = []
+        for r in rows[1:]:
+            if not any(_clean(c) for c in r):
+                continue
+            vals = [_clean(c) for c in r[:len(SCHEDULE_LOG_HEADERS)]]
+            vals += [""] * (len(SCHEDULE_LOG_HEADERS) - len(vals))
+            out.append(dict(zip(["date", "time", "division", "game", "what",
+                                 "from", "to", "by"], vals)))
+        out.reverse()
+        return out[:limit]
+    except Exception:
+        return []
+
+
+def _validated_game(form, existing=None):
+    """Check what the editor submitted. Returns (values, problem) where values
+    is {'division','date','time','field','home','away','status'} (normalised)
+    and problem is a plain-English reason, or '' when it is fine. Anything the
+    game already had is allowed to stay as it is."""
+    existing = existing or {}
+    f = lambda k: _clean(form.get(k, ""))
+    v = {"division": _norm_div(f("division") or existing.get("division", "")),
+         "home": f("home"), "away": f("away"),
+         "field": f("field"), "status": f("status") or "Scheduled",
+         "umpire1": f("umpire1"), "umpire2": f("umpire2")}
+    if not v["division"]:
+        return v, "Please choose a division."
+    v["date"] = _norm_game_date(f("date"))
+    if not v["date"]:
+        return v, "That date isn't one I can read. Use a form like 10/19/2026."
+    v["time"] = _norm_game_time(f("time"))
+    if not v["time"]:
+        return v, "That time isn't one I can read. Use a form like 9:00 AM."
+    if not v["home"] or not v["away"]:
+        return v, "Please choose both teams."
+    if v["home"].lower() == v["away"].lower():
+        return v, "A team can't play itself — please choose two different teams."
+    if not v["field"]:
+        return v, "Please choose where the game is played."
+    teams = {t.lower() for t in schedule_team_options().get(v["division"], [])}
+    for label, name, old in (("home", v["home"], existing.get("home", "")),
+                             ("away", v["away"], existing.get("away", ""))):
+        if name.lower() not in teams and name != old:
+            return v, ("%s isn't a team in the %s Division. Please pick the team "
+                       "from the list." % (name, v["division"].title()))
+    fields = {x.lower() for x in game_field_options()}
+    if v["field"].lower() not in fields and v["field"] != existing.get("field", ""):
+        return v, "That place isn't on the Game Fields list. Please pick one from the list."
+    if v["status"] not in SCHEDULE_STATUSES:
+        return v, "Please choose Scheduled, Postponed or Cancelled."
+    if v["umpire1"] and v["umpire1"].lower() == v["umpire2"].lower():
+        return v, "Umpire 1 and Umpire 2 can't be the same person."
+    approved = {u.lower() for u in umpire_options().get(v["division"], [])}
+    for key, label in (("umpire1", "Umpire 1"), ("umpire2", "Umpire 2")):
+        name = v[key]
+        if name and name.lower() not in approved and name != existing.get(key, ""):
+            return v, ("%s isn't on the %s Division umpire list. Please pick from "
+                       "the list, or add them to the Umpires tab." % (name, v["division"].title()))
+    return v, ""
+
+
+def _schedule_write(ws, cols, row, updates):
+    """Write {column name: value} into one row, only the columns given."""
+    import gspread
+    data = []
+    for name, value in updates.items():
+        ci = cols.get(name)
+        if ci is None:
+            raise ValueError("The Schedule tab has no '%s' column." % name)
+        data.append({"range": gspread.utils.rowcol_to_a1(row, ci + 1),
+                     "values": [[str(value)]]})
+    if data:
+        # Typed in the way a person would, so dates and times stay real
+        # dates and times in the sheet.
+        ws.batch_update(data, raw=False)
+    with _lock:
+        _season_cache["ts"] = 0.0           # public pages pick it up at once
+
+
+_GAME_COLS = (("division", "division"), ("date", "date"), ("time", "time"),
+              ("field", "field"), ("home", "home team"), ("away", "away team"),
+              ("status", "status"), ("umpire1", "umpire 1"), ("umpire2", "umpire 2"))
+
+
+def _same_game_value(key, old, new):
+    """Is an edited value the same as what the sheet already holds? Dates and
+    times compare as dates and times, so '10/9/2026' and '10/09/2026' match."""
+    if key == "date":
+        return _norm_game_date(old) == new
+    if key == "time":
+        return _norm_game_time(old) == new
+    return _clean(old) == _clean(new)
+
+
+def update_schedule_game(row, expected, form, changed_by):
+    """Apply the editor's changes to one existing game. `expected` is what the
+    page showed (so a row that has since moved or changed is refused).
+    Returns (ok, message)."""
+    try:
+        row = int(row)
+        ws, hi, cols, rows = _schedule_tab()
+        if row <= hi + 1 or row > len(rows):
+            return False, "That game isn't on the schedule any more. Please reload the page."
+        g = _row_reader(cols)(rows[row - 1])
+        now_has = {"division": _norm_div(g("division")), "date": g("date"),
+                   "time": g("time"), "field": g("field"),
+                   "home": g("home team"), "away": g("away team"),
+                   "status": g("status"),
+                   "umpire1": g("umpire 1"), "umpire2": g("umpire 2")}
+        for k in ("date", "time", "home", "away"):
+            if _clean(expected.get(k)) != now_has[k]:
+                return False, ("This game was changed by someone else while you "
+                               "were editing. Nothing was saved — please reload.")
+        if _parse_score(g("score home")) is not None or _parse_score(g("score away")) is not None:
+            return False, ("This game already has a final score, so it can't be "
+                           "edited here. Change scores on the scoring page.")
+        vals, problem = _validated_game(form, now_has)
+        if problem:
+            return False, problem
+        updates, changes = {}, []
+        for key, col in _GAME_COLS:
+            old, new = now_has[key], vals[key]
+            if not _same_game_value(key, old, new):
+                updates[col] = new
+                changes.append((key, old, new))
+        if not updates:
+            return True, "No changes — everything was already as you entered it."
+        if any(c in updates for c in UMPIRE_COLS):
+            cols = _ensure_umpire_columns(ws, hi, cols, rows)
+        _schedule_write(ws, cols, row, updates)
+        label = "%s vs %s" % (now_has["away"], now_has["home"])
+        names = {"division": "Division", "date": "Date", "time": "Time",
+                 "field": "Field", "home": "Home team", "away": "Visiting team",
+                 "status": "Status", "umpire1": "Umpire 1", "umpire2": "Umpire 2"}
+        for key, old, new in changes:
+            _log_schedule_change(vals["division"], label + " (" + now_has["date"] + ")",
+                                 names[key], old, new, changed_by)
+        return True, "Saved. The website schedule is updated."
+    except Exception as e:
+        return False, "Couldn't save: %s" % e
+
+
+def add_schedule_game(form, changed_by):
+    """Put a new game into the first spare (empty) row of the Schedule tab.
+    Returns (ok, message)."""
+    try:
+        vals, problem = _validated_game(form)
+        if problem:
+            return False, problem
+        ws, hi, cols, rows = _schedule_tab()
+        spare = None
+        for idx in range(hi + 1, len(rows)):
+            g = _row_reader(cols)(rows[idx])
+            if not (g("home team") or g("away team") or g("date") or g("time")
+                    or g("division") or g("score home") or g("score away")):
+                spare = idx + 1
+                break
+        if spare is None:
+            return False, ("There are no spare rows left on the Schedule tab. "
+                           "Add some blank rows at the bottom of the tab, then try again.")
+        wanted = {col: vals[key] for key, col in _GAME_COLS
+                  if col not in UMPIRE_COLS or vals[key]}
+        if any(c in wanted for c in UMPIRE_COLS):
+            cols = _ensure_umpire_columns(ws, hi, cols, rows)
+        _schedule_write(ws, cols, spare, wanted)
+        _log_schedule_change(vals["division"], "%s vs %s (%s)" % (
+            vals["away"], vals["home"], vals["date"]), "Game added", "",
+            "%s %s, %s" % (vals["date"], vals["time"], vals["field"]), changed_by)
+        return True, "Game added. The website schedule is updated."
+    except Exception as e:
+        return False, "Couldn't add the game: %s" % e
