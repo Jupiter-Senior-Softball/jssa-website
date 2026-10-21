@@ -27,6 +27,7 @@
     letter-spacing:.05em;text-transform:uppercase;padding:5px 12px;border-radius:999px;
     background:var(--blue-tint);color:var(--blue)}
   .gstatus.final{background:#e9f7ee;color:#1c8a44}
+  .gstatus.off{background:#fdecec;color:#b91c1c}
   .gump{font-size:1.05rem;margin-top:8px;color:var(--navy)}
   .gump b{font-family:var(--display)}
   .gump.tbd{color:var(--muted)}
@@ -53,7 +54,7 @@
       {% if final %}
         <span class="gstatus final">Final</span>
       {% else %}
-        <span class="gstatus">{{ g.status or 'Scheduled' }}</span>
+        <span class="gstatus{{ ' off' if g.called_off }}">{{ g.status or 'Scheduled' }}</span>
       {% endif %}
     </div>
   </div>
