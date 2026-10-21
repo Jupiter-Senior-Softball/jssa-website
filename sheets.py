@@ -5493,6 +5493,25 @@ def game_field_options():
     return list(names)
 
 
+_NAME_SUFFIXES = {"jr", "sr", "ii", "iii", "iv", "v"}
+_NAME_PARTICLES = {"st", "van", "von", "de", "di", "del", "la", "le", "mc", "mac"}
+
+
+def last_name_sort_key(name):
+    """Sort key putting people in last-name order: 'Bill Smith' -> ('smith', 'bill').
+    Ignores a trailing Jr/Sr/III, and keeps a prefix like 'St' or 'Van' with the
+    last name ('Chase St James' sorts under S, as 'st james')."""
+    words = [w for w in _clean(name).replace(",", " ").split() if w]
+    while len(words) > 1 and words[-1].strip(".").lower() in _NAME_SUFFIXES:
+        words.pop()
+    if not words:
+        return ("", "")
+    i = len(words) - 1
+    while i > 1 and words[i - 1].strip(".").lower() in _NAME_PARTICLES:
+        i -= 1
+    return (" ".join(words[i:]).lower(), " ".join(words[:i]).lower())
+
+
 def umpire_options():
     """{'RED': [name, ...], 'WHITE': [...], 'BLUE': [...]} from the Umpires tab.
     An umpire can be on more than one division's list. Empty lists if the tab
@@ -5516,7 +5535,7 @@ def umpire_options():
                     if name not in out[div]:
                         out[div].append(name)
         for div in out:
-            out[div].sort(key=str.lower)
+            out[div].sort(key=last_name_sort_key)
     except Exception:
         pass
     return out
