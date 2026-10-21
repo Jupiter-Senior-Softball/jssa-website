@@ -3242,6 +3242,13 @@ def player_cards():
     return out
 
 
+def _game_called_off(status):
+    """True when a schedule row's Status says the game isn't being played
+    (Cancelled / Postponed / Rained out / Rescheduled / Suspended)."""
+    st = _clean(status).lower()
+    return any(w in st for w in ("cancel", "postpone", "rain", "resched", "suspend"))
+
+
 def _team_key(name):
     """Case/space/apostrophe-insensitive key, so "Mick's Picks" typed with a curly
     apostrophe on one tab still matches the same team on another."""
@@ -3329,13 +3336,18 @@ def league_season():
                     away = g("away team")
                     if not (home or away):
                         continue
+                    # A cancelled/postponed game is never "final", even if the
+                    # score cells hold 0-0: hide those scores so the schedule and
+                    # standings don't count it as played.
+                    off = _game_called_off(g("status"))
                     data["schedule"].append({
                         "division": _norm_div(g("division")),
                         "date": g("date"), "dow": _weekday_prefix(g("date")),
                         "time": g("time"), "field": g("field"),
                         "home": home, "away": away,
-                        "score_home": g("score home"), "score_away": g("score away"),
-                        "status": g("status"),
+                        "score_home": "" if off else g("score home"),
+                        "score_away": "" if off else g("score away"),
+                        "status": g("status"), "called_off": off,
                         "umpires": [u for u in (g("umpire 1"), g("umpire 2")) if u],
                     })
                 # Only show "Umpires: TBD" once the sheet has the umpire columns.
