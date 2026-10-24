@@ -3498,12 +3498,10 @@ def schedule_games_for_scoring():
         return []
 
 
-def set_game_score(row, score_home, score_away, status="Final", changed_by=None):
+def set_game_score(row, score_home, score_away, status="Final"):
     """Write a final score back into the Schedule tab for one game row. Updates
     the 'Score Home', 'Score Away' and 'Status' columns; the sheet's own
-    formulas then update Results and Standings. Returns True on success.
-    When `changed_by` is given, the change (old score -> new score) is also
-    recorded on the Schedule Changes tab."""
+    formulas then update Results and Standings. Returns True on success."""
     try:
         if not (CONTROL_SHEET_ID and _SA_JSON):
             return False
@@ -3517,11 +3515,6 @@ def set_game_score(row, score_home, score_away, status="Final", changed_by=None)
         sh_i = cols.get("score home")
         sa_i = cols.get("score away")
         st_i = cols.get("status")
-        g = _row_reader(cols)(rows[row - 1]) if 0 < row <= len(rows) else None
-        old_score = ""
-        if g is not None:                # what it was, before we overwrite it
-            old_score = "%s–%s" % (g("score home"), g("score away")) \
-                if (g("score home") != "" and g("score away") != "") else "no score"
         updates = []
         if sh_i is not None:
             updates.append({"range": gspread.utils.rowcol_to_a1(row, sh_i + 1),
@@ -3536,26 +3529,9 @@ def set_game_score(row, score_home, score_away, status="Final", changed_by=None)
             ws.batch_update(updates)
         with _lock:                      # force the public pages to refresh
             _season_cache["ts"] = 0.0
-        if changed_by is not None and g is not None:
-            def fmt(h, a):
-                return "%s–%s" % (h, a) if (_clean(h) != "" and _clean(a) != "") else "no score"
-            old = old_score
-            new = fmt(score_home, score_away)
-            if old != new:
-                _log_schedule_change(
-                    _norm_div(g("division")),
-                    "%s at %s (%s)" % (g("away team"), g("home team"), g("date")),
-                    "Score (home–away)" if new != "no score" else "Score cleared",
-                    old, new, changed_by or "Board member")
         return True
     except Exception:
         return False
-
-
-def clear_game_score(row, changed_by):
-    """Take a score off a game (entered on the wrong game, say): blanks both
-    scores and puts the game back to 'Scheduled', so standings revert."""
-    return set_game_score(row, "", "", status="Scheduled", changed_by=changed_by or "Board member")
 
 
 # ----------------------------------------------------------------------------
