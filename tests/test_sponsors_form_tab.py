@@ -59,6 +59,8 @@ assert by["TEMP TECH SERVICES"]["u"] == "", "a private Google Sheet link must ne
 assert by["Bradley Molineux"]["p"] == "772-221-3100"
 assert by["Insure Options"]["l"].startswith("https://lh3.googleusercontent.com/d/1DnaLYBg"), "falls back to raw logo"
 assert by["VILLAGE SCOOP SHACK"]["l"].startswith("https://lh3.googleusercontent.com/d/1xza0")
+assert by["Insure Options"]["fid"] == "1DnaLYBgXNDNIugY8qBtoBJdQi2cQycru", "Drive id for the backup image address"
+assert by["Benaim Eye Aesthetics"]["fid"] == "", "non-Drive logo has no Drive id"
 # no logo in the sheet -> the logo the site already had (matched by website)
 assert by["Benaim Eye Aesthetics"]["l"].startswith("https://benaimeye.com/wp-content/"), by["Benaim Eye Aesthetics"]
 assert by["Law Office of Cindy A. Sojka, PA"]["l"].startswith("https://lh3.googleusercontent.com/d/1Gffs"), "Sojka logo"

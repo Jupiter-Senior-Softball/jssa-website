@@ -238,8 +238,8 @@ until each application is approved.
 
 1. Open the Control Sheet → **Extensions → Apps Script**.
 2. **+** next to *Files* → *Script* → name it `SponsorAlert` → paste the file → Save.
-3. Edit `ALERT_EMAILS` at the top to add everyone who should be notified.
-4. Run **`testAlert`** (approve permissions) — a sample email should arrive.
+3. Alerts go to **jssagames@gmail.com** (set by `ALERT_EMAILS` at the top; add more addresses there if ever needed).
+4. Run **`testAlert`** (approve permissions) — a sample email should arrive at jssagames@gmail.com.
 5. Run **`fixSponsorTimestamps`** once — turns the raw-number timestamps (e.g. `46304.68456`) into real dates and formats column A.
 6. Run **`installSponsorAlerts`** once. Done.
 
