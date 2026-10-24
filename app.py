@@ -1050,8 +1050,7 @@ def admin_scores():
     # Step 2: show just that division's games (already sorted needs-scoring first).
     games = [g for g in all_games if g.get("division") == division]
     return render_template("admin/scores.html", games=games, division=division,
-                           saved=request.args.get("saved"),
-                           changed_by=session.get("schedule_by", ""))
+                           saved=request.args.get("saved"))
 
 
 @app.route("/admin/scores/save", methods=["POST"])
@@ -1061,36 +1060,14 @@ def admin_scores_save():
     score_home = request.form.get("score_home", "").strip()
     score_away = request.form.get("score_away", "").strip()
     division = (request.form.get("division") or "").strip().upper()
-    by = (request.form.get("changed_by") or "").strip()
-    if by:
-        session["schedule_by"] = by
     ok = False
     if row.isdigit() and score_home != "" and score_away != "":
         try:
-            ok = sheets.set_game_score(int(row), score_home, score_away,
-                                       changed_by=by or "Board member")
+            ok = sheets.set_game_score(int(row), score_home, score_away)
         except Exception:
             ok = False
     return redirect(url_for("admin_scores", division=division or None,
                             saved=("1" if ok else "0")))
-
-
-@app.route("/admin/scores/clear", methods=["POST"])
-@login_required
-def admin_scores_clear():
-    row = request.form.get("row", "").strip()
-    division = (request.form.get("division") or "").strip().upper()
-    by = (request.form.get("changed_by") or "").strip()
-    if by:
-        session["schedule_by"] = by
-    ok = False
-    if row.isdigit():
-        try:
-            ok = sheets.clear_game_score(int(row), by or "Board member")
-        except Exception:
-            ok = False
-    return redirect(url_for("admin_scores", division=division or None,
-                            saved=("2" if ok else "0")))
 
 
 @app.route("/admin/directory")

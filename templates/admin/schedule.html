@@ -112,7 +112,6 @@
       {% if g.umpire1 or g.umpire2 %}<div class="hint">Umpires: {{ [g.umpire1, g.umpire2]|select|join(', ') }}</div>{% endif %}
       <div>{{ g.away }} {{ g.score_away }} &nbsp;at&nbsp; {{ g.home }} {{ g.score_home }} <span class="done">· Final</span></div>
       <div class="hint" style="margin-top:6px">This game has a final score, so it can't be edited here. Scores are changed on the scoring page.</div>
-      <div style="margin-top:10px"><a class="btn btn-navy" href="{{ url_for('admin_scores', division=division) }}">Correct this score →</a></div>
     {% else %}
     <form method="post" action="{{ url_for('admin_schedule_save') }}">
       <input type="hidden" name="row" value="{{ g.row }}">

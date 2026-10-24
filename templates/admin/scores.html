@@ -1,6 +1,6 @@
 {% extends "page_base.html" %}
 {% block eyebrow %}Admin{% endblock %}
-{% block sub %}<p class="sub">Enter the final score for each game. The most recently played game that still needs a score is at the top. Saving writes it straight into the Schedule tab — the standings update automatically. To fix a mistake, scroll to the finished game, change the numbers and press Update (or Clear score if it was entered on the wrong game). Every change is recorded.</p>{% endblock %}
+{% block sub %}<p class="sub">Enter the final score for each game. The most recently played game that still needs a score is at the top. Saving writes it straight into the Schedule tab — the standings update automatically.</p>{% endblock %}
 {% block body %}
 <style>
   html{font-size:112.5%}
@@ -28,9 +28,6 @@
   .divhead .pill{display:inline-block;width:14px;height:14px;border-radius:999px;margin-right:8px;vertical-align:middle}
   .divhead .pill.RED{background:var(--red)} .divhead .pill.BLUE{background:var(--blue)} .divhead .pill.WHITE{background:var(--navy)}
   .divhead a{font-weight:700}
-  .sgby{display:flex;align-items:center;gap:8px;flex-basis:100%;font-size:.95rem;color:var(--muted)}
-  .sgby input{font-size:1rem;padding:8px 10px;border:1px solid var(--line);border-radius:8px;width:220px;max-width:100%}
-  .sgclear{background:#fff;color:#b3151b;border:2px solid #b3151b;border-radius:10px;font-weight:700;min-height:44px;padding:0 16px;cursor:pointer;margin-left:8px}
   @media(max-width:560px){.sgsave{margin-left:0;width:100%}.sgsave button{width:100%}}
 </style>
 
@@ -45,7 +42,6 @@
 </div>
 
 {% if saved == '1' %}<div class="saved">✓ Score saved. The standings will update within a couple of minutes.</div>{% endif %}
-{% if saved == '2' %}<div class="saved">✓ Score cleared. The game is back on the schedule as Scheduled, and the standings will update within a couple of minutes.</div>{% endif %}
 {% if saved == '0' %}<div class="failed">Couldn't save that score. Make sure both score boxes have a number, then try again.</div>{% endif %}
 
 {% if not games %}
@@ -63,11 +59,7 @@
       <span class="sgvs">vs</span>
       <span class="sgteam">{{ g.away }}
         <input type="number" name="score_away" min="0" value="{{ g.score_away }}" placeholder="0" required></span>
-      <span class="sgby"><label>Your name {% if done %}(for the change record){% endif %}</label>
-        <input type="text" name="changed_by" value="{{ changed_by }}"{% if done %} required{% endif %}></span>
-      <span class="sgsave"><button class="btn btn-navy" type="submit">{{ 'Update' if done else 'Save score' }}</button>
-        {% if done %}<button class="sgclear" type="submit" formaction="{{ url_for('admin_scores_clear') }}" formnovalidate
-          onclick="if(!this.form.changed_by.value.trim()){alert('Please type your name first.');return false}return confirm('Clear this score? The game will go back to Scheduled and the standings will change.')">Clear score</button>{% endif %}</span>
+      <span class="sgsave"><button class="btn btn-navy" type="submit">{{ 'Update' if done else 'Save score' }}</button></span>
     </form>
   </div>
   {% endfor %}
