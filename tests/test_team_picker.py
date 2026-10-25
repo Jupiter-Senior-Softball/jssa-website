@@ -47,10 +47,9 @@ also = attrs(page, "data-also")
 assert "Mick's Picks" in also and "Ron Nolan||Pat Smith" in also and "" in also, also
 assert page.count('class="gcard') == 3
 
-# ---- results
-page = c.get("/league/results").get_data(as_text=True)
-assert attrs(page, "data-teams") == ["Jackals||Mick's Picks"], attrs(page, "data-teams")
-assert 'id="teampick"' in page
+# ---- the old results page now sends visitors to the schedule's Completed games
+resp = c.get("/league/results")
+assert resp.status_code == 302 and resp.headers["Location"].endswith("/league/schedules#completed"), resp.headers
 
 # ---- rosters: one tag per team card
 page = c.get("/league/rosters").get_data(as_text=True)

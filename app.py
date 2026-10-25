@@ -626,7 +626,6 @@ LEAGUE_SECTIONS = {
     "teams":     ("Teams by Division", "Organized League"),
     "rosters":   ("Team Rosters",      "Organized League"),
     "schedules": ("League Schedule",  "Organized League"),
-    "results":   ("Game Results",     "Organized League"),
     "standings": ("League Standings", "Organized League"),
 }
 
@@ -655,6 +654,9 @@ def past_seasons():
 
 @app.route("/league/<section>")
 def league_section(section):
+    if section == "results":
+        # The old Game Results page is folded into the schedule's "Completed games".
+        return redirect("/league/schedules#completed")
     meta = LEAGUE_SECTIONS.get(section)
     if meta is None:
         abort(404)
@@ -674,17 +676,11 @@ def league_section(section):
                                               key=sheets.game_sort_key))
         upcoming, done = sheets.split_schedule(season["schedule"])
         season["schedule_upcoming"], season["schedule_done"] = upcoming, done
-    # The results page lists the newest day first, with each day's games in
-    # time order (9:00 AM, then 10:30 AM), regardless of the sheet's row order.
-    if section == "results":
-        season = dict(season, results=sorted(season["results"],
-                                             key=sheets.result_sort_key))
     # Does this section have any data to show yet? If not, the template falls
     # back to the friendly "off-season" message.
     has_data = {
         "rosters":   any(season["rosters"].values()),
         "schedules": bool(season["schedule"]),
-        "results":   bool(season["results"]),
         "standings": any(season["standings"].values()),
         "teams":     any(season.get("teams", season["rosters"]).values()),
     }.get(section, False)
@@ -693,7 +689,6 @@ def league_section(section):
         "teams":     "pages/league-teams.html",
         "rosters":   "pages/league-rosters.html",
         "schedules": "pages/league-schedule.html",
-        "results":   "pages/league-results.html",
         "standings": "pages/league-standings.html",
     }.get(section)
     if section_template and has_data:
