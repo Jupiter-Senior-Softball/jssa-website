@@ -49,7 +49,7 @@
 {% include "_teampicker.html" %}
 {% macro card(g) %}
   {% set final = g.score_home != '' and g.score_away != '' %}
-  <div class="gcard {{ g.division }}" data-div="{{ g.division }}" data-teams="{{ g.away }}||{{ g.home }}" data-also="{{ (g.umpires or [])|join('||') }}">
+  <div class="gcard {{ g.division }}" data-day="{{ g.date }}" data-div="{{ g.division }}" data-teams="{{ g.away }}||{{ g.home }}" data-also="{{ (g.umpires or [])|join('||') }}">
     <div class="gwhen">
       <div class="d">{% if g.dow %}<span style="display:block;color:var(--red)">{{ g.dow }}</span>{% endif %}{{ g.date }}</div>
       <div class="t">{{ g.time }}{% if g.field %} · {{ g.field }}{% endif %}</div>
@@ -92,7 +92,7 @@
 (function(){
   function refresh(){
     var kids=Array.prototype.slice.call(document.querySelector('.sch').children);
-    var head=null,count=new Map(),next=null,anyUp=false;
+    var head=null,count=new Map(),day=null,nexts=[],anyUp=false;
     kids.forEach(function(el){
       if(el.classList.contains('schhead')){head=el;count.set(el,0);el.classList.remove('nohead');return;}
       el.classList.remove('next');
@@ -101,15 +101,18 @@
       count.set(head,count.get(head)+1);
       if(head.getAttribute('data-sec')==='up'){
         anyUp=true;
-        if(!next&&!el.querySelector('.gstatus.off'))next=el;
+        if(el.querySelector('.gstatus.off'))return;
+        // Every game on the same day as the first playable upcoming game is a "next game".
+        if(day===null)day=el.getAttribute('data-day');
+        if(el.getAttribute('data-day')===day)nexts.push(el);
       }
     });
     count.forEach(function(n,h){h.classList.toggle('nohead',!n);});
-    if(next){
-      next.classList.add('next');
+    nexts.forEach(function(el){
+      el.classList.add('next');
       var b=document.createElement('div');b.className='nextbadge';b.textContent='\u2B50 Next game';
-      next.insertBefore(b,next.firstChild);
-    }
+      el.insertBefore(b,el.firstChild);
+    });
     var team=document.querySelector('.tp-btn[aria-pressed="true"]');
     var picked=!!(team&&team.getAttribute('data-team'));
     document.getElementById('nonext').style.display=(picked&&!anyUp)?'block':'none';
