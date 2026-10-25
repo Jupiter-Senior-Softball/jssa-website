@@ -1,6 +1,6 @@
 {% extends "page_base.html" %}
 {% block eyebrow %}{{ section_eyebrow }}{% endblock %}
-{% block sub %}<p class="sub">The full league schedule. Finished games show their final score; upcoming games show the date, time, field and assigned umpires.</p>{% endblock %}
+{% block sub %}<p class="sub">The full league schedule. Upcoming games are listed first; finished games move to the bottom with their final score.</p>{% endblock %}
 {% block body %}
 <style>
   .sch{display:flex;flex-direction:column;gap:12px;max-width:760px;margin:0 auto}
@@ -31,13 +31,23 @@
   .gump{font-size:1.05rem;margin-top:8px;color:var(--navy)}
   .gump b{font-family:var(--display)}
   .gump.tbd{color:var(--muted)}
+  .schhead{font-family:var(--display);font-weight:800;color:var(--navy);font-size:1.3rem;
+    margin:10px 0 0;padding-bottom:6px;border-bottom:3px solid var(--navy)}
+  .schhead.done{margin-top:34px;color:var(--muted);border-bottom-color:var(--line)}
+  .schhead.nohead{display:none!important}
+  .gcard.next{outline:4px solid #f5c518;outline-offset:2px;position:relative;margin-top:22px}
+  .nextbadge{position:absolute;top:-17px;left:14px;background:#f5c518;color:var(--navy);
+    font-family:var(--display);font-weight:800;font-size:1rem;letter-spacing:.04em;
+    text-transform:uppercase;padding:5px 14px;border-radius:999px}
+  .nonext{max-width:760px;margin:0 auto 14px;text-align:center;font-size:1.15rem;
+    font-family:var(--display);font-weight:700;color:var(--navy);background:var(--blue-tint);
+    border-radius:12px;padding:16px}
   @media(max-width:560px){.gright{text-align:left;width:100%}}
 </style>
 {% set picker_label = 'schedule' %}
 {% include "_divpicker.html" %}
 {% include "_teampicker.html" %}
-<div class="sch">
-  {% for g in season.schedule %}
+{% macro card(g) %}
   {% set final = g.score_home != '' and g.score_away != '' %}
   <div class="gcard {{ g.division }}" data-div="{{ g.division }}" data-teams="{{ g.away }}||{{ g.home }}" data-also="{{ (g.umpires or [])|join('||') }}">
     <div class="gwhen">
@@ -58,8 +68,56 @@
       {% endif %}
     </div>
   </div>
+{% endmacro %}
+<div class="nonext" id="nonext" style="display:none">No upcoming games are scheduled for this team right now.</div>
+<div class="sch">
+  {% for div in ['RED','WHITE','BLUE'] %}
+  {% set ups = season.schedule_upcoming|selectattr('division','equalto',div)|list %}
+  {% if ups %}
+  <h2 class="schhead" data-div="{{ div }}" data-sec="up">Upcoming games</h2>
+  {% for g in ups %}{{ card(g) }}{% endfor %}
+  {% endif %}
+  {% endfor %}
+  {% for div in ['RED','WHITE','BLUE'] %}
+  {% set dns = season.schedule_done|selectattr('division','equalto',div)|list %}
+  {% if dns %}
+  <h2 class="schhead done" data-div="{{ div }}" data-sec="done">Completed games</h2>
+  {% for g in dns %}{{ card(g) }}{% endfor %}
+  {% endif %}
   {% endfor %}
 </div>
+<script>
+/* Marks the first upcoming game that is showing as "NEXT GAME", and hides a section
+   heading when no game under it is showing (for example after picking one team). */
+(function(){
+  function refresh(){
+    var kids=Array.prototype.slice.call(document.querySelector('.sch').children);
+    var head=null,count=new Map(),next=null,anyUp=false;
+    kids.forEach(function(el){
+      if(el.classList.contains('schhead')){head=el;count.set(el,0);el.classList.remove('nohead');return;}
+      el.classList.remove('next');
+      var old=el.querySelector('.nextbadge');if(old)old.remove();
+      if(!head||el.style.display==='none')return;
+      count.set(head,count.get(head)+1);
+      if(head.getAttribute('data-sec')==='up'){
+        anyUp=true;
+        if(!next&&!el.querySelector('.gstatus.off'))next=el;
+      }
+    });
+    count.forEach(function(n,h){h.classList.toggle('nohead',!n);});
+    if(next){
+      next.classList.add('next');
+      var b=document.createElement('div');b.className='nextbadge';b.textContent='\u2B50 Next game';
+      next.insertBefore(b,next.firstChild);
+    }
+    var team=document.querySelector('.tp-btn[aria-pressed="true"]');
+    var picked=!!(team&&team.getAttribute('data-team'));
+    document.getElementById('nonext').style.display=(picked&&!anyUp)?'block':'none';
+  }
+  document.addEventListener('divpicked',refresh);
+  document.addEventListener('teampicked',refresh);
+})();
+</script>
 {% endblock %}
 {% block footer_btns %}<a class="btn btn-navy" href="/">← Back to Home</a>{% endblock %}
 {% block extra_btns %}<a class="btn" style="background:var(--blue);color:#fff" href="/league/results">Game Results →</a>
