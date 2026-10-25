@@ -672,6 +672,8 @@ def league_section(section):
     if section == "schedules":
         season = dict(season, schedule=sorted(season["schedule"],
                                               key=sheets.game_sort_key))
+        upcoming, done = sheets.split_schedule(season["schedule"])
+        season["schedule_upcoming"], season["schedule_done"] = upcoming, done
     # The results page lists the newest day first, with each day's games in
     # time order (9:00 AM, then 10:30 AM), regardless of the sheet's row order.
     if section == "results":

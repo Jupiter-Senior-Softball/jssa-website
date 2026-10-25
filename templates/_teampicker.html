@@ -109,6 +109,7 @@
       note.appendChild(f);
     }
     setAddress();
+    document.dispatchEvent(new CustomEvent('teampicked'));
   }
 
   function pick(team){
