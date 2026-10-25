@@ -50,7 +50,7 @@
 {% include "_divpicker.html" %}
 {% include "_teampicker.html" %}
 <div class="topbtns">
-  <a class="btn minibtn" style="background:var(--blue);color:#fff" href="/league/results">Game Results →</a>
+  <a class="btn minibtn" style="background:var(--blue);color:#fff" href="/league/schedules#completed" data-jump="completed">Game Results ↓</a>
   <a class="btn minibtn" style="background:var(--blue);color:#fff" href="/league/standings">View Standings →</a>
 </div>
 {% macro card(g) %}
@@ -61,8 +61,8 @@
       <div class="t">{{ g.time }}{% if g.field %} · {{ g.field }}{% endif %}</div>
     </div>
     <div class="gmatch">
-      <div class="gteam visitor"><span class="tag">Visitor</span><span class="tn">{{ g.away }}</span>{% if final %}<span class="sc">{{ g.score_away }}</span>{% endif %}</div>
-      <div class="gteam home"><span class="tag">Home</span><span class="tn">{{ g.home }}</span>{% if final %}<span class="sc">{{ g.score_home }}</span>{% endif %}</div>
+      <div class="gteam visitor"><span class="tag">Visitor</span><span class="tn">{{ g.away }}{% if final and g.score_away|int(-1) > g.score_home|int(-1) %} ✓{% endif %}</span>{% if final %}<span class="sc">{{ g.score_away }}</span>{% endif %}</div>
+      <div class="gteam home"><span class="tag">Home</span><span class="tn">{{ g.home }}{% if final and g.score_home|int(-1) > g.score_away|int(-1) %} ✓{% endif %}</span>{% if final %}<span class="sc">{{ g.score_home }}</span>{% endif %}</div>
       {% if g.umpires %}<div class="gump"><b>Umpires:</b> {{ g.umpires|join(' & ') }}</div>
       {% elif season.umpires_enabled and not final and g.status != 'Cancelled' %}<div class="gump tbd"><b>Umpires:</b> to be announced</div>{% endif %}
     </div>
@@ -123,11 +123,25 @@
     var picked=!!(team&&team.getAttribute('data-team'));
     document.getElementById('nonext').style.display=(picked&&!anyUp)?'block':'none';
   }
-  document.addEventListener('divpicked',refresh);
+  // "Game Results ↓" scrolls to the Completed games section of the open division.
+  function jump(){
+    var hs=Array.prototype.filter.call(document.querySelectorAll('.schhead.done'),function(x){return x.style.display!=='none'&&!x.classList.contains('nohead');});
+    var h=hs[0];
+    if(h){h.scrollIntoView({behavior:'smooth',block:'start'});return true;}
+    return false;
+  }
+  var wantJump=location.hash==='#completed';
+  document.querySelectorAll('[data-jump="completed"]').forEach(function(a){
+    a.addEventListener('click',function(e){
+      e.preventDefault();
+      if(!jump()){var p=document.getElementById('divprompt');if(p){p.style.display='block';p.textContent='\uD83D\uDC46 Pick a division above, then tap Game Results again.';}}
+    });
+  });
+  document.addEventListener('divpicked',function(){refresh();if(wantJump){wantJump=false;setTimeout(jump,50);}});
   document.addEventListener('teampicked',refresh);
 })();
 </script>
 {% endblock %}
 {% block footer_btns %}<a class="btn btn-navy" href="/">← Back to Home</a>{% endblock %}
-{% block extra_btns %}<a class="btn" style="background:var(--blue);color:#fff" href="/league/results">Game Results →</a>
+{% block extra_btns %}
 <a class="btn" style="background:var(--blue);color:#fff" href="/league/standings">View Standings →</a>{% endblock %}
