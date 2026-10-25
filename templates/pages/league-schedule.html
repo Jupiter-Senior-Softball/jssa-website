@@ -31,7 +31,8 @@
   .gump{font-size:1.05rem;margin-top:8px;color:var(--navy)}
   .gump b{font-family:var(--display)}
   .gump.tbd{color:var(--muted)}
-  .topbtns{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin:0 0 22px}
+  .topbtns{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin:0 0 22px}
+  .topbtns .minibtn{min-height:44px;padding:0 16px;font-size:.95rem}
   .schhead{font-family:var(--display);font-weight:800;color:var(--navy);font-size:1.3rem;
     margin:10px 0 0;padding-bottom:6px;border-bottom:3px solid var(--navy)}
   .schhead.done{margin-top:34px;color:var(--muted);border-bottom-color:var(--line)}
@@ -45,13 +46,13 @@
     border-radius:12px;padding:16px}
   @media(max-width:560px){.gright{text-align:left;width:100%}}
 </style>
-<div class="topbtns">
-  <a class="btn" style="background:var(--blue);color:#fff" href="/league/results">Game Results →</a>
-  <a class="btn" style="background:var(--blue);color:#fff" href="/league/standings">View Standings →</a>
-</div>
 {% set picker_label = 'schedule' %}
 {% include "_divpicker.html" %}
 {% include "_teampicker.html" %}
+<div class="topbtns">
+  <a class="btn minibtn" style="background:var(--blue);color:#fff" href="/league/results">Game Results →</a>
+  <a class="btn minibtn" style="background:var(--blue);color:#fff" href="/league/standings">View Standings →</a>
+</div>
 {% macro card(g) %}
   {% set final = g.score_home != '' and g.score_away != '' %}
   <div class="gcard {{ g.division }}" data-day="{{ g.date }}" data-div="{{ g.division }}" data-teams="{{ g.away }}||{{ g.home }}" data-also="{{ (g.umpires or [])|join('||') }}">
