@@ -4569,27 +4569,18 @@ def _cancellation_message(plan, reason, location):
         what, plan["date"].strftime("%a, %b %-d"))
 
     lines = [
-        "TODAY'S GAMES ARE CANCELLED.",
+        "TODAY'S JSSA GAMES HAVE BEEN CANCELLED.",
         "",
-        "The JSSA %s scheduled for %s%s will not be played."
-        % (what, plan["date_label"], where),
+        "The JSSA games scheduled for %s%s have been cancelled."
+        % (plan["date_label"], where),
         "",
         "Please do not travel to the field.",
     ]
     if _clean(reason):
         lines += ["", "Reason: " + _clean(reason)]
-    if plan["games"]:
-        lines += ["", "Cancelled games:"]
-        for g in plan["games"]:
-            bits = [b for b in (_clean(g.get("time")),
-                                _clean(g.get("division")),
-                                "%s vs %s" % (_clean(g.get("home")),
-                                              _clean(g.get("away"))),
-                                _clean(g.get("field"))) if b]
-            lines.append("  - " + " · ".join(bits))
     lines += [
         "",
-        "This notice is also posted on the website: https://jupiterseniorsoftball.com",
+        "This notice has also been posted on our website at: https://jupiterseniorsoftball.com",
         "",
         "Jupiter Senior Softball Association",
     ]
