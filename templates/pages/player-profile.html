@@ -29,11 +29,16 @@
       color:var(--accent);font-size:.72rem;letter-spacing:-.02em;
       box-shadow:0 1px 3px rgba(0,0,0,.3)}
   .tc-team{flex:1 1 auto;text-align:center;min-width:0}
-  .tc-team span{font-family:var(--display);font-weight:900;line-height:1;
-      text-transform:uppercase;font-size:clamp(1.3rem,6.2vw,2.1rem);
+  /* Long team names ("Bad Moon Rising") used to get cut off with "...". The
+     font now shrinks with the name's length (--len, set inline from the
+     team name) instead of truncating, and wraps to a second line as a
+     last resort — so the full name always shows, never gets clipped. */
+  .tc-team span{font-family:var(--display);font-weight:900;line-height:1.1;
+      text-transform:uppercase;
+      font-size:clamp(.95rem,calc(2.3rem - 0.075rem*var(--len,10)),2.1rem);
       letter-spacing:.01em;color:#fff;-webkit-text-stroke:2px #16233f;
       paint-order:stroke fill;text-shadow:2px 2px 0 rgba(22,35,63,.4);
-      display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      display:block;white-space:normal;overflow-wrap:break-word;word-break:break-word}
   .tc-div{flex:0 0 auto;font-family:var(--display);font-weight:800;font-size:.72rem;
       letter-spacing:.07em;color:#fff;background:rgba(0,0,0,.28);
       border:1.5px solid rgba(255,255,255,.75);border-radius:999px;
@@ -96,7 +101,7 @@
     <div class="tc-head">
       <span class="tc-flare"></span>
       <span class="tc-brand">JSSA</span>
-      <div class="tc-team"><span>{{ player.team or 'JSSA' }}</span></div>
+      <div class="tc-team"><span style="--len:{{ (player.team or 'JSSA')|length }}">{{ player.team or 'JSSA' }}</span></div>
       {% if player.division %}<em class="tc-div">{{ player.division }}</em>{% endif %}
     </div>
     <div class="tc-photo">
