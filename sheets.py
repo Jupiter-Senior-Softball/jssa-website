@@ -3239,6 +3239,35 @@ def player_cards():
                     "is_manager": bool(p.get("is_manager")),
                     "photo_url": photo_url,
                 }
+    # Everyone else active on the full membership roster still gets a card —
+    # being left off a drafted league team (or there being no draft at all,
+    # as with pickup-only seasons) shouldn't mean losing the card. Falls
+    # back to "Team <Division>", the same label every player had before the
+    # first draft replaced the Players tab with the real, smaller teams.
+    try:
+        for div, plist in division_rosters().items():
+            for e in plist:
+                nm = e.get("name", "")
+                slug = e.get("slug") or _slug(nm)
+                if not slug or slug in out:
+                    continue
+                parts = nm.split()
+                prof = profiles.get(slug, {})
+                photo_url = prof.get("photo_url", "")
+                pid = prof.get("photo_id", "")
+                if _cutout_on and photo_url and pid:
+                    photo_url = "/league/player/cutout/%s" % pid
+                out[slug] = {
+                    "slug": slug, "name": nm,
+                    "first": parts[0] if parts else nm,
+                    "last": parts[-1] if parts else nm,
+                    "team": "Team %s" % div.title(), "division": div,
+                    "position": e.get("pos", ""),
+                    "is_manager": False,
+                    "photo_url": photo_url,
+                }
+    except Exception:
+        pass
     return out
 
 
