@@ -1,6 +1,6 @@
 {% extends "page_base.html" %}
 {% block eyebrow %}{{ section_eyebrow }}{% endblock %}
-{% block sub %}<p class="sub">The full league schedule. Upcoming games are listed first; finished games move to the bottom with their final score.</p>{% endblock %}
+{% block sub %}<p class="sub">The full league schedule. Upcoming games are listed first; finished and cancelled games move to the bottom.</p>{% endblock %}
 {% block body %}
 <style>
   .sch{display:flex;flex-direction:column;gap:12px;max-width:760px;margin:0 auto}
@@ -108,7 +108,7 @@
   {% for div in ['RED','WHITE','BLUE'] %}
   {% set dns = season.schedule_done|selectattr('division','equalto',div)|list %}
   {% if dns %}
-  <h2 class="schhead done" data-div="{{ div }}" data-sec="done">Completed games</h2>
+  <h2 class="schhead done" data-div="{{ div }}" data-sec="done">Completed &amp; cancelled games</h2>
   {% for g in dns %}{{ card(g) }}{% endfor %}
   {% endif %}
   {% endfor %}

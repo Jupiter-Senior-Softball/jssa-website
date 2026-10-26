@@ -22,11 +22,11 @@ def check(label, cond, extra=""):
     if not cond: fails.append(label)
 
 html = appmod.app.test_client().get("/league/schedules").get_data(as_text=True)
-up, done = html.split("Completed games</h2>", 1)
+up, done = html.split("Completed &amp; cancelled games</h2>", 1)
 names = lambda part: re.findall(r'class="tn">(H\w+)', part)
-check("upcoming section holds only unfinished games", names(up) == ["Hfuture", "Hfuturecancel"], names(up))
-check("completed: newest day first, 9:00 before 10:30, past cancelled game included",
-      names(done) == ["H112a", "H21a", "Hcancel", "H0900", "H1030"], names(done))
+check("upcoming holds only games still to be played (even a future cancelled game moves down)", names(up) == ["Hfuture"], names(up))
+check("completed: newest day first, 9:00 before 10:30, cancelled games included",
+      names(done) == ["Hfuturecancel", "H112a", "H21a", "Hcancel", "H0900", "H1030"], names(done))
 check("the winner gets a tick, a tie gets none",
       "H112a ✓" in done and "H21a ✓" not in done and "H0900 ✓" not in done and "A ✓" in done)
 check("the sheet's own order is left untouched", DATA["schedule"] == SCHED)

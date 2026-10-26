@@ -5239,16 +5239,21 @@ def game_sort_key(g):
 
 def split_schedule(games, today=None):
     """Split a (date-sorted) schedule into (upcoming, done). A game is "done" once it
-    has a final score, or it was called off and its date has passed. Everything else,
-    including a past game whose score just has not been entered yet, stays upcoming.
-    Done games come back newest first, 9:00 before 10:30 within a day."""
+    has a final score, or the moment its Status calls it off (Cancelled / Postponed /
+    Rained out / Suspended), so the Upcoming list only holds games still to be played.
+    A game marked just "Rescheduled" stays upcoming until its date passes (its row may
+    carry the new date). Everything else, including a past game whose score has not
+    been entered yet, stays upcoming. Done games come back newest first, 9:00 before
+    10:30 within a day."""
     today = today or datetime.datetime.now(_EASTERN).date()
     upcoming, done = [], []
     for g in games:
         final = g.get("score_home", "") != "" and g.get("score_away", "") != ""
         key = game_sort_key(g)
         past = key[0] == 0 and key[1].date() < today
-        if final or (g.get("called_off") and past):
+        status = str(g.get("status") or "").lower()
+        off_now = any(w in status for w in ("cancel", "postpone", "rain", "suspend"))
+        if final or off_now or (g.get("called_off") and past):
             done.append(g)
         else:
             upcoming.append(g)
