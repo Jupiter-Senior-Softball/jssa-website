@@ -4794,6 +4794,14 @@ def cancellation_preview(plan=None):
     return {"subject": subject, "body": body, "headline": headline}
 
 
+_CALLED_OFF_PHRASES = (
+    "no games", "no game ", "no game.", "no play", "no softball", "unplayable", "not playable",
+    "rained out", "rain out", "rainout", "rain-out", "called off", "postponed",
+    "not be played", "won't be played", "will not play", "fields are closed", "fields closed",
+    "field is closed", "park is closed", "park closed",
+)
+
+
 def notice_is_cancellation(notice):
     """True when the banner notice showing on the site is calling games off.
 
@@ -4802,7 +4810,14 @@ def notice_is_cancellation(notice):
     posted" underneath a cancellation."""
     if not notice:
         return False
-    return "cancel" in str(notice.get("message") or "").lower()
+    text = str(notice.get("message") or "").lower()
+    if "cancel" in text:
+        return True
+    # A game-day (weather) notice often calls games off without the word "cancel",
+    # e.g. "No games today. All fields are unplayable." Those count too.
+    if str(notice.get("type") or "") == "weather":
+        return any(p in text for p in _CALLED_OFF_PHRASES)
+    return False
 
 
 def sender_url_problem(url):
