@@ -83,7 +83,7 @@ import app as appmod
 c = appmod.app.test_client()
 with c.session_transaction() as s: s["admin"] = True
 page = c.get("/admin/cancel").get_data(as_text=True)
-check("cancel form has the shutoff box defaulting to 13:00", 'name="shutoff"' in page and 'value="13:00"' in page)
+check("cancel form no longer shows a shutoff box (default 1:00 PM applies)", 'name="shutoff"' not in page)
 seen = {}
 sheets.send_cancellation = lambda *a, **k: seen.update(k) or {"ok": True, "emailed": 0, "missed": [], "banner": True, "note": ""}
 c.post("/admin/cancel/send", data={"confirm": "CANCEL", "reason": "rain", "shutoff": "14:15"})
