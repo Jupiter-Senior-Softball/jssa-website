@@ -183,19 +183,6 @@
     </div>
 
     <div class="row">
-      <label for="location">Where were the games?</label>
-      <input type="text" id="location" name="location" value="{{ plan.location }}"
-             placeholder="Jupiter Community Park">
-      <div class="hint">Filled in from today's schedule. Type over it if the games were somewhere else.</div>
-    </div>
-
-    <div class="row">
-      <label for="shutoff">Take the website notice down at</label>
-      <input type="time" id="shutoff" name="shutoff" value="13:00" style="max-width:220px">
-      <div class="hint">The red/yellow notice on the homepage removes itself at this time (Eastern). It starts at 1:00 PM; change it if you want it up longer or shorter. You can also change it later from the dashboard.</div>
-    </div>
-
-    <div class="row">
       <label for="sent_by">Your name</label>
       <input type="text" id="sent_by" name="sent_by" placeholder="Tom">
       <div class="hint">Recorded in the log so the board knows who made the call.</div>
@@ -242,8 +229,8 @@
   // The wording comes from the server so the preview always matches the real
   // send; only the two things being typed are filled in here.
   var TPL = {{ preview|tojson }};
+  var plan_location = {{ (plan.location or '')|tojson }};
   var reason = document.getElementById('reason');
-  var location_ = document.getElementById('location');
   var out = {
     headline: document.getElementById('pv-headline'),
     subject: document.getElementById('pv-subject'),
@@ -252,10 +239,9 @@
 
   function fill(tpl) {
     var r = (reason.value || '').trim();
-    var l = (location_.value || '').trim();
     var s = tpl;
-    // No location typed? Drop the " at ..." phrase rather than show a gap.
-    s = l ? s.split('__LOCATION__').join(l) : s.split(' at __LOCATION__').join('');
+    // The location comes from today's schedule, so only the reason is typed.
+    s = s.split(' at __LOCATION__').join(plan_location ? ' at ' + plan_location : '');
     if (r) {
       s = s.split('__REASON__').join(r);
     } else {
@@ -273,7 +259,6 @@
   }
 
   reason.addEventListener('input', render);
-  location_.addEventListener('input', render);
   render();
 })();
 </script>

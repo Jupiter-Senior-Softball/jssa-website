@@ -4681,9 +4681,7 @@ def send_cancellation(reason, location, sent_by, plan=None, banner_only=False,
 
     # 1. The website banner — always, first.
     banner_ok = False
-    where = " at " + location if location else ""
-    headline = "CANCELLED — no games today, %s%s." % (
-        plan["date"].strftime("%A"), where)
+    headline = "CANCELLED — no games today, %s." % plan["date_label"]
     if reason:
         headline += " " + reason
         if not headline.endswith((".", "!", "?")):
@@ -4808,9 +4806,7 @@ def cancellation_preview(plan=None):
     from what actually gets sent."""
     plan = plan or todays_cancellation_plan()
     subject, body = _cancellation_message(plan, "__REASON__", "__LOCATION__")
-    where = " at __LOCATION__"
-    headline = "CANCELLED — no games today, %s%s. __REASON__" % (
-        plan["date"].strftime("%A"), where)
+    headline = "CANCELLED — no games today, %s. __REASON__" % plan["date_label"]
     return {"subject": subject, "body": body, "headline": headline}
 
 
