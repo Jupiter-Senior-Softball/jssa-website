@@ -4266,6 +4266,140 @@ CANCEL_LOG_TAB = "Cancellation Log"
 CANCEL_LOG_HEADERS = ["Date", "Sent at", "Sent by", "Games", "Location",
                       "Reason", "Emailed", "Not reached", "Result"]
 
+# ----------------------------------------------------------------------------
+# The cancellation email wording — editable by the board, not buried in code
+# ----------------------------------------------------------------------------
+# This used to be hard-coded here, which made it the one piece of JSSA wording
+# the board couldn't fix themselves — every change meant a code edit. It now
+# lives in a "Cancellation Email" tab on the control sheet, created with the
+# wording below the first time it's needed. Edits apply to the very next
+# cancellation (the cache is 30 seconds), and the preview on the Cancel page is
+# built by this same code, so what you read there is exactly what goes out.
+#
+# If the tab is missing, blank or unreachable we fall back to the built-in
+# wording. Calling off a game must never fail because a spreadsheet is down.
+
+CANCEL_EMAIL_TAB = "Cancellation Email"
+CANCEL_EMAIL_HEADERS = ["Setting", "Value", "Notes"]
+
+CANCEL_WEBSITE_URL = "https://jupiterseniorsoftball.com"
+
+DEFAULT_CANCEL_SUBJECT = "CANCELLED — today's JSSA {games} ({date})"
+
+DEFAULT_CANCEL_BODY = """TODAY'S JSSA GAMES HAVE BEEN CANCELLED.
+
+The JSSA games scheduled for {date_long}{at_location} have been cancelled.
+
+Please do not travel to the field.
+{reason_block}
+This notice has also been posted on our website at: {website}
+
+Jupiter Senior Softball Association"""
+
+_CANCEL_PLACEHOLDER_HELP = (
+    "Words in {curly braces} are filled in automatically. "
+    "{games} = league games / pickup games / league and pickup games · "
+    "{date} = Fri, Oct 30 · {date_long} = Friday, October 30 · "
+    "{location} = where the games were · "
+    "{at_location} = the same thing with \" at \" in front, or nothing at all "
+    "when no location is set · "
+    "{reason} = what was typed in the Reason box · "
+    "{reason_block} = a blank line then \"Reason: ...\", or nothing at all "
+    "when no reason was typed · "
+    "{games_list} = the list of today's league games · "
+    "{games_block} = a blank line, \"Cancelled games:\" and that list, or "
+    "nothing at all when there are no league games · "
+    "{website} = " + CANCEL_WEBSITE_URL + ". "
+    "Use the _block ones where something is optional — they disappear cleanly "
+    "instead of leaving an empty heading behind. "
+    "Anything misspelled is left as you typed it so you can spot it in the "
+    "preview."
+)
+
+CANCEL_EMAIL_SEED = [
+    ["Subject", DEFAULT_CANCEL_SUBJECT,
+     "The email's subject line. " + _CANCEL_PLACEHOLDER_HELP],
+    ["Body", DEFAULT_CANCEL_BODY,
+     "The email itself. Press Alt+Enter (Option+Enter on a Mac) to start a "
+     "new line inside the cell. " + _CANCEL_PLACEHOLDER_HELP],
+    ["", "",
+     "Clear a Value cell above to go back to the wording built into the "
+     "website. Always check a change on the Cancel Today's Games page before "
+     "you need it — the preview there is the real email."],
+]
+
+_cancel_email_cache = {"data": None, "ts": 0.0}
+_CANCEL_EMAIL_TTL = 30  # short, so an edit applies to the very next cancellation
+
+
+def cancellation_email_template():
+    """{'subject', 'body', 'source'} from the Cancellation Email tab.
+
+    'source' is "sheet" when the wording came from the tab and "built-in" when
+    it fell back — the Cancel page shows this, so it's never a mystery which
+    one players are about to receive. Falls back when the tab is missing, blank
+    or unreachable: calling off a game must never fail because a spreadsheet
+    is down."""
+    now = time.time()
+    with _lock:
+        c = _cancel_email_cache
+        if c["data"] is not None and now - c["ts"] < _CANCEL_EMAIL_TTL:
+            return c["data"]
+
+    out = {"subject": DEFAULT_CANCEL_SUBJECT, "body": DEFAULT_CANCEL_BODY,
+           "source": "built-in"}
+    try:
+        if CONTROL_SHEET_ID and _SA_JSON:
+            rows = _control_tab_rows(CANCEL_EMAIL_TAB, CANCEL_EMAIL_HEADERS,
+                                     CANCEL_EMAIL_SEED)
+            vals = {}
+            for r in rows[1:]:
+                key = _clean(r[0]).lower() if len(r) > 0 else ""
+                # Deliberately NOT _clean()'d — the body's line breaks matter.
+                val = str(r[1]) if len(r) > 1 and r[1] is not None else ""
+                if key:
+                    vals[key] = val
+            if vals.get("subject", "").strip():
+                out["subject"] = vals["subject"].strip()
+                out["source"] = "sheet"
+            if vals.get("body", "").strip():
+                out["body"] = vals["body"]
+                out["source"] = "sheet"
+        with _lock:
+            _cancel_email_cache["data"] = out
+            _cancel_email_cache["ts"] = now
+    except Exception:
+        pass
+    return out
+
+
+def _fill_template(text, fields):
+    """Swap {placeholders} for their values. A placeholder nobody recognises is
+    left exactly as typed rather than raising — a misspelling then shows up in
+    the preview instead of breaking a cancellation at 7am."""
+    out = str(text or "")
+    for key, value in fields.items():
+        out = out.replace("{%s}" % key, str(value))
+    return out
+
+
+def _tidy_blank_lines(text):
+    """Trim trailing spaces, never leave two blank lines in a row, and drop
+    blank lines at the very start and end — so the email reads tidily however
+    the wording in the sheet happens to be spaced."""
+    lines = [ln.rstrip() for ln in str(text or "").split("\n")]
+    out = []
+    for line in lines:
+        if line == "" and out and out[-1] == "":
+            continue
+        out.append(line)
+    while out and out[0] == "":
+        out.pop(0)
+    while out and out[-1] == "":
+        out.pop()
+    return "\n".join(out)
+
+
 _cancel_settings_cache = {"data": None, "ts": 0.0}
 _CANCEL_SETTINGS_TTL = 30  # short — a board member may edit it mid-morning
 
@@ -4560,31 +4694,45 @@ def todays_cancellation_plan(day=None):
 
 
 def _cancellation_message(plan, reason, location):
-    """The subject and body players receive. Plain, direct, and readable on a
-    phone at 7am — the first line says the only thing that matters."""
+    """The subject and body players receive.
+
+    The wording comes from the "Cancellation Email" tab of the control sheet so
+    the board can change it without a code change — see cancellation_email_
+    template() for the fallback. Everything here just works out what each
+    placeholder stands for today."""
     what = {"LEAGUE": "league games", "PICKUP": "pickup games",
             "BOTH": "league and pickup games"}.get(plan["kind"], "games")
-    where = " at " + location if location else ""
-    subject = "CANCELLED — today's JSSA %s (%s)" % (
-        what, plan["date"].strftime("%a, %b %-d"))
+    reason = _clean(reason)
+    location = _clean(location)
 
-    lines = [
-        "TODAY'S JSSA GAMES HAVE BEEN CANCELLED.",
-        "",
-        "The JSSA games scheduled for %s%s have been cancelled."
-        % (plan["date_label"], where),
-        "",
-        "Please do not travel to the field.",
-    ]
-    if _clean(reason):
-        lines += ["", "Reason: " + _clean(reason)]
-    lines += [
-        "",
-        "This notice has also been posted on our website at: https://jupiterseniorsoftball.com",
-        "",
-        "Jupiter Senior Softball Association",
-    ]
-    return subject, "\n".join(lines)
+    game_lines = []
+    for g in plan.get("games") or []:
+        bits = [b for b in (_clean(g.get("time")),
+                            _clean(g.get("division")),
+                            "%s vs %s" % (_clean(g.get("home")),
+                                          _clean(g.get("away"))),
+                            _clean(g.get("field"))) if b]
+        game_lines.append("  - " + " · ".join(bits))
+    games_list = "\n".join(game_lines)
+
+    fields = {
+        "games": what,
+        "date": plan["date"].strftime("%a, %b %-d"),
+        "date_long": plan["date_label"],
+        "location": location,
+        "at_location": (" at " + location) if location else "",
+        "reason": reason,
+        "reason_block": ("\nReason: %s\n" % reason) if reason else "",
+        "games_list": games_list,
+        "games_block": ("\nCancelled games:\n%s\n" % games_list)
+                       if games_list else "",
+        "website": CANCEL_WEBSITE_URL,
+    }
+
+    tpl = cancellation_email_template()
+    subject = _fill_template(tpl["subject"], fields).strip()
+    body = _tidy_blank_lines(_fill_template(tpl["body"], fields))
+    return subject, body
 
 
 def _post_to_sender(url, subject, body, recipients, test_to=""):
@@ -4807,7 +4955,8 @@ def cancellation_preview(plan=None):
     plan = plan or todays_cancellation_plan()
     subject, body = _cancellation_message(plan, "__REASON__", "__LOCATION__")
     headline = "CANCELLED — no games today, %s. __REASON__" % plan["date_label"]
-    return {"subject": subject, "body": body, "headline": headline}
+    return {"subject": subject, "body": body, "headline": headline,
+            "source": cancellation_email_template()["source"]}
 
 
 _CALLED_OFF_PHRASES = (
