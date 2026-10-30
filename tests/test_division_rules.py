@@ -16,6 +16,8 @@ ROWS.append({"id": "seed1", "division": "Red", "season": "Winter 2026",
              "updated_by": "JSSA website"})
 
 sheets.is_configured = lambda: True
+# The portal password comes from the control sheet now, not ADMIN_PASSWORD.
+sheets.admin_password = lambda: "adminpw"
 sheets.list_division_rules = lambda: [dict(r) for r in ROWS]
 
 def _add(fields):

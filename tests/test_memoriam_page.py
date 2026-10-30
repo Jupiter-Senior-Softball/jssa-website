@@ -131,6 +131,8 @@ assert saved == [(2, col, "Never missed a Tuesday.")], sheet.cells
 
 # --- the admin panel lists the 13 with a link each --------------------------
 sheets.is_configured = lambda: True
+# The portal password comes from the control sheet now, not ADMIN_PASSWORD.
+sheets.admin_password = lambda: "t"
 SAVED = [
     {"id": "a1", "name": "Ron Seely", "when": "", "image": "", "order": 1,
      "active": "TRUE", "tribute": "Never missed a Tuesday."},
