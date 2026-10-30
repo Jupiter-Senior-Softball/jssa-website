@@ -213,6 +213,20 @@
         <div class="pv-subj" id="pv-subject"></div>
         <pre class="pv-body" id="pv-body"></pre>
       </div>
+
+      <p class="hint" style="margin:14px 0 0">
+        {% if preview.source == 'sheet' %}
+          This wording comes from the control sheet's <strong>&ldquo;Cancellation Email&rdquo;</strong> tab.
+          Edit the Subject or Body cell there and it applies to the next cancellation &mdash; the notes beside
+          them list the words in {curly braces} that get filled in automatically. Come back here to read your
+          change before you need it.
+        {% else %}
+          This is the <strong>wording built into the website</strong>, used because the
+          &ldquo;Cancellation Email&rdquo; tab hasn't been set up yet or couldn't be read. The tab is created
+          automatically with this same wording the first time it's needed &mdash; after that, edit it there and
+          it will say so here instead.
+        {% endif %}
+      </p>
     </div>
     {% endif %}
 
