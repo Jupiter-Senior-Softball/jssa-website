@@ -29,6 +29,9 @@ sheets.cancellation_settings = lambda: {
     "overflow_url": "https://admin.test/exec?key=k",
     "cap": 100, "emails_enabled": True, "test_mode": False, "test_address": ""}
 
+# Both accounts report a full, untouched day (100 sends each).
+sheets._sender_remaining = lambda url: 100
+
 calls = []
 def fake_post(url, subject, body, recipients, test_to=""):
     calls.append({"url": url, "n": len(recipients)})
@@ -56,8 +59,8 @@ print("banner posted   :", res["banner"])
 print("banner text     :", banners[0][1])
 
 assert len(calls) == 2
-assert calls[0]["n"] == 100 and "games.test" in calls[0]["url"]
-assert calls[1]["n"] == 30 and "admin.test" in calls[1]["url"]
+assert calls[0]["n"] == 97 and "games.test" in calls[0]["url"]
+assert calls[1]["n"] == 33 and "admin.test" in calls[1]["url"]
 assert res["emailed"] == 130 and len(res["missed"]) == 0
 assert banners[0][0] == "weather"
 
