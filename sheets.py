@@ -4251,11 +4251,13 @@ CANCEL_SETTINGS_SEED = [
     ["Emails enabled", "Yes",
      "No = post the website banner only and send no email."],
     ["Email cap", "100",
-     "The most people to email for one cancellation. Gmail stops a free "
-     "account at about 100 a day."],
+     "A full day's sends for one account (a free Gmail account is about "
+     "100). The site asks each account how much it has left; this number is "
+     "only used if it cannot ask."],
     ["Overflow sender URL", "",
-     "Optional. A SECOND league account's sender URL. Anyone past the cap "
-     "above is emailed from this account instead of being missed."],
+     "Optional. The .../exec?key=... web address of the SECOND (backup) "
+     "account's sender script - NOT its email address. Anyone the main "
+     "account cannot take is emailed from here instead of being missed."],
     ["Test mode", "No",
      "Yes = send every email to the test address below instead of to players. "
      "Use this the first time."],
@@ -4442,6 +4444,12 @@ def cancellation_settings():
                     vals[key] = val
             out["sender_url"] = vals.get("sender url", "")
             out["overflow_url"] = vals.get("overflow sender url", "")
+            # A backup that is not a real sender address (e.g. an email address
+            # pasted by mistake) must not be counted on. Ignore it, and say so
+            # in the log when a cancellation goes out.
+            if out["overflow_url"] and sender_url_problem(out["overflow_url"]):
+                out["overflow_problem"] = out["overflow_url"]
+                out["overflow_url"] = ""
             out["test_address"] = vals.get("test address", "")
             out["emails_enabled"] = _is_true(vals.get("emails enabled", "Yes"))
             out["test_mode"] = _is_true(vals.get("test mode", "No"))
@@ -4457,6 +4465,65 @@ def cancellation_settings():
         _cancel_settings_cache["data"] = out
         _cancel_settings_cache["ts"] = now
     return out
+
+
+# --- How many people each sender account can reach right now -----------------
+# A free Gmail account allows about 100 recipients a day, and the sender script
+# also spends one send per message on the copy it keeps for itself. So 100 people
+# in 3 messages costs 103 and is refused outright. Instead of trusting a fixed
+# number, ask each account what it has left and fill it only that far; whoever
+# does not fit goes to the backup account.
+SENDER_BATCH_SIZE = 45      # must match BATCH_SIZE in game-cancellation-sender.gs
+SENDER_MAX_PER_CALL = 150   # must match MAX_PER_CALL in game-cancellation-sender.gs
+_CAPACITY_TTL = 60
+_capacity_cache = {}
+
+
+def _sends_needed(people):
+    """Daily sends used to email this many people (one extra per message)."""
+    return people + -(-people // SENDER_BATCH_SIZE) if people > 0 else 0
+
+
+def _people_that_fit(remaining):
+    """The most people one account can email with `remaining` sends left."""
+    n = max(0, min(int(remaining), SENDER_MAX_PER_CALL))
+    while n > 0 and _sends_needed(n) > remaining:
+        n -= 1
+    return n
+
+
+def _sender_remaining(url):
+    """Sends left today on the account behind this sender URL, or None if it
+    cannot be reached (the caller then falls back to the 'Email cap')."""
+    import urllib.request
+    try:
+        with urllib.request.urlopen(url, timeout=8) as r:
+            data = json.loads(r.read().decode("utf-8"))
+        if isinstance(data, dict) and data.get("ok") \
+                and data.get("remaining_today") is not None:
+            return int(data["remaining_today"])
+    except Exception:
+        pass
+    return None
+
+
+def sender_capacity(url, cap, fresh=False):
+    """How many people this sender account can email right now. Asks the account
+    how much of its daily limit is left; if it cannot be asked, assumes a
+    full day's 'Email cap'."""
+    if not url:
+        return 0
+    now = time.time()
+    if not fresh:
+        with _lock:
+            hit = _capacity_cache.get(url)
+            if hit and now - hit[1] < _CAPACITY_TTL:
+                return hit[0]
+    remaining = _sender_remaining(url)
+    fit = _people_that_fit(cap if remaining is None else remaining)
+    with _lock:
+        _capacity_cache[url] = (fit, now)
+    return fit
 
 
 def _cancel_log_rows():
@@ -4669,9 +4736,12 @@ def todays_cancellation_plan(day=None):
                                   p["name"].split()[-1].lower(),
                                   p["name"].lower()))
 
-    cap = settings["cap"]
+    # How many people the sender account(s) can actually reach right now. With
+    # no sender set up yet, show the usual one-account picture.
+    cap = (sender_capacity(settings["sender_url"], settings["cap"])
+           if settings["sender_url"] else _people_that_fit(settings["cap"]))
     if settings["overflow_url"]:
-        cap = cap * 2            # a second account doubles what we can reach
+        cap += sender_capacity(settings["overflow_url"], settings["cap"])
     recipients, over_cap = reachable[:cap], reachable[cap:]
 
     settings = dict(settings,
@@ -4862,39 +4932,74 @@ def send_cancellation(reason, location, sent_by, plan=None, banner_only=False,
     else:
         attempted = True
         test_to = settings["test_address"] if settings["test_mode"] else ""
-        cap = settings["cap"]
-        first, overflow = addresses[:cap], addresses[cap:]
+        if settings.get("overflow_problem"):
+            notes.append("The backup account's address in the settings tab is "
+                         "not a valid sender address, so only the main "
+                         "account was used.")
+
+        # Everyone we have an address for, captains/managers first. Fill the
+        # main account only as far as it can really go today; the rest go to
+        # the backup account. Anyone neither can take is named afterwards.
+        everyone = addresses + [p["email"] for p in plan["over_cap"]]
+        main_room = sender_capacity(settings["sender_url"], settings["cap"],
+                                    fresh=True)
+        backup_url = settings["overflow_url"]
+        backup_room = (sender_capacity(backup_url, settings["cap"], fresh=True)
+                       if backup_url else 0)
+        first, overflow = everyone[:main_room], everyone[main_room:]
 
         res = _post_to_sender(settings["sender_url"], subject, body,
                               first, test_to)
         emailed += int(res.get("sent") or 0)
-        if not res.get("ok"):
-            notes.append("Email problem: %s" % res.get("error", "unknown"))
-        # A big roster goes out in several messages. If one of them fails the
-        # others still go, so the people it left out have to be named — an
-        # unreported gap here is somebody driving to a cancelled game.
-        send_failures.extend(res.get("missed") or [])
 
-        if overflow and settings["overflow_url"]:
-            res2 = _post_to_sender(settings["overflow_url"], subject, body,
-                                   overflow, test_to)
+        # Which of the main account's people did NOT get the email? When the
+        # sender says exactly who, that list is exact. Only when nothing came
+        # back at all (a transport error) do we assume the whole batch missed.
+        main_failed = []
+        if not test_to and not res.get("ok"):
+            if res.get("missed") is not None:
+                main_failed = list(res.get("missed") or [])
+            elif not int(res.get("sent") or 0):
+                main_failed = list(first)
+            else:
+                notes.append("Some of this batch may not have gone through — "
+                             "check the sending account's Sent mail.")
+
+        # The main account refused or ran out part-way: hand those people to
+        # the backup account rather than leaving them uninformed.
+        backup_list = overflow
+        rerouted = 0
+        if main_failed and backup_url:
+            backup_list = main_failed + overflow
+            rerouted = len(main_failed)
+        elif main_failed:
+            send_failures.extend(main_failed)
+        if len(backup_list) > backup_room:
+            send_failures.extend(backup_list[backup_room:])
+            backup_list = backup_list[:backup_room]
+
+        if backup_url and backup_list:
+            res2 = _post_to_sender(backup_url, subject, body,
+                                   backup_list, test_to)
             emailed += int(res2.get("sent") or 0)
             if not res2.get("ok"):
                 notes.append("Second account problem: %s"
                              % res2.get("error", "unknown"))
-            send_failures.extend(res2.get("missed") or [])
-
-        # When the sender says WHICH addresses it missed, that list is exact and
-        # is used as-is above. Only when it cannot say — a transport error, so
-        # nothing came back at all — do we fall back to assuming the batch got
-        # through to nobody. Guessing beyond that would bury the real names in
-        # a list of people who were in fact emailed.
-        if not test_to and res.get("missed") is None and not res.get("ok"):
-            if not int(res.get("sent") or 0):
-                send_failures.extend(first)
-            else:
-                notes.append("Some of this batch may not have gone through — "
-                             "check the sending account's Sent mail.")
+                if res2.get("missed") is not None:
+                    send_failures.extend(res2.get("missed") or [])
+                elif not int(res2.get("sent") or 0):
+                    send_failures.extend(backup_list)
+            rerouted_ok = bool(rerouted) and bool(res2.get("ok"))
+        else:
+            rerouted_ok = False
+        if not res.get("ok") and not (rerouted_ok and not send_failures):
+            notes.append("Email problem: %s" % res.get("error", "unknown"))
+        elif rerouted_ok:
+            notes.append("The main sending account was full, so %d emails "
+                         "went out from the backup account." % rerouted)
+        elif backup_list and backup_url and not main_failed:
+            notes.append("%d emails went out from the backup account."
+                         % len(backup_list))
         if settings["test_mode"]:
             notes.append("TEST MODE — everything went to %s, not to players."
                          % (settings["test_address"] or "the test address"))
@@ -4921,10 +5026,12 @@ def send_cancellation(reason, location, sent_by, plan=None, banner_only=False,
 
     # Everyone who will NOT have heard: no address on file, past the cap, or
     # in a batch that failed. Named, so somebody can phone them.
-    by_email = {p["email"].lower(): p["name"] for p in plan["recipients"]}
-    missed = [p["name"] for p in plan["unmatched"]] + \
-             [p["name"] for p in plan["over_cap"]] + \
-             [by_email.get(str(a).lower(), str(a)) for a in send_failures]
+    by_email = {p["email"].lower(): p["name"]
+                for p in plan["recipients"] + plan["over_cap"]}
+    missed = [p["name"] for p in plan["unmatched"]]
+    if not attempted:
+        missed += [p["name"] for p in plan["over_cap"]]
+    missed += [by_email.get(str(a).lower(), str(a)) for a in send_failures]
 
     result = "Banner posted" if banner_ok else "BANNER FAILED"
     result += " · %d emailed" % emailed

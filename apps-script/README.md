@@ -114,8 +114,8 @@ website never holds a mail password.**
 
 | Account | Role |
 |---|---|
-| `jssagames@gmail.com` | **Main sender** — the first 100 people |
-| `jssaadmin@gmail.com` | **Backup** — anyone past the first 100 |
+| `jssagames@gmail.com` | **Main sender** — fills up to what it has left today |
+| `jssaadmin@gmail.com` | **Backup** — everyone the main account cannot take, and anyone it fails to reach |
 
 Gmail enforces **two separate limits** on a free account, and both matter:
 
@@ -125,7 +125,7 @@ Gmail enforces **two separate limits** on a free account, and both matter:
   if one message fails the others still go, and anyone missed is named back
   to you on screen.
 
-A busy winter day with 130 league players needs the backup account. With both installed the button
+Each message also spends one send on the copy the account keeps, so a fresh 100-send account fits 97 people (3 messages), not 100. The website asks each account how many sends it has left right before sending and fills the main account only that far; if the main account refuses or fails part-way, those people are sent from the backup instead. A busy winter day with 130 league players needs the backup account. With both installed the button
 reaches 200. Anyone still past that is **named on screen** after sending so a
 captain can phone them — nobody is dropped silently.
 

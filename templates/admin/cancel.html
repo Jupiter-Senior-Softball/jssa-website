@@ -166,7 +166,7 @@
         <p class="names">{{ plan.unmatched|map(attribute='name')|join(' · ') }}</p>
       {% endif %}
       {% if plan.over_cap %}
-        <p style="margin-top:10px">Past the {{ plan.cap }}-email limit for one day:</p>
+        <p style="margin-top:10px">Too many emails for one day to reach everyone:</p>
         <p class="names">{{ plan.over_cap|map(attribute='name')|join(' · ') }}</p>
       {% endif %}
       <p style="margin-top:12px">Captains and managers are always emailed first, so every team has someone who knows.

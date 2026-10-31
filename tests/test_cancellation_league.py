@@ -81,8 +81,9 @@ sheets.cancellation_settings = lambda: {
     "sender_url": "u", "overflow_url": "", "cap": 20, "emails_enabled": True,
     "test_mode": False, "test_address": ""}
 capped = sheets.todays_cancellation_plan()
-assert len(capped["recipients"]) == 20
-assert len(capped["over_cap"]) == 30, len(capped["over_cap"])
+# 20 sends a day fits 19 people (the 20th send is the sender's own copy)
+assert len(capped["recipients"]) == 19, len(capped["recipients"])
+assert len(capped["over_cap"]) == 31, len(capped["over_cap"])
 leads = [p["name"] for p in capped["recipients"] if p["is_lead"]]
 assert len(leads) == 4, leads
 print("\ncap 20       : %d emailed, %d over cap, all %d managers included"
@@ -93,7 +94,7 @@ sheets.cancellation_settings = lambda: {
     "sender_url": "u", "overflow_url": "u2", "cap": 20, "emails_enabled": True,
     "test_mode": False, "test_address": ""}
 over = sheets.todays_cancellation_plan()
-assert over["cap"] == 40 and len(over["recipients"]) == 40, over["cap"]
+assert over["cap"] == 38 and len(over["recipients"]) == 38, over["cap"]
 print("with backup  : cap %d, %d emailed, %d over cap"
       % (over["cap"], len(over["recipients"]), len(over["over_cap"])))
 
