@@ -1198,39 +1198,59 @@ def admin_email_usage_json():
 
 
 # ----------------------------------------------------------------------------
-# Cancel today's games — the board's one-switch weather call
+# Cancel a day's games — the board's one-switch weather call
 # ----------------------------------------------------------------------------
+# Normally today, but the page can also be pointed at tomorrow, so a washout
+# can be called the afternoon before — after the 3 PM pickup sign-up deadline,
+# when the list of who is actually playing is final.
+def _cancel_day(raw):
+    """("today"|"tomorrow", date). Anything unrecognised means today."""
+    today = datetime.datetime.now(sheets._EASTERN).date()
+    if (raw or "").strip().lower() == "tomorrow":
+        return "tomorrow", today + datetime.timedelta(days=1)
+    return "today", today
+
+
 @app.route("/admin/cancel")
 @login_required
 def admin_cancel():
     """Show who would be notified BEFORE anything is sent. Nothing here sends."""
+    which, day = _cancel_day(request.args.get("day"))
+    title = "Cancel Today's Games" if which == "today" else "Cancel Tomorrow's Games"
     try:
-        plan = sheets.todays_cancellation_plan()
+        plan = sheets.todays_cancellation_plan(day)
     except Exception as e:
         return render_template("admin/cancel.html", plan=None, error=str(e),
-                               preview=None, page_title="Cancel Today's Games")
+                               preview=None, page_title=title, which_day=which,
+                               day_word=which)
     try:
         preview = sheets.cancellation_preview(plan)
     except Exception:
         preview = None
     return render_template("admin/cancel.html", plan=plan, error=None,
-                           preview=preview, page_title="Cancel Today's Games")
+                           preview=preview, page_title=title, which_day=which,
+                           day_word=which)
 
 
 @app.route("/admin/cancel/send", methods=["POST"])
 @login_required
 def admin_cancel_send():
+    which, day = _cancel_day(request.form.get("day"))
     # Typing CANCEL is the deliberate step — no one calls off a game by
     # brushing a button on their phone.
     if (request.form.get("confirm") or "").strip().upper() != "CANCEL":
-        return redirect(url_for("admin_cancel", err="confirm"))
+        return redirect(url_for("admin_cancel", err="confirm", day=which))
     reason = (request.form.get("reason") or "").strip()
     location = (request.form.get("location") or "").strip()
     sent_by = (request.form.get("sent_by") or "").strip()
     banner_only = request.form.get("banner_only") == "1"
     shutoff = (request.form.get("shutoff") or "").strip()
     try:
+        # Rebuild the plan for the chosen day here rather than trusting the
+        # form — the page may have sat open since before the sign-up deadline.
+        plan = sheets.todays_cancellation_plan(day)
         result = sheets.send_cancellation(reason, location, sent_by,
+                                          plan=plan,
                                           banner_only=banner_only,
                                           shutoff=shutoff)
     except Exception as e:
@@ -1242,7 +1262,7 @@ def admin_cancel_send():
         "missed": list(result.get("missed") or [])[:60],
         "note": str(result.get("note") or ""),
     }
-    return redirect(url_for("admin_cancel", sent="1"))
+    return redirect(url_for("admin_cancel", sent="1", day=which))
 
 
 @app.route("/admin/notices/add", methods=["POST"])

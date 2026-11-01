@@ -30,7 +30,11 @@ def check(label, condition, detail=""):
         failures.append(label)
 
 
-DAY = datetime.date(2026, 10, 30)
+# Use today, so the day word reads "today" — the wording is relative now, and
+# a hard-coded date would render as "FRIDAY'S ..." the moment the date passed.
+DAY = datetime.datetime.now(sheets._EASTERN).date()
+DAY_LABEL = DAY.strftime("%A, %B %-d")
+DAY_SHORT = DAY.strftime("%a, %b %-d")
 
 GAMES = [
     {"time": "9:00 AM", "division": "RED", "home": "Aces", "away": "Bolts",
@@ -41,7 +45,7 @@ GAMES = [
 
 
 def plan(kind="BOTH", games=None):
-    return {"kind": kind, "date": DAY, "date_label": "Friday, October 30",
+    return {"kind": kind, "date": DAY, "date_label": DAY_LABEL,
             "games": GAMES if games is None else games}
 
 
@@ -69,7 +73,7 @@ subject, body = sheets._cancellation_message(
 
 EXPECTED = """TODAY'S JSSA GAMES HAVE BEEN CANCELLED.
 
-The JSSA games scheduled for Friday, October 30 at Jupiter Community Park \
+The JSSA games scheduled for """ + DAY_LABEL + """ at Jupiter Community Park \
 have been cancelled.
 
 Please do not travel to the field.
@@ -84,7 +88,7 @@ Jupiter Senior Softball Association"""
 check("with no tab, the email is exactly the wording it is today",
       body == EXPECTED, repr(body))
 check("and the subject is unchanged",
-      subject == "CANCELLED — today's JSSA league and pickup games (Fri, Oct 30)",
+      subject == "CANCELLED — today's JSSA league and pickup games (%s)" % DAY_SHORT,
       subject)
 check("the fallback reports itself as built-in",
       sheets.cancellation_email_template()["source"] == "built-in")
@@ -120,7 +124,7 @@ subject, body = sheets._cancellation_message(
     plan(), "Fields are flooded", "Jupiter Community Park")
 
 check("the subject comes from the sheet",
-      subject == "No JSSA league and pickup games today (Fri, Oct 30)", subject)
+      subject == "No JSSA league and pickup games today (%s)" % DAY_SHORT, subject)
 check("the body comes from the sheet",
       body.startswith("Good morning.") and "do not drive to the fields" in body,
       repr(body))
@@ -141,7 +145,7 @@ check("the sheet's wording reports itself as coming from the sheet",
 tab_says("Changed subject {date}", "Changed body for {games}.")
 subject, body = sheets._cancellation_message(plan(), "", "")
 check("editing the tab changes the very next cancellation",
-      subject == "Changed subject Fri, Oct 30" and
+      subject == "Changed subject " + DAY_SHORT and
       body == "Changed body for league and pickup games.",
       subject + " | " + repr(body))
 
@@ -172,7 +176,7 @@ subject, body = sheets._cancellation_message(plan(kind="PICKUP", games=[]), "", 
 check("no reason typed leaves no empty 'Reason:' heading",
       "Reason" not in body, repr(body))
 check("no location leaves no dangling ' at '",
-      "scheduled for Friday, October 30 have been cancelled" in body, repr(body))
+      "scheduled for %s have been cancelled" % DAY_LABEL in body, repr(body))
 check("there are never two blank lines in a row",
       "\n\n\n" not in body, repr(body))
 check("it still says the thing that matters",

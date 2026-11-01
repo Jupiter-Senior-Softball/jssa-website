@@ -43,6 +43,12 @@
   .pv-banner{display:flex;align-items:center;gap:14px;background:#f5c518;color:#16233f;
       border-radius:10px;padding:16px 18px;font-weight:700;font-size:1.06rem;line-height:1.45}
   .pv-ic{font-size:1.3rem;flex:none}
+  .dayswitch{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 18px}
+  .dayswitch-lbl{font-family:var(--display);font-weight:700;color:var(--navy)}
+  .daybtn{font-family:var(--display);font-weight:700;font-size:1rem;padding:11px 22px;border-radius:10px;
+    border:2px solid var(--line);background:#fff;color:var(--navy);text-decoration:none;min-height:44px;
+    display:inline-flex;align-items:center}
+  .daybtn.on{background:var(--navy);border-color:var(--navy);color:#fff}
   .pv-mail{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
   .pv-subj{background:#f4f6fb;border-bottom:1px solid var(--line);padding:13px 16px;
       font-family:var(--display);font-weight:700;color:var(--navy);font-size:1.02rem}
@@ -122,20 +128,36 @@
     </div>
   {% endif %}
 
+  <div class="dayswitch">
+    <span class="dayswitch-lbl">Which day are you calling off?</span>
+    <a class="daybtn {{ 'on' if which_day == 'today' else '' }}"
+       href="{{ url_for('admin_cancel', day='today') }}">Today</a>
+    <a class="daybtn {{ 'on' if which_day == 'tomorrow' else '' }}"
+       href="{{ url_for('admin_cancel', day='tomorrow') }}">Tomorrow</a>
+  </div>
+  {% if which_day == 'tomorrow' %}
+    <div class="warn" style="margin-bottom:18px">
+      <strong>You are calling off TOMORROW's games.</strong> Everything below &mdash; who gets emailed, the notice,
+      the email &mdash; is for <strong>{{ plan.date_label }}</strong>, not today. Pickup sign-ups close at 3 PM the day
+      before, so do this <em>after</em> 3 PM or the list will still be filling up. The website notice will stay up
+      through tomorrow morning.
+    </div>
+  {% endif %}
+
   <div class="card">
     <h3>{{ plan.date_label }}</h3>
     {% if plan.kind == 'NONE' %}
-      <p style="font-size:1.1rem">There are <strong>no games scheduled today</strong> that I can find — no league games on the
-        schedule and no pickup roster posted for today.</p>
+      <p style="font-size:1.1rem">There are <strong>no games scheduled {{ day_word }}</strong> that I can find — no league games on the
+        schedule and no pickup roster posted for {{ day_word }}.</p>
       <p class="hint" style="margin-top:10px">You can still post a website notice below (nobody will be emailed, because there's
-        no one scheduled). If you were expecting games today, check the schedule tab first.</p>
+        no one scheduled). If you were expecting games {{ day_word }}, check the schedule tab first.</p>
     {% else %}
       <div class="who">{{ plan.recipients|length }}
         <small>
           {{ 'player' if plan.recipients|length == 1 else 'players' }} will be emailed about
-          {% if plan.kind == 'BOTH' %}today's <strong>league and pickup</strong> games{%
-             elif plan.kind == 'LEAGUE' %}today's <strong>league</strong> games{%
-             else %}today's <strong>pickup</strong> games{% endif %}{% if plan.location %} at <strong>{{ plan.location }}</strong>{% endif %}.
+          {% if plan.kind == 'BOTH' %}{{ day_word }}'s <strong>league and pickup</strong> games{%
+             elif plan.kind == 'LEAGUE' %}{{ day_word }}'s <strong>league</strong> games{%
+             else %}{{ day_word }}'s <strong>pickup</strong> games{% endif %}{% if plan.location %} at <strong>{{ plan.location }}</strong>{% endif %}.
           {% if plan.people|length != plan.recipients|length %}
             ({{ plan.people|length }} were scheduled in all.)
           {% endif %}
@@ -175,7 +197,8 @@
   {% endif %}
 
   <form class="cx" method="post" action="{{ url_for('admin_cancel_send') }}"
-        onsubmit="return confirm('Send the cancellation now? This emails {{ plan.recipients|length }} people and cannot be unsent.')">
+        onsubmit="return confirm('Call off {{ day_word }}\'s games ({{ plan.date_label }})? This emails {{ plan.recipients|length }} people and cannot be unsent.')">
+    <input type="hidden" name="day" value="{{ which_day }}">
     <div class="row">
       <label for="reason">Why are the games cancelled?</label>
       <textarea id="reason" name="reason" placeholder="Fields are flooded from overnight rain."></textarea>
@@ -234,7 +257,7 @@
       marks today's games cancelled on the schedule, and records it in the log. It can't be undone from here — but you can
       switch the banner off again on the <a href="{{ url_for('admin_dashboard') }}">admin panel</a>.</p>
 
-    <button class="bigbtn" type="submit">&#9888;&#65039; Cancel today's games &amp; notify {{ plan.recipients|length }} players</button>
+    <button class="bigbtn" type="submit">&#9888;&#65039; Cancel {{ day_word }}'s games &amp; notify {{ plan.recipients|length }} players</button>
   </form>
 {% endif %}
 {% if plan and preview %}
