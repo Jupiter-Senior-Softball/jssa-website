@@ -137,15 +137,27 @@ def _parse_expiry(text):
     return d if d.tzinfo else d.replace(tzinfo=datetime.timezone.utc)
 
 
-def shutoff_for_new_post(hhmm, now=None):
+def shutoff_for_new_post(hhmm, now=None, on_date=None):
     """The expires_at to store for a notice posted now, with the shutoff given
     as a time of day (blank = the 1:00 PM default). If that time has already
     passed today, the banner stays up until 11:59 PM tonight instead, so a late
     post is never taken down the instant it appears and never lingers into
-    tomorrow. Returns (utc ISO string, fell_back)."""
+    tomorrow. Returns (utc ISO string, fell_back).
+
+    `on_date` pins the shutoff to a particular day. A cancellation posted the
+    afternoon before has to stay up past midnight and through the next
+    morning — without this it would come down tonight, hours before the
+    players it is warning ever look at the site."""
     hm = parse_shutoff_time(hhmm) or parse_shutoff_time(DEFAULT_SHUTOFF)
     now = now or datetime.datetime.now(datetime.timezone.utc)
     local = now.astimezone(_notice_tz())
+
+    if on_date and on_date > local.date():
+        target = datetime.datetime.combine(
+            on_date, datetime.time(hm[0], hm[1]), tzinfo=_notice_tz())
+        return (target.astimezone(datetime.timezone.utc)
+                .isoformat(timespec="seconds").replace("+00:00", "Z"), False)
+
     target = local.replace(hour=hm[0], minute=hm[1], second=0, microsecond=0)
     fell_back = target <= local
     if fell_back:
@@ -4286,9 +4298,9 @@ CANCEL_EMAIL_HEADERS = ["Setting", "Value", "Notes"]
 
 CANCEL_WEBSITE_URL = "https://jupiterseniorsoftball.com"
 
-DEFAULT_CANCEL_SUBJECT = "CANCELLED — today's JSSA {games} ({date})"
+DEFAULT_CANCEL_SUBJECT = "CANCELLED — {when}'s JSSA {games} ({date})"
 
-DEFAULT_CANCEL_BODY = """TODAY'S JSSA GAMES HAVE BEEN CANCELLED.
+DEFAULT_CANCEL_BODY = """{WHEN}'S JSSA GAMES HAVE BEEN CANCELLED.
 
 The JSSA games scheduled for {date_long}{at_location} have been cancelled.
 
@@ -4300,6 +4312,8 @@ Jupiter Senior Softball Association"""
 
 _CANCEL_PLACEHOLDER_HELP = (
     "Words in {curly braces} are filled in automatically. "
+    "{when} = today / tomorrow — whichever day the games were called off for · "
+    "{WHEN} = the same word in capitals, for a heading · "
     "{games} = league games / pickup games / league and pickup games · "
     "{date} = Fri, Oct 30 · {date_long} = Friday, October 30 · "
     "{location} = where the games were · "
@@ -4774,6 +4788,7 @@ def _cancellation_message(plan, reason, location):
             "BOTH": "league and pickup games"}.get(plan["kind"], "games")
     reason = _clean(reason)
     location = _clean(location)
+    when = cancellation_day_word(plan["date"])
 
     game_lines = []
     for g in plan.get("games") or []:
@@ -4786,6 +4801,8 @@ def _cancellation_message(plan, reason, location):
     games_list = "\n".join(game_lines)
 
     fields = {
+        "when": when,
+        "WHEN": when.upper(),
         "games": what,
         "date": plan["date"].strftime("%a, %b %-d"),
         "date_long": plan["date_label"],
@@ -4875,10 +4892,25 @@ def _log_cancellation(plan, reason, location, sent_by, emailed, missed, result):
         pass
 
 
+def cancellation_day_word(day, today=None):
+    """"today", "tomorrow", or the weekday name — for wording that has to read
+    right whether the games are called off this morning or the night before."""
+    today = today or datetime.datetime.now(_EASTERN).date()
+    if day == today:
+        return "today"
+    if day == today + datetime.timedelta(days=1):
+        return "tomorrow"
+    return day.strftime("%A")
+
+
 def send_cancellation(reason, location, sent_by, plan=None, banner_only=False,
                       shutoff=""):
-    """Call off today's games. Posts the website banner, emails today's
-    scheduled players, marks the league games cancelled, and logs it.
+    """Call off a day's games. Posts the website banner, emails the players
+    scheduled that day, marks the league games cancelled, and logs it.
+
+    The day comes from `plan` — normally today, but the Cancel page can also
+    build a plan for tomorrow, so a washout can be called the afternoon before
+    once the pickup sign-ups have closed.
 
     Returns a summary dict: {'ok', 'emailed', 'missed', 'banner', 'note'}.
     The banner is posted FIRST and independently of email — if mail fails, the
@@ -4887,24 +4919,29 @@ def send_cancellation(reason, location, sent_by, plan=None, banner_only=False,
     settings = plan["settings"]
     reason = _clean(reason)
     location = _clean(location) or plan["location"]
+    when = cancellation_day_word(plan["date"])
 
     already = cancellation_already_sent(plan["date"])
     if already:
         return {"ok": False, "emailed": 0, "missed": [], "banner": False,
-                "note": "Already sent today at %s by %s — nothing was sent "
-                        "again." % (already["sent_at"] or "earlier",
+                "note": "Already sent for %s at %s by %s — nothing was sent "
+                        "again." % (plan["date_label"],
+                                    already["sent_at"] or "earlier",
                                     already["sent_by"] or "a board member")}
 
     subject, body = _cancellation_message(plan, reason, location)
 
     # 1. The website banner — always, first.
     banner_ok = False
-    headline = "CANCELLED — no games today, %s." % plan["date_label"]
+    headline = "CANCELLED — no games %s, %s." % (when, plan["date_label"])
     if reason:
         headline += " " + reason
         if not headline.endswith((".", "!", "?")):
             headline += "."
-    expires_at, shutoff_fell_back = shutoff_for_new_post(shutoff)
+    # Pin the shutoff to the day of the games, so a notice posted the evening
+    # before is still up when people check in the morning.
+    expires_at, shutoff_fell_back = shutoff_for_new_post(
+        shutoff, on_date=plan["date"])
     try:
         add_notice("weather", headline, sent_by or "Admin", expires_at=expires_at)
         banner_ok = True
@@ -4928,7 +4965,8 @@ def send_cancellation(reason, location, sent_by, plan=None, banner_only=False,
         notes.append('No sender address is set up yet, so no email went out. '
                      'Add one to the "Cancellation Settings" tab.')
     elif not addresses:
-        notes.append("Nobody was scheduled today, so there was no one to email.")
+        notes.append("Nobody was scheduled %s, so there was no one to email."
+                     % when)
     else:
         attempted = True
         test_to = settings["test_address"] if settings["test_mode"] else ""
