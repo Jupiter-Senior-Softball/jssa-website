@@ -5092,6 +5092,30 @@ def send_cancellation(reason, location, sent_by, plan=None, banner_only=False,
             "banner": banner_ok, "note": " ".join(notes)}
 
 
+def cancellation_wording_warning(subject, body, when):
+    """A plain-English warning when the wording in the Cancellation Email tab
+    names the wrong day, or "" when it reads correctly.
+
+    The tab is seeded once and then edited by hand, so wording written for a
+    same-day cancellation ("TODAY'S JSSA GAMES...") stays put and goes out
+    unchanged the first time someone calls off tomorrow's games. The preview
+    shows it, but a wrong word is easy to read straight past — this says it
+    out loud instead."""
+    text = (str(subject or "") + "\n" + str(body or "")).lower()
+    other = "tomorrow" if when == "today" else "today"
+
+    # "tomorrow" contains no "today", and vice versa, so a plain search is safe.
+    if other not in text:
+        return ""
+
+    return (
+        'The wording says "%s", but you are calling off %s\'s games. '
+        'Fix it in the control sheet\'s "Cancellation Email" tab: put '
+        "{when} in the Subject and {WHEN} in the Body where the day is "
+        "named, and they will follow whichever day you pick." % (other, when)
+    )
+
+
 def cancellation_preview(plan=None):
     """The exact banner headline and email that WOULD go out, with the reason
     and location left as markers the page fills in live as they're typed. Built
@@ -5099,9 +5123,13 @@ def cancellation_preview(plan=None):
     from what actually gets sent."""
     plan = plan or todays_cancellation_plan()
     subject, body = _cancellation_message(plan, "__REASON__", "__LOCATION__")
-    headline = "CANCELLED — no games today, %s. __REASON__" % plan["date_label"]
+    when = cancellation_day_word(plan["date"])
+    headline = "CANCELLED — no games %s, %s. __REASON__" % (when,
+                                                            plan["date_label"])
     return {"subject": subject, "body": body, "headline": headline,
-            "source": cancellation_email_template()["source"]}
+            "source": cancellation_email_template()["source"],
+            "when": when,
+            "warning": cancellation_wording_warning(subject, body, when)}
 
 
 _CALLED_OFF_PHRASES = (
