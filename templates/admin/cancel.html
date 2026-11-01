@@ -49,6 +49,10 @@
     border:2px solid var(--line);background:#fff;color:var(--navy);text-decoration:none;min-height:44px;
     display:inline-flex;align-items:center}
   .daybtn.on{background:var(--navy);border-color:var(--navy);color:#fff}
+  .wordwarn{background:#fff4f4;border:2px solid #f0c9cb;border-radius:12px;padding:16px 18px;margin:0 0 16px}
+  .wordwarn strong{color:#b3151b;font-size:1.05rem}
+  .wordwarn p{margin:8px 0 0;color:var(--navy);line-height:1.55}
+  .wordwarn .wordwarn-sub{color:var(--muted);font-size:.92rem}
   .pv-mail{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
   .pv-subj{background:#f4f6fb;border-bottom:1px solid var(--line);padding:13px 16px;
       font-family:var(--display);font-weight:700;color:var(--navy);font-size:1.02rem}
@@ -256,6 +260,15 @@
     <p style="margin:22px 0 12px" class="hint">This posts the notice on the website, emails the players listed above,
       marks today's games cancelled on the schedule, and records it in the log. It can't be undone from here — but you can
       switch the banner off again on the <a href="{{ url_for('admin_dashboard') }}">admin panel</a>.</p>
+
+    {% if preview and preview.warning %}
+      <div class="wordwarn">
+        <strong>&#9888;&#65039; Check the wording before you send.</strong>
+        <p>{{ preview.warning }}</p>
+        <p class="wordwarn-sub">The email above is exactly what players will receive. Fix the tab and reload this
+          page, or send anyway if you are happy with it.</p>
+      </div>
+    {% endif %}
 
     <button class="bigbtn" type="submit">&#9888;&#65039; Cancel {{ day_word }}'s games &amp; notify {{ plan.recipients|length }} players</button>
   </form>

@@ -186,6 +186,57 @@ check("a send without typing CANCEL sends nothing and stays on tomorrow",
       not posted and "day=tomorrow" in (r.headers.get("Location") or ""),
       str(r.headers.get("Location")))
 
+
+# ------------------------------------------------------------------------
+# The wording guard: the Cancellation Email tab is seeded once and edited by
+# hand, so wording written for a same-day call-off sits there until someone
+# changes it. On 2 November it went out saying "TODAY'S" for tomorrow's games.
+# ------------------------------------------------------------------------
+print()
+
+warn = sheets.cancellation_wording_warning(
+    "CANCELLED — today's JSSA league games (Mon, Nov 2)",
+    "TODAY'S JSSA GAMES HAVE BEEN CANCELLED.\n\nPlease do not travel.",
+    "tomorrow")
+check("stale 'today' wording is caught when calling off tomorrow",
+      bool(warn) and "today" in warn, repr(warn))
+check("the warning says exactly how to fix it",
+      "{when}" in warn and "{WHEN}" in warn and "Cancellation Email" in warn,
+      repr(warn))
+
+check("correct tomorrow wording raises no warning",
+      sheets.cancellation_wording_warning(
+          "CANCELLED — tomorrow's JSSA league games (Mon, Nov 2)",
+          "TOMORROW'S JSSA GAMES HAVE BEEN CANCELLED.", "tomorrow") == "")
+
+check("correct today wording raises no warning",
+      sheets.cancellation_wording_warning(
+          "CANCELLED — today's JSSA league games",
+          "TODAY'S JSSA GAMES HAVE BEEN CANCELLED.", "today") == "")
+
+check("wording that says tomorrow on a same-day call-off is caught too",
+      bool(sheets.cancellation_wording_warning(
+          "CANCELLED — tomorrow's games", "TOMORROW'S GAMES ARE OFF.", "today")))
+
+check("wording that names neither day is left alone",
+      sheets.cancellation_wording_warning(
+          "JSSA games cancelled", "The games are off.", "tomorrow") == "")
+
+# And it reaches the page, next to the send button.
+sheets.cancellation_email_template = lambda: {
+    "subject": "CANCELLED — today's JSSA {games} ({date})",
+    "body": "TODAY'S JSSA GAMES HAVE BEEN CANCELLED.\n\n{reason_block}",
+    "source": "sheet"}
+
+r = c.get("/admin/cancel?day=tomorrow")
+html = r.get_data(as_text=True)
+check("the page warns about stale wording before you can send",
+      "Check the wording before you send" in html, str(r.status_code))
+
+r = c.get("/admin/cancel?day=today")
+check("and stays quiet when the wording matches the day",
+      "Check the wording before you send" not in r.get_data(as_text=True))
+
 print()
 if failures:
     print("FAILURES: " + ", ".join(failures))
