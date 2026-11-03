@@ -4506,19 +4506,84 @@ def _people_that_fit(remaining):
     return n
 
 
-def _sender_remaining(url):
-    """Sends left today on the account behind this sender URL, or None if it
-    cannot be reached (the caller then falls back to the 'Email cap')."""
+_status_cache = {}
+
+
+def _sender_status(url, fresh=False):
+    """What the sender script says about itself: {'account', 'remaining'} (either
+    may be None), or None if it cannot be reached. Cached for a minute so one
+    page view doesn't ask the same script several times."""
     import urllib.request
+    now = time.time()
+    if not fresh:
+        with _lock:
+            hit = _status_cache.get(url)
+            if hit and now - hit[1] < _CAPACITY_TTL:
+                return hit[0]
+    status = None
     try:
         with urllib.request.urlopen(url, timeout=8) as r:
             data = json.loads(r.read().decode("utf-8"))
-        if isinstance(data, dict) and data.get("ok") \
-                and data.get("remaining_today") is not None:
-            return int(data["remaining_today"])
+        if isinstance(data, dict) and data.get("ok"):
+            rem = data.get("remaining_today")
+            status = {"account": _clean(data.get("account")).lower() or None,
+                      "remaining": int(rem) if rem is not None else None,
+                      "error": None}
+        elif isinstance(data, dict):
+            # The script answered but refused (most often: wrong ?key=).
+            status = {"account": None, "remaining": None,
+                      "error": _clean(data.get("error")) or "refused"}
     except Exception:
-        pass
-    return None
+        status = None
+    with _lock:
+        _status_cache[url] = (status, now)
+    return status
+
+
+def _sender_remaining(url):
+    """Sends left today on the account behind this sender URL, or None if it
+    cannot be reached (the caller then falls back to the 'Email cap')."""
+    st = _sender_status(url, fresh=True)
+    return st["remaining"] if st else None
+
+
+def _sender_account(url):
+    """The Gmail address behind this sender URL, or '' if it cannot be told."""
+    if not url:
+        return ""
+    st = _sender_status(url)
+    return (st or {}).get("account") or ""
+
+
+def _sender_problem(url):
+    """Why this sender script will not send, in plain words, or '' when it looks
+    fine or cannot be asked. 'unauthorized' means the ?key=... on the address does
+    not match the SECRET inside the script: every send to it would be refused."""
+    if not url:
+        return ""
+    err = (_sender_status(url) or {}).get("error")
+    if not err:
+        return ""
+    if err == "unauthorized":
+        return ('The script answered "unauthorized": the ?key=... on this '
+                'address does not match the SECRET inside that script, so it '
+                'will refuse to send. Make the two the same (then Deploy '
+                '\u2192 Manage deployments \u2192 New version).')
+    return "The script answered: %s" % err
+
+
+def _effective_overflow(settings):
+    """(backup_url, same_account). The backup URL to count on, or '' when it
+    turns out to be the SAME Gmail account as the main sender: that account has
+    only one day's sends, so pointing both rows at it adds no capacity — it used
+    to look like 200 sends were available when there were 100."""
+    main, backup = settings.get("sender_url"), settings.get("overflow_url")
+    if not (main and backup):
+        return backup or "", ""
+    a, b = _sender_account(main), _sender_account(backup)
+    if a and a == b:
+        return "", a
+    return backup, ""
 
 
 def sender_capacity(url, cap, fresh=False):
@@ -4752,14 +4817,21 @@ def todays_cancellation_plan(day=None):
 
     # How many people the sender account(s) can actually reach right now. With
     # no sender set up yet, show the usual one-account picture.
+    backup_url, same_account = _effective_overflow(settings)
     cap = (sender_capacity(settings["sender_url"], settings["cap"])
            if settings["sender_url"] else _people_that_fit(settings["cap"]))
-    if settings["overflow_url"]:
-        cap += sender_capacity(settings["overflow_url"], settings["cap"])
+    if backup_url:
+        cap += sender_capacity(backup_url, settings["cap"])
     recipients, over_cap = reachable[:cap], reachable[cap:]
 
     settings = dict(settings,
-                    url_problem=sender_url_problem(settings["sender_url"]))
+                    url_problem=sender_url_problem(settings["sender_url"]),
+                    same_account=same_account,
+                    main_problem=_sender_problem(settings["sender_url"]),
+                    backup_problem=_sender_problem(settings["overflow_url"]),
+                    main_account=_sender_account(settings["sender_url"]),
+                    backup_account=(_sender_account(backup_url)
+                                    if backup_url else ""))
 
     return {
         "date": day,
@@ -4981,7 +5053,12 @@ def send_cancellation(reason, location, sent_by, plan=None, banner_only=False,
         everyone = addresses + [p["email"] for p in plan["over_cap"]]
         main_room = sender_capacity(settings["sender_url"], settings["cap"],
                                     fresh=True)
-        backup_url = settings["overflow_url"]
+        backup_url, same_account = _effective_overflow(settings)
+        if same_account:
+            notes.append("The backup sender address points to the SAME Gmail "
+                         "account (%s) as the main sender, so it added no "
+                         "extra sends. Point the \"Overflow sender URL\" "
+                         "at your other account." % same_account)
         backup_room = (sender_capacity(backup_url, settings["cap"], fresh=True)
                        if backup_url else 0)
         first, overflow = everyone[:main_room], everyone[main_room:]
@@ -5016,10 +5093,12 @@ def send_cancellation(reason, location, sent_by, plan=None, banner_only=False,
             send_failures.extend(backup_list[backup_room:])
             backup_list = backup_list[:backup_room]
 
+        backup_sent = 0
         if backup_url and backup_list:
             res2 = _post_to_sender(backup_url, subject, body,
                                    backup_list, test_to)
-            emailed += int(res2.get("sent") or 0)
+            backup_sent = int(res2.get("sent") or 0)
+            emailed += backup_sent
             if not res2.get("ok"):
                 notes.append("Second account problem: %s"
                              % res2.get("error", "unknown"))
@@ -5035,9 +5114,14 @@ def send_cancellation(reason, location, sent_by, plan=None, banner_only=False,
         elif rerouted_ok:
             notes.append("The main sending account was full, so %d emails "
                          "went out from the backup account." % rerouted)
-        elif backup_list and backup_url and not main_failed:
-            notes.append("%d emails went out from the backup account."
-                         % len(backup_list))
+        elif backup_sent and not main_failed:
+            notes.append("%d email%s went out from the backup account."
+                         % (backup_sent, "" if backup_sent == 1 else "s"))
+        main_acct = _sender_account(settings["sender_url"])
+        backup_acct = _sender_account(backup_url) if backup_url else ""
+        if main_acct:
+            notes.append("Main sender: %s%s." % (
+                main_acct, (" · backup: " + backup_acct) if backup_acct else ""))
         if settings["test_mode"]:
             notes.append("TEST MODE — everything went to %s, not to players."
                          % (settings["test_address"] or "the test address"))
