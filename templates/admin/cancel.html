@@ -112,6 +112,20 @@
     </div>
   {% endif %}
 
+  {% if plan.settings.main_problem %}
+    <div class="stop">
+      <strong>&#9888; The main sender will not send.</strong>
+      <p style="margin-top:8px">{{ plan.settings.main_problem }}</p>
+      <p style="margin-top:8px">This is the <strong>Sender URL</strong> row in the control sheet&rsquo;s &ldquo;Cancellation Settings&rdquo; tab.</p>
+    </div>
+  {% endif %}
+  {% if plan.settings.backup_problem %}
+    <div class="stop">
+      <strong>&#9888; The backup sender will not send.</strong>
+      <p style="margin-top:8px">{{ plan.settings.backup_problem }}</p>
+      <p style="margin-top:8px">This is the <strong>Overflow sender URL</strong> row.</p>
+    </div>
+  {% endif %}
   {% if plan.settings.same_account %}
     <div class="stop">
       <strong>&#9888; Both sender addresses are the same Gmail account ({{ plan.settings.same_account }}).</strong>

@@ -35,6 +35,7 @@ def settings(backup=BACKUP):
     return {"sender_url": MAIN, "overflow_url": backup, "cap": 100,
             "emails_enabled": True, "test_mode": False, "test_address": ""}
 
+real_problem = sheets._sender_problem   # run() stubs it; keep the real one
 ACCOUNTS = {}          # sender URL -> Gmail address; empty = "can't tell"
 
 def run(remaining, post, backup=BACKUP):
@@ -42,6 +43,7 @@ def run(remaining, post, backup=BACKUP):
     sheets.cancellation_settings = lambda: settings(backup)
     sheets._sender_remaining = lambda url: remaining[url]
     sheets._sender_account = lambda url: ACCOUNTS.get(url, "")
+    sheets._sender_problem = lambda url: ""
     sheets._post_to_sender = post
     return sheets.send_cancellation("rain", "", "Tom")
 
@@ -150,3 +152,16 @@ assert res["emailed"] == 97 and len(res["missed"]) == 33, res
 assert "Second account problem" in res["note"], res["note"]
 assert "went out from the backup" not in res["note"], res["note"]
 print("refused backup   : not reported as sent, people named")
+
+
+# ---- a script that rejects the key is reported before anyone presses send ---
+real_status = sheets._sender_status
+sheets._sender_status = lambda url, fresh=False: {
+    "account": None, "remaining": None, "error": "unauthorized"}
+msg = real_problem(MAIN)
+assert "unauthorized" in msg and "does not match" in msg, msg
+sheets._sender_status = lambda url, fresh=False: {
+    "account": "a@gmail.com", "remaining": 50, "error": None}
+assert real_problem(MAIN) == "", "a healthy script must not be flagged"
+sheets._sender_status = real_status
+print("bad key          : flagged in plain words; healthy script is not")

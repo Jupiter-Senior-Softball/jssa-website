@@ -4527,7 +4527,12 @@ def _sender_status(url, fresh=False):
         if isinstance(data, dict) and data.get("ok"):
             rem = data.get("remaining_today")
             status = {"account": _clean(data.get("account")).lower() or None,
-                      "remaining": int(rem) if rem is not None else None}
+                      "remaining": int(rem) if rem is not None else None,
+                      "error": None}
+        elif isinstance(data, dict):
+            # The script answered but refused (most often: wrong ?key=).
+            status = {"account": None, "remaining": None,
+                      "error": _clean(data.get("error")) or "refused"}
     except Exception:
         status = None
     with _lock:
@@ -4548,6 +4553,23 @@ def _sender_account(url):
         return ""
     st = _sender_status(url)
     return (st or {}).get("account") or ""
+
+
+def _sender_problem(url):
+    """Why this sender script will not send, in plain words, or '' when it looks
+    fine or cannot be asked. 'unauthorized' means the ?key=... on the address does
+    not match the SECRET inside the script: every send to it would be refused."""
+    if not url:
+        return ""
+    err = (_sender_status(url) or {}).get("error")
+    if not err:
+        return ""
+    if err == "unauthorized":
+        return ('The script answered "unauthorized": the ?key=... on this '
+                'address does not match the SECRET inside that script, so it '
+                'will refuse to send. Make the two the same (then Deploy '
+                '\u2192 Manage deployments \u2192 New version).')
+    return "The script answered: %s" % err
 
 
 def _effective_overflow(settings):
@@ -4805,6 +4827,8 @@ def todays_cancellation_plan(day=None):
     settings = dict(settings,
                     url_problem=sender_url_problem(settings["sender_url"]),
                     same_account=same_account,
+                    main_problem=_sender_problem(settings["sender_url"]),
+                    backup_problem=_sender_problem(settings["overflow_url"]),
                     main_account=_sender_account(settings["sender_url"]),
                     backup_account=(_sender_account(backup_url)
                                     if backup_url else ""))
