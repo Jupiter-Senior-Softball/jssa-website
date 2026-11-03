@@ -112,6 +112,18 @@
     </div>
   {% endif %}
 
+  {% if plan.settings.same_account %}
+    <div class="stop">
+      <strong>&#9888; Both sender addresses are the same Gmail account ({{ plan.settings.same_account }}).</strong>
+      <p style="margin-top:8px">One account can only email about 100 people a day, so the &ldquo;backup&rdquo; adds
+        nothing. Point the <strong>Overflow sender URL</strong> row in the control sheet&rsquo;s
+        &ldquo;Cancellation Settings&rdquo; tab at your <em>other</em> account&rsquo;s script.</p>
+    </div>
+  {% elif plan.settings.main_account %}
+    <p class="hint" style="margin:0 0 14px">Emails go out from <strong>{{ plan.settings.main_account }}</strong>{% if plan.settings.backup_account %},
+      with <strong>{{ plan.settings.backup_account }}</strong> as the backup if the first one runs out{% endif %}.</p>
+  {% endif %}
+
   {% if plan.settings.test_mode %}
     <div class="warn">
       <strong>&#9203; Practice mode is ON.</strong> Here is exactly what will happen if you press the button:

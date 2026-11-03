@@ -35,10 +35,13 @@ def settings(backup=BACKUP):
     return {"sender_url": MAIN, "overflow_url": backup, "cap": 100,
             "emails_enabled": True, "test_mode": False, "test_address": ""}
 
+ACCOUNTS = {}          # sender URL -> Gmail address; empty = "can't tell"
+
 def run(remaining, post, backup=BACKUP):
     sheets._capacity_cache.clear()
     sheets.cancellation_settings = lambda: settings(backup)
     sheets._sender_remaining = lambda url: remaining[url]
+    sheets._sender_account = lambda url: ACCOUNTS.get(url, "")
     sheets._post_to_sender = post
     return sheets.send_cancellation("rain", "", "Tom")
 
@@ -109,3 +112,41 @@ assert len(sent[MAIN]) == 97 and res["emailed"] == 130
 print("quota unreadable : assumes a full day, still 97 + 33")
 
 print("\nCAPACITY CHECKS PASSED")
+
+
+# ---- same account behind both rows: the backup must not count twice ---------
+# This is what happened on the real cancellation: both rows ended up on one
+# Gmail account. It looked like 200 sends; the first message used all 100 and the
+# "backup" call was refused with "0 left".
+ACCOUNTS.update({MAIN: "jssaadmin@gmail.com", BACKUP: "jssaadmin@gmail.com"})
+sent = {}
+def post_same(url, subject, body, rec, test_to=""):
+    sent[url] = list(rec)
+    return {"ok": True, "sent": len(rec), "missed": []}
+res = run({MAIN: 100, BACKUP: 100}, post_same)
+assert BACKUP not in sent, "the same account must not be asked a second time"
+assert len(sent[MAIN]) == 97 and res["emailed"] == 97, res
+assert len(res["missed"]) == 33, res          # named, so someone can phone them
+assert "SAME Gmail account" in res["note"], res["note"]
+assert "went out from the backup" not in res["note"], res["note"]
+print("same account     : counted once (97 sent), 33 named, warning shown")
+
+# ---- two different accounts still work as before ----------------------------
+ACCOUNTS.update({MAIN: "jssagames@gmail.com", BACKUP: "jssaadmin@gmail.com"})
+sent = {}
+res = run({MAIN: 100, BACKUP: 100}, ok_post)
+assert len(sent[MAIN]) == 97 and len(sent[BACKUP]) == 33 and res["missed"] == [], res
+assert "Main sender: jssagames@gmail.com" in res["note"], res["note"]
+assert "backup: jssaadmin@gmail.com" in res["note"], res["note"]
+print("two accounts     : 97 + 33, both named in the log")
+
+# ---- a refused backup send must NOT be reported as "went out" ---------------
+def backup_refuses(url, subject, body, rec, test_to=""):
+    if url == BACKUP:
+        return {"ok": False, "sent": 0, "error": "daily email limit too low"}
+    return {"ok": True, "sent": len(rec), "missed": []}
+res = run({MAIN: 100, BACKUP: 100}, backup_refuses)
+assert res["emailed"] == 97 and len(res["missed"]) == 33, res
+assert "Second account problem" in res["note"], res["note"]
+assert "went out from the backup" not in res["note"], res["note"]
+print("refused backup   : not reported as sent, people named")
