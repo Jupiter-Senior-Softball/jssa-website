@@ -448,6 +448,7 @@ def _parse_teams_block(rows, enforce_date_window=True):
     #    up until the counts row or the column-header row.
     date_str, park_str, info_str = "", "", ""
     header_idx = None
+    time_row = None
     field_cols = []  # (col_index, label)
 
     j = start + 1
@@ -456,6 +457,14 @@ def _parse_teams_block(rows, enforce_date_window=True):
         row = rows[j]
         first = _clean(row[0]) if row else ""
         low = first.lower()
+
+        # Optional game-time row: ["", "Game Time", <one time per field column>].
+        # The label sits in the SECOND cell with the first left blank, so an older
+        # copy of this parser simply skips the row instead of showing it.
+        if not first and len(row) > 1 and _clean(row[1]).lower().startswith("game time"):
+            time_row = row
+            j += 1
+            continue
 
         # Column header row: "Today's Players | Preferred Positions | Field ..."
         if low.startswith("today's player") or low.startswith("todays player"):
@@ -495,7 +504,8 @@ def _parse_teams_block(rows, enforce_date_window=True):
     fields = []
     col_to_field = {}
     for ci, label in field_cols:
-        f = {"name": label, "home": [], "visitor": []}
+        f = {"name": label, "home": [], "visitor": [],
+             "time": _clean_time(time_row[ci]) if time_row and len(time_row) > ci else ""}
         col_to_field[ci] = f
         fields.append(f)
 
@@ -556,6 +566,18 @@ def _parse_teams_block(rows, enforce_date_window=True):
             park_str = live_venue
     except Exception:
         pass
+
+    # Every field carries its own start time. A time the board set on the sheet
+    # wins; a field with none shows the schedule's time for that date.
+    if any(not f["time"] for f in fields):
+        try:
+            scheduled = pickup_game_time(date_str)
+        except Exception:
+            scheduled = ""
+        if scheduled:
+            for f in fields:
+                if not f["time"]:
+                    f["time"] = scheduled
 
     return {
         "date": date_str,
@@ -928,15 +950,26 @@ def _month_day(s):
     return None
 
 
-def pickup_game_venue(date_str=None):
-    """The 'Game Field' (venue) from the LIVE pickup schedule, matched to
-    date_str when given, otherwise the earliest game's venue. Returns '' if it
-    can't be determined.
+def _clean_time(text):
+    """A start time in one standard form ('9:00 AM'), whatever way it was typed
+    ('9am', '9:00 am', '10:30AM', '9:00:00 AM'). '' when it is not a time, so a
+    typo is never shown to the public as a game time."""
+    t = _clean(text).upper().replace(".", "")
+    m = re.match(r"^(\d{1,2})(?::(\d{2}))?(?::\d{2})?\s*([AP])M?$", t)
+    if not m:
+        return ""
+    hour, minute = int(m.group(1)), int(m.group(2) or 0)
+    if not (1 <= hour <= 12 and 0 <= minute <= 59):
+        return ""
+    return "%d:%02d %sM" % (hour, minute, m.group(3))
 
-    The Game Day Teams page's location line comes from a published snapshot cell
-    that can go stale if a publish doesn't refresh it. The pickup schedule's
-    'Game Field' row is the live source of truth, so we prefer it. Fail-safe:
-    any problem returns '' and the caller keeps the published value."""
+
+def _pickup_schedule_value(labels, date_str=None, fallback_first=True):
+    """One value from the LIVE pickup schedule's header block (the rows above the
+    player list: Game Date / Start Time / Game Field), for the game on date_str.
+    `labels` are the lower-case row labels to look for. With no date match this
+    returns the earliest game's value when fallback_first is set, else ''.
+    Returns '' on any problem — callers keep what was published."""
     try:
         rows = _schedule_worksheet().get_all_values()
     except Exception:
@@ -955,33 +988,53 @@ def pickup_game_venue(date_str=None):
             if k in cols]
     base = max(idxs) if idxs else 0
     header = rows[phdr]
-    # The "Game Field" row lives in the header block above the player rows.
-    field_row = None
+    # The labelled row lives in the header block above the player rows.
+    value_row = None
     for r in rows[:phdr]:
         lbl = ""
         for c in r:
             if _clean(c):
                 lbl = _clean(c).lower()
                 break
-        if lbl in ("game field", "field"):
-            field_row = r
+        if lbl in labels:
+            value_row = r
             break
-    if field_row is None:
+    if value_row is None:
         return ""
     want = _month_day(date_str) if date_str else None
-    first_field = ""
+    first_value = ""
     for ci in range(base + 1, len(header)):
         label = _clean(header[ci])
         if not label:
             continue
-        fld = _clean(field_row[ci]) if len(field_row) > ci else ""
-        if not fld:
+        val = _clean(value_row[ci]) if len(value_row) > ci else ""
+        if not val:
             continue
-        if not first_field:
-            first_field = fld
+        if not first_value:
+            first_value = val
         if want and _month_day(label) == want:
-            return fld
-    return first_field
+            return val
+    return first_value if fallback_first else ""
+
+
+def pickup_game_venue(date_str=None):
+    """The 'Game Field' (venue) from the LIVE pickup schedule, matched to
+    date_str when given, otherwise the earliest game's venue. Returns '' if it
+    can't be determined.
+
+    The Game Day Teams page's location line comes from a published snapshot cell
+    that can go stale if a publish doesn't refresh it. The pickup schedule's
+    'Game Field' row is the live source of truth, so we prefer it. Fail-safe:
+    any problem returns '' and the caller keeps the published value."""
+    return _pickup_schedule_value(("game field", "field"), date_str)
+
+
+def pickup_game_time(date_str):
+    """The 'Start Time' for the game on date_str from the LIVE pickup schedule,
+    in standard form ('9:00 AM'), or '' if that date is not on the schedule or
+    the cell is not a time. Never guesses another day's time."""
+    return _clean_time(
+        _pickup_schedule_value(("start time",), date_str, fallback_first=False))
 
 
 def _parse_schedule_date(label, today):
