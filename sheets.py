@@ -956,6 +956,15 @@ def _clean_time(text):
     ('9am', '9:00 am', '10:30AM', '9:00:00 AM'). '' when it is not a time, so a
     typo is never shown to the public as a game time."""
     t = _clean(text).upper().replace(".", "")
+    # Google Sheets turns "10:30 AM" typed into a cell into a real clock time, and
+    # may hand it back as 24-hour "10:30:00" (no AM/PM). Accept that too: 13:30 is
+    # 1:30 PM, and a bare 9:00 / 10:30 is read as morning.
+    m24 = re.match(r"^(\d{1,2}):(\d{2})(?::\d{2})?$", t)
+    if m24:
+        h24, mi = int(m24.group(1)), int(m24.group(2))
+        if not (0 <= h24 <= 23 and 0 <= mi <= 59):
+            return ""
+        return "%d:%02d %s" % (h24 % 12 or 12, mi, "AM" if h24 < 12 else "PM")
     m = re.match(r"^(\d{1,2})(?::(\d{2}))?(?::\d{2})?\s*([AP])M?$", t)
     if not m:
         return ""

@@ -17,6 +17,7 @@ def check(label, cond, extra=""):
 for raw, want in [("9:00 AM", "9:00 AM"), ("9:00am", "9:00 AM"), ("9am", "9:00 AM"),
                   ("10:30 AM", "10:30 AM"), ("10:30AM", "10:30 AM"), ("1 pm", "1:00 PM"),
                   ("9:00:00 AM", "9:00 AM"), ("  9:00 a.m. ", "9:00 AM"),
+                  ("10:30:00", "10:30 AM"), ("9:00:00", "9:00 AM"), ("13:30:00", "1:30 PM"), ("24:00", ""),
                   ("", ""), ("TBD", ""), ("9", ""), ("25:00 AM", ""), ("9:75 AM", "")]:
     check("time %-12r -> %r" % (raw, want), sheets._clean_time(raw) == want, sheets._clean_time(raw))
 
