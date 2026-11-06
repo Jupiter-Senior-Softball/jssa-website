@@ -413,8 +413,7 @@ def _is_stale_gameday(date_str):
     dates are treated as not stale (show whatever's there)."""
     try:
         game_date = datetime.datetime.strptime(date_str, "%A, %B %d, %Y").date()
-        eastern = datetime.timezone(datetime.timedelta(hours=-4))  # EDT (UTC-4 May-Nov)
-        now_et = datetime.datetime.now(tz=eastern)
+        now_et = datetime.datetime.now(tz=_EASTERN)  # handles daylight saving
         today = now_et.date()
         if game_date < today:
             return True
@@ -906,8 +905,10 @@ SIGNUP_DEADLINE_HOUR = 15  # 3:00 PM the day before each game
 _schedule_cache = {"data": None, "ts": 0.0}
 _SCHEDULE_TTL = 120  # seconds — 2 min so fresh signups show up quickly
 
-# Eastern time, matching the rest of this file's convention (EDT, UTC-4).
-_EASTERN = datetime.timezone(datetime.timedelta(hours=-4))
+# Real Eastern time: automatically switches between EDT (UTC-4) and EST (UTC-5)
+# when daylight saving starts/ends, so the 3 PM deadline is always 3 PM on the clock.
+import zoneinfo as _zoneinfo
+_EASTERN = _zoneinfo.ZoneInfo("America/New_York")
 
 
 def _schedule_worksheet():
