@@ -13,6 +13,7 @@
     font-size:.86rem;color:#f5c518}
   .ng-date{font-family:var(--display);font-weight:900;color:#fff;font-size:1.9rem;margin:4px 0 2px;letter-spacing:-.01em}
   .ng-where{color:#cdd7ea;font-size:1.04rem;font-weight:600;margin:0}
+  .ng-where.ng-note{margin-top:6px;font-weight:500;font-size:1rem}
   .ng-count{text-align:center;line-height:1.05}
   .ng-big{display:block;font-family:var(--display);font-weight:900;font-size:3.1rem;color:#fff}
   .ng-biglabel{display:block;font-size:.92rem;color:#cdd7ea;font-weight:600}
@@ -58,7 +59,8 @@
   <div class="ng-when">
     <span class="ng-eyebrow">⚾ Next Game</span>
     <div class="ng-date">{{ game.weekday }}, {{ game.date_human }}</div>
-    <p class="ng-where">{{ game.field }}{% if game.time %} · BP starts at {{ game.time }}{% endif %}</p>
+    <p class="ng-where">{{ game.field }} · Game time to be announced</p>
+    <p class="ng-where ng-note">Check the Game Day Rosters for your field's start time.</p>
   </div>
   <div class="ng-count">
     <span class="ng-big">{{ game.counts.TOTAL }}</span>
