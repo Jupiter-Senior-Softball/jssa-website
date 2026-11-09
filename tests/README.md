@@ -32,6 +32,7 @@ What they cover:
 | `test_past_seasons.py` | Past Seasons archive: saving and refreshing a season without duplicates, seasons kept apart, standings rebuilt from archived scores, the live pages never mistaking an archive tab for a live one, the public page and the admin page |
 | `test_notice_shutoff.py` | Weather banners coming down by themselves: the 1:00 PM Eastern default, the poster's own time, a late post, summer/winter clocks, a cached banner vanishing on time, changing or clearing the time, and the admin form and dashboard |
 | `test_schedule_order.py` | The public schedule lists games by date, then 9:00 AM before 10:30 AM, whatever order the sheet rows are in |
+| `test_scores_page.py` | Admin Scores page offers only played games that need a score; Cancelled/Postponed and future games are hidden and a cancelled game cannot be given a score |
 | `test_results_order.py` | The Results page: newest day first, and 9:00 AM above 10:30 AM within each day |
 | `test_schedule_editor.py` | The schedule editor: its own Schedule Password, moving a game to Maplewood, only changed cells written, stale/scored/invalid edits refused, adding a game in a spare row, the change log |
 | `test_pickup_league_mark.py` | A player marked "League" on the pickup schedule (in a league game that day) is not counted as signed up for pickup on the website |

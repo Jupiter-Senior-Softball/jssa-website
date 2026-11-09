@@ -1028,15 +1028,16 @@ def admin_scores():
     except Exception:
         all_games = []
 
-    # Count how many games still need a score in each division, for the picker.
+    # Sort each division's games into: needs a score / already played /
+    # cancelled-or-postponed / still in the future (see split_games_for_scoring).
     divisions = ("RED", "WHITE", "BLUE")
-    counts = {d: {"unscored": 0, "total": 0} for d in divisions}
-    for g in all_games:
-        d = g.get("division")
-        if d in counts:
-            counts[d]["total"] += 1
-            if not (g.get("score_home") != "" and g.get("score_away") != ""):
-                counts[d]["unscored"] += 1
+    groups = {d: sheets.split_games_for_scoring(
+                  [g for g in all_games if g.get("division") == d])
+              for d in divisions}
+    # Only games that really need a score are counted on the picker.
+    counts = {d: {"unscored": len(groups[d]["needs_score"]),
+                  "total": sum(len(v) for v in groups[d].values())}
+              for d in divisions}
 
     division = (request.args.get("division") or "").strip().upper()
     if division not in divisions:
@@ -1044,10 +1045,9 @@ def admin_scores():
         return render_template("admin/scores_pick.html", counts=counts,
                                saved=request.args.get("saved"))
 
-    # Step 2: show just that division's games (already sorted needs-scoring first).
-    games = [g for g in all_games if g.get("division") == division]
-    return render_template("admin/scores.html", games=games, division=division,
-                           saved=request.args.get("saved"))
+    # Step 2: show just that division's games.
+    return render_template("admin/scores.html", division=division,
+                           saved=request.args.get("saved"), **groups[division])
 
 
 @app.route("/admin/scores/save", methods=["POST"])
@@ -1060,6 +1060,13 @@ def admin_scores_save():
     ok = False
     if row.isdigit() and score_home != "" and score_away != "":
         try:
+            # Safety net: a Cancelled/Postponed game is never given a score here
+            # (saving would turn it into "Final" and count it in the standings).
+            game = next((g for g in sheets.schedule_games_for_scoring()
+                         if g.get("row") == int(row)), None)
+            if game and sheets._game_called_off(game.get("status")):
+                return redirect(url_for("admin_scores", division=division or None,
+                                        saved="2"))
             ok = sheets.set_game_score(int(row), score_home, score_away)
         except Exception:
             ok = False

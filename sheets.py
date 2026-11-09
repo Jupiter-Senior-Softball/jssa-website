@@ -3602,6 +3602,32 @@ def schedule_games_for_scoring():
         return []
 
 
+def split_games_for_scoring(games, today=None):
+    """Sort a list of games (from schedule_games_for_scoring) into what the admin
+    Scores page should show:
+        needs_score - Scheduled games whose date is today or earlier and that have
+                      no score yet (newest day first; 9:00 before 10:30)
+        played      - games that already have a final score (newest first), kept
+                      so a wrong score can still be corrected
+        off         - Cancelled / Postponed / etc. games: never scored here
+        upcoming    - Scheduled games dated after today: can't have been played
+    A game whose date can't be read is treated as needing a score, so it is never
+    silently hidden."""
+    today = today or datetime.datetime.now(_EASTERN).date()
+    needs, played, off, upcoming = [], [], [], []
+    for g in games:
+        if _game_called_off(g.get("status")):
+            off.append(g)
+        elif g.get("score_home", "") != "" and g.get("score_away", "") != "":
+            played.append(g)
+        else:
+            d = _parse_game_date(g.get("date"), today)
+            (upcoming if d and d > today else needs).append(g)
+    needs.sort(key=result_sort_key)
+    played.sort(key=result_sort_key)
+    return {"needs_score": needs, "played": played, "off": off, "upcoming": upcoming}
+
+
 def set_game_score(row, score_home, score_away, status="Final"):
     """Write a final score back into the Schedule tab for one game row. Updates
     the 'Score Home', 'Score Away' and 'Status' columns; the sheet's own
