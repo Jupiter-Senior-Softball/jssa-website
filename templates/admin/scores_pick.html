@@ -1,6 +1,6 @@
 {% extends "page_base.html" %}
 {% block eyebrow %}Admin{% endblock %}
-{% block sub %}<p class="sub">Pick a division to enter scores. You'll see that division's games with the one most recently played at the top, ready to score.</p>{% endblock %}
+{% block sub %}<p class="sub">Pick a division to enter scores. You'll see only the games that have been played and are still waiting for a score, newest first.</p>{% endblock %}
 {% block body %}
 <style>
   html{font-size:112.5%}
@@ -29,6 +29,7 @@
 </div>
 
 {% if saved == '1' %}<div class="saved">✓ Score saved. The standings will update within a couple of minutes.</div>{% endif %}
+{% if saved == '2' %}<div class="failed">That game is marked Cancelled or Postponed, so no score was saved. To change its status, use the Schedule editor.</div>{% endif %}
 {% if saved == '0' %}<div class="failed">Couldn't save that score. Make sure both score boxes have a number, then try again.</div>{% endif %}
 
 <div class="divpick">

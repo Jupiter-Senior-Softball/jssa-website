@@ -1,6 +1,6 @@
 {% extends "page_base.html" %}
 {% block eyebrow %}Admin{% endblock %}
-{% block sub %}<p class="sub">Enter the final score for each game. The most recently played game that still needs a score is at the top. Saving writes it straight into the Schedule tab — the standings update automatically.</p>{% endblock %}
+{% block sub %}<p class="sub">Enter the final score for games that have been played. Only games waiting for a score are shown first, newest first. Saving writes the score into the Schedule tab and marks the game Final — the standings update automatically.</p>{% endblock %}
 {% block body %}
 <style>
   html{font-size:112.5%}
@@ -28,6 +28,14 @@
   .divhead .pill{display:inline-block;width:14px;height:14px;border-radius:999px;margin-right:8px;vertical-align:middle}
   .divhead .pill.RED{background:var(--red)} .divhead .pill.BLUE{background:var(--blue)} .divhead .pill.WHITE{background:var(--navy)}
   .divhead a{font-weight:700}
+  .sgstatus{display:inline-block;font-family:var(--display);font-weight:700;font-size:.72rem;
+    letter-spacing:.05em;text-transform:uppercase;padding:4px 10px;border-radius:999px;
+    background:#eef2fb;color:var(--navy);margin-left:8px}
+  .sgsec{font-family:var(--display);font-weight:800;font-size:1.2rem;color:var(--navy);margin:26px 0 10px}
+  .sgsec.done{color:var(--muted)}
+  .sgempty{background:#e8f6ee;border:1px solid #bfe3cd;color:#1a7f4b;border-radius:12px;padding:16px 18px;font-weight:600}
+  .sgnote{background:#f3f6fb;border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin-top:26px;color:var(--muted);font-size:.95rem}
+  .sgnote a{font-weight:700}
   @media(max-width:560px){.sgsave{margin-left:0;width:100%}.sgsave button{width:100%}}
 </style>
 
@@ -42,15 +50,12 @@
 </div>
 
 {% if saved == '1' %}<div class="saved">✓ Score saved. The standings will update within a couple of minutes.</div>{% endif %}
+{% if saved == '2' %}<div class="failed">That game is marked Cancelled or Postponed, so no score was saved. To change its status, use the Schedule editor.</div>{% endif %}
 {% if saved == '0' %}<div class="failed">Couldn't save that score. Make sure both score boxes have a number, then try again.</div>{% endif %}
 
-{% if not games %}
-  <p style="color:var(--muted)">No games found for the {{ division }} Division yet. Once the schedule is filled in, the games will appear here ready to score.</p>
-{% else %}
-  {% for g in games %}
-  {% set done = g.score_home != '' and g.score_away != '' %}
+{% macro gamecard(g, done) %}
   <div class="sgame {{ g.division }}">
-    <div class="sgwhen">{{ g.date }}{% if g.time %} · {{ g.time }}{% endif %}{% if g.field %} · {{ g.field }}{% endif %}{% if done %}<span class="donetag">Final {{ g.score_home }}–{{ g.score_away }}</span>{% endif %}</div>
+    <div class="sgwhen">{{ g.date }}{% if g.time %} · {{ g.time }}{% endif %}{% if g.field %} · {{ g.field }}{% endif %}{% if done %}<span class="donetag">Final {{ g.score_home }}–{{ g.score_away }}</span>{% else %}<span class="sgstatus">Needs score</span>{% endif %}</div>
     <form class="sgform" method="post" action="{{ url_for('admin_scores_save') }}">
       <input type="hidden" name="row" value="{{ g.row }}">
       <input type="hidden" name="division" value="{{ division }}">
@@ -59,10 +64,29 @@
       <span class="sgvs">vs</span>
       <span class="sgteam">{{ g.away }}
         <input type="number" name="score_away" min="0" value="{{ g.score_away }}" placeholder="0" required></span>
-      <span class="sgsave"><button class="btn btn-navy" type="submit">{{ 'Update' if done else 'Save score' }}</button></span>
+      <span class="sgsave"><button class="btn btn-navy" type="submit">{{ 'Update score' if done else 'Save score' }}</button></span>
     </form>
   </div>
-  {% endfor %}
+{% endmacro %}
+
+<h2 class="sgsec">Games waiting for a score</h2>
+{% if needs_score %}
+  {% for g in needs_score %}{{ gamecard(g, false) }}{% endfor %}
+{% else %}
+  <div class="sgempty">✓ All caught up — every game that has been played has a score.</div>
+{% endif %}
+
+{% if played %}
+  <h2 class="sgsec done">Already scored (fix a mistake here)</h2>
+  {% for g in played %}{{ gamecard(g, true) }}{% endfor %}
+{% endif %}
+
+{% if off or upcoming %}
+  <div class="sgnote">
+    {% if off %}<div><b>{{ off|length }}</b> cancelled or postponed {{ 'game is' if off|length == 1 else 'games are' }} hidden — nothing to score.</div>{% endif %}
+    {% if upcoming %}<div><b>{{ upcoming|length }}</b> future {{ 'game is' if upcoming|length == 1 else 'games are' }} hidden — not played yet.</div>{% endif %}
+    <div>To change a game's status, date, time or field, use the <a href="{{ url_for('admin_schedule') }}">Schedule editor</a>.</div>
+  </div>
 {% endif %}
 {% endblock %}
 {% block footer_btns %}<a class="btn btn-navy" href="{{ url_for('admin_dashboard') }}">← Back to dashboard</a>{% endblock %}
