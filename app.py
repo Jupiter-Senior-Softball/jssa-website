@@ -948,20 +948,6 @@ def login_required(view):
     return wrapped
 
 
-def divisions_access_required(view):
-    """A second lock on top of login_required: the board's Board Portal
-    password gets you into /admin, but moving a member between divisions
-    needs its own separate password (set in divisions_unlock below)."""
-    @functools.wraps(view)
-    def wrapped(*args, **kwargs):
-        if not session.get("admin"):
-            return redirect(url_for("admin_login", next=request.path))
-        if not session.get("divisions_unlocked"):
-            return redirect(url_for("admin_divisions_unlock", next=request.path))
-        return view(*args, **kwargs)
-    return wrapped
-
-
 def _normalize_password(s):
     """Fold away the differences that trip board members up: capitalization and
     any spaces. So 'JCP softball', 'jcp softball', 'JCPsoftball' and 'jcpsoftball'
@@ -1086,31 +1072,18 @@ def admin_directory():
 
 # ----------------------------------------------------------------------------
 # Member divisions — move a player RED / WHITE / BLUE without ever handing the
-# board edit access to the protected Pickup Game Management workbook. Gated by
-# its own second password (on top of the regular portal login) so the board
-# can hand out portal access broadly while keeping this one, more sensitive
-# action to a smaller trusted group.
+# board edit access to the protected Pickup Game Management workbook. Open to
+# any signed-in board member: it used to need a second "Divisions Password",
+# which the board found too hard to remember, so that lock was removed.
 # ----------------------------------------------------------------------------
 @app.route("/admin/divisions/unlock", methods=["GET", "POST"])
-@login_required
 def admin_divisions_unlock():
-    error = None
-    divisions_password = sheets.divisions_password()
-    if request.method == "POST":
-        pw = request.form.get("password", "")
-        if divisions_password and hmac.compare_digest(
-                _normalize_password(pw), _normalize_password(divisions_password)):
-            session["divisions_unlocked"] = True
-            dest = request.args.get("next") or url_for("admin_divisions")
-            return redirect(dest)
-        error = "Incorrect password."
-    return render_template("admin/divisions-unlock.html",
-                           error=error,
-                           configured=bool(divisions_password))
+    # The Divisions Password was retired; keep old bookmarks working.
+    return redirect(url_for("admin_divisions"))
 
 
 @app.route("/admin/divisions")
-@divisions_access_required
+@login_required
 def admin_divisions():
     try:
         roster = sheets.member_divisions()
@@ -1133,7 +1106,7 @@ def admin_divisions():
 
 
 @app.route("/admin/divisions/save", methods=["POST"])
-@divisions_access_required
+@login_required
 def admin_divisions_save():
     # The member picker carries "<row>|<email>" so the save works without any
     # JavaScript, and so we can check the row still holds the same person.

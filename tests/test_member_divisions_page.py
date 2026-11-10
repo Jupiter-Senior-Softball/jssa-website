@@ -58,33 +58,17 @@ r = c.post("/admin/divisions/save",
 check("signed out, a save is refused and changes nothing",
       r.status_code in (301, 302) and not saved, str(saved))
 
-# ------------------------------------------------- the second password gate
-# The Board Portal password gets you into /admin, but moving a member between
-# divisions needs its own separate password on top of it.
+# ------------------------------------------- no second password any more
+# The separate Divisions Password was retired: the Board Portal sign-in is
+# all a board member needs to move someone between divisions.
 with c.session_transaction() as s:
     s["admin"] = True
     s.pop("divisions_unlocked", None)
 
-r = c.get("/admin/divisions")
-check("signed in but not unlocked, the page sends you to the divisions password",
-      r.status_code in (301, 302) and "unlock" in (r.headers.get("Location") or ""),
-      str(r.status_code) + " -> " + str(r.headers.get("Location")))
-
-del saved[:]
-r = c.post("/admin/divisions/save",
-           data={"member": "2|jim@e.com", "division": "WHITE", "changed_by": "Tom"})
-check("signed in but not unlocked, a save still changes nothing",
-      r.status_code in (301, 302) and not saved, str(saved))
-
-sheets.divisions_password = lambda: "divisions-test-only"
-
-r = c.post("/admin/divisions/unlock", data={"password": "wrong"})
-check("the wrong divisions password does not unlock it",
-      r.status_code == 200 and "Incorrect password" in r.get_data(as_text=True))
-
-r = c.post("/admin/divisions/unlock", data={"password": "divisions-test-only"})
-check("the right divisions password unlocks it",
-      r.status_code in (301, 302) and "divisions" in (r.headers.get("Location") or ""),
+r = c.get("/admin/divisions/unlock")
+check("an old bookmark to the password screen just goes to the page",
+      r.status_code in (301, 302)
+      and (r.headers.get("Location") or "").endswith("/admin/divisions"),
       str(r.status_code) + " -> " + str(r.headers.get("Location")))
 
 # ------------------------------------------------------------------- the page
