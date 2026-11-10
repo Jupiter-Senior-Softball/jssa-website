@@ -181,7 +181,66 @@ def notice_shutoff_info(rec):
     local = exp.astimezone(_notice_tz())
     return {"value": local.strftime("%H:%M"),
             "label": local.strftime("%I:%M %p").lstrip("0"),
+            # Announcements can stay up for days, so they need the date too.
+            "when": "%s, %s %d at %s" % (local.strftime("%a"), local.strftime("%b"),
+                                         local.day,
+                                         local.strftime("%I:%M %p").lstrip("0")),
             "expired": notice_expired(rec)}
+
+
+# Announcements turn themselves off too, but on a countdown rather than at a
+# time of day: "stay up for N hours from when it was posted". N defaults to the
+# "Announcement Hours" row on the Site Settings tab (48 if there is no row),
+# and whoever posts can raise or lower it for that one announcement.
+FALLBACK_ANNOUNCEMENT_HOURS = 48
+MAX_ANNOUNCEMENT_HOURS = 24 * 365
+
+
+def parse_hours(text):
+    """'48', '36.5', '72 hours' -> a number of hours, or None if it isn't a
+    sensible one (blank, zero, negative, not a number, more than a year)."""
+    m = re.match(r"^\s*(\d+(?:\.\d+)?)", str(text or "").replace(",", ""))
+    if not m:
+        return None
+    hours = float(m.group(1))
+    if hours <= 0 or hours > MAX_ANNOUNCEMENT_HOURS:
+        return None
+    return int(hours) if hours == int(hours) else hours
+
+
+def default_announcement_hours():
+    """How long a new announcement stays up unless the poster says otherwise."""
+    try:
+        raw = _setting("Announcement Hours", "Announcement Default Hours",
+                       "Announcement Turn Off Hours")
+    except Exception:
+        raw = ""
+    return parse_hours(raw) or FALLBACK_ANNOUNCEMENT_HOURS
+
+
+def announcement_expiry(hours=None, now=None):
+    """The expires_at to store for an announcement that should stay up `hours`
+    from now. Blank or unreadable hours = the site default."""
+    hours = parse_hours(hours) or default_announcement_hours()
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    return ((now + datetime.timedelta(hours=hours))
+            .astimezone(datetime.timezone.utc)
+            .isoformat(timespec="seconds").replace("+00:00", "Z"))
+
+
+def set_announcement_hours(notice_id, hours, now=None):
+    """Restart an announcement's countdown: it comes down `hours` from now.
+    Returns False (and writes nothing) if hours isn't a sensible number."""
+    if parse_hours(hours) is None:
+        return False
+    ws = _worksheet()
+    col = HEADERS.index("expires_at") + 1
+    for i, rec in enumerate(ws.get_all_records(expected_headers=HEADERS)):
+        if str(rec.get("id")) == str(notice_id):
+            ws.update_cell(i + 2, col, announcement_expiry(hours, now=now))
+            break
+    _invalidate()
+    return True
 
 
 MAX_SLIDES = 6   # most notices the sliding banner will rotate through
@@ -268,10 +327,15 @@ def set_active(notice_id, active):
     for i, rec in enumerate(records):
         if str(rec.get("id")) == str(notice_id):
             ws.update_cell(i + 2, col, "TRUE" if active else "FALSE")
-            if active and str(rec.get("expires_at") or "").strip():
+            exp_col = HEADERS.index("expires_at") + 1
+            if active and str(rec.get("type")) != "weather":
+                # An announcement turned back on gets a fresh countdown, so it
+                # still turns itself off without anyone remembering to.
+                ws.update_cell(i + 2, exp_col, announcement_expiry())
+            elif active and str(rec.get("expires_at") or "").strip():
                 # Turning a notice back on means "show it" — don't let an old
                 # shutoff time hide it again straight away.
-                ws.update_cell(i + 2, HEADERS.index("expires_at") + 1, "")
+                ws.update_cell(i + 2, exp_col, "")
             break
     _invalidate()
 

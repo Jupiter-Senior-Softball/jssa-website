@@ -31,6 +31,7 @@ What they cover:
 | `test_member_divisions.py` | Moving a member's division: exactly one cell is written, always the Division column, and every guard refuses rather than writing the wrong row |
 | `test_past_seasons.py` | Past Seasons archive: saving and refreshing a season without duplicates, seasons kept apart, standings rebuilt from archived scores, the live pages never mistaking an archive tab for a live one, the public page and the admin page |
 | `test_notice_shutoff.py` | Weather banners coming down by themselves: the 1:00 PM Eastern default, the poster's own time, a late post, summer/winter clocks, a cached banner vanishing on time, changing or clearing the time, and the admin form and dashboard |
+| `test_announcement_hours.py` | Announcements turning themselves off after a number of hours: the Site Settings default, the poster's own number, bad input, changing it later, turning one back on, and the admin form |
 | `test_schedule_order.py` | The public schedule lists games by date, then 9:00 AM before 10:30 AM, whatever order the sheet rows are in |
 | `test_scores_page.py` | Admin Scores page offers only played games that need a score; Cancelled/Postponed and future games are hidden and a cancelled game cannot be given a score |
 | `test_results_order.py` | The Results page: newest day first, and 9:00 AM above 10:30 AM within each day |
