@@ -190,9 +190,9 @@ def notice_shutoff_info(rec):
 
 # Announcements turn themselves off too, but on a countdown rather than at a
 # time of day: "stay up for N hours from when it was posted". N defaults to the
-# "Announcement Hours" row on the Site Settings tab (48 if there is no row),
+# "Announcement Hours" row on the Site Settings tab (12 if there is no row),
 # and whoever posts can raise or lower it for that one announcement.
-FALLBACK_ANNOUNCEMENT_HOURS = 48
+FALLBACK_ANNOUNCEMENT_HOURS = 12
 MAX_ANNOUNCEMENT_HOURS = 24 * 365
 
 

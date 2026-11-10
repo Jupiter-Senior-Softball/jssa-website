@@ -17,14 +17,14 @@ sheets._website_controls = lambda: {}
 NOW = dt.datetime(2026, 11, 10, 15, 0, tzinfo=UTC)
 
 # ---- the default -----------------------------------------------------------
-check("no setting row: 48 hours", sheets.default_announcement_hours() == 48)
+check("no setting row: 12 hours", sheets.default_announcement_hours() == 12)
 SETTINGS["announcementhours"] = "72"
 check("Site Settings row wins", sheets.default_announcement_hours() == 72)
 SETTINGS["announcementhours"] = "36 hours"
 check("'36 hours' reads as 36", sheets.default_announcement_hours() == 36)
 for bad in ("soon", "0", "-5", "999999"):
     SETTINGS["announcementhours"] = bad
-    check("bad setting %r falls back to 48" % bad, sheets.default_announcement_hours() == 48)
+    check("bad setting %r falls back to 12" % bad, sheets.default_announcement_hours() == 12)
 SETTINGS["announcementhours"] = "72"
 
 # ---- the turn-off time -----------------------------------------------------
