@@ -1003,8 +1003,7 @@ def admin_dashboard():
         try:
             notices = sheets.list_notices()
             for n in notices:
-                n["shutoff"] = (sheets.notice_shutoff_info(n)
-                                if n.get("type") == "weather" else None)
+                n["shutoff"] = sheets.notice_shutoff_info(n)
         except Exception as e:
             error = str(e)
         try:
@@ -1017,7 +1016,8 @@ def admin_dashboard():
         views = None
     return render_template("admin/dashboard.html",
                            configured=configured, notices=notices,
-                           error=error, views=views, portal_links=portal_links)
+                           error=error, views=views, portal_links=portal_links,
+                           default_hours=sheets.default_announcement_hours())
 
 
 @app.route("/admin/scores")
@@ -1285,7 +1285,11 @@ def admin_add():
     link_text = request.form.get("link_text", "").strip()
     if message:
         try:
-            sheets.add_notice(ntype, message, created_by, url, link_text)
+            # Every announcement turns itself off: after the hours typed on the
+            # form, or the site default if that box was left alone or unreadable.
+            expires_at = sheets.announcement_expiry(request.form.get("hours", ""))
+            sheets.add_notice(ntype, message, created_by, url, link_text,
+                              expires_at=expires_at)
         except Exception:
             pass
     return redirect(url_for("admin_dashboard"))
@@ -1308,6 +1312,17 @@ def admin_shutoff(nid):
     """Change the time a weather banner comes down by itself."""
     try:
         sheets.set_notice_shutoff(nid, request.form.get("shutoff", ""))
+    except Exception:
+        pass
+    return redirect(url_for("admin_dashboard"))
+
+
+@app.route("/admin/notices/<nid>/hours", methods=["POST"])
+@login_required
+def admin_hours(nid):
+    """Restart an announcement's countdown: off in this many hours from now."""
+    try:
+        sheets.set_announcement_hours(nid, request.form.get("hours", ""))
     except Exception:
         pass
     return redirect(url_for("admin_dashboard"))

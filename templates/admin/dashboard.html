@@ -98,6 +98,19 @@
       <div class="hint">The web address the link text points to.</div>
     </div>
     <div class="row">
+      <label for="hours">Turn this announcement off after</label>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <input type="number" id="hours" name="hours" value="{{ default_hours }}" min="1" max="8760" step="any"
+               inputmode="decimal" required
+               style="width:130px;font-family:var(--body);font-size:1.25rem;font-weight:700;padding:12px 14px;border:1px solid var(--line);border-radius:10px">
+        <span style="font-size:1.1rem;font-weight:600;color:var(--navy)">hours</span>
+      </div>
+      <div class="hint" style="font-size:1rem">Every announcement turns itself off. The usual time is
+        <strong>{{ default_hours }} hours</strong> &mdash; type a bigger or smaller number to change it for this one
+        (24 = one day, 72 = three days, 168 = one week).</div>
+      <div class="hint" id="hours-when" style="font-size:1rem;font-weight:700;color:var(--navy)"></div>
+    </div>
+    <div class="row">
       <label for="created_by">Your name</label>
       <input type="text" id="created_by" name="created_by" placeholder="e.g. Tom">
     </div>
@@ -187,6 +200,19 @@
           <td><span class="badge {{ n.type }}">{{ n.type }}</span></td>
           <td>
             <span id="text-{{ n.id }}">{{ n.message }}</span>
+            {% set row_on = (n.active|string|upper) in ['TRUE','1','YES'] %}
+            {% if n.type != 'weather' and row_on %}
+            <form method="post" action="{{ url_for('admin_hours', nid=n.id) }}" style="margin-top:10px">
+              <div class="hint" style="margin:0 0 6px;font-size:1rem">{% if n.shutoff %}{% if n.shutoff.expired %}It turned itself off on {{ n.shutoff.when }}.{% else %}It turns itself off on <strong>{{ n.shutoff.when }}</strong>.{% endif %}{% else %}No automatic turn-off (posted before this feature) &mdash; it stays up until you turn it off.{% endif %}</div>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <label for="hr-{{ n.id }}" style="font-weight:600;white-space:nowrap">Change: turn off in</label>
+                <input type="number" id="hr-{{ n.id }}" name="hours" value="{{ default_hours }}" min="1" max="8760" step="any" inputmode="decimal" required
+                       style="width:90px;font-size:1.05rem;padding:8px 10px;border:1px solid var(--line);border-radius:8px">
+                <span style="font-weight:600;white-space:nowrap">hours from now</span>
+                <button class="mini on" type="submit">Save</button>
+              </div>
+            </form>
+            {% endif %}
             {% if n.type == 'weather' %}
             <form method="post" action="{{ url_for('admin_shutoff', nid=n.id) }}" style="margin-top:10px">
               <label for="so-{{ n.id }}" style="font-weight:600">Banner comes down at</label>
@@ -208,7 +234,7 @@
           <td>{{ n.created_by }}</td>
           <td>
             {% set is_on = (n.active|string|upper) in ['TRUE','1','YES'] %}
-            {% if is_on and n.shutoff and n.shutoff.expired %}<span class="status-off">○ Came down automatically</span>
+            {% if is_on and n.shutoff and n.shutoff.expired %}<span class="status-off">○ {{ 'Came down automatically' if n.type == 'weather' else 'Turned itself off' }}</span>
             {% elif is_on %}<span class="status-on">● Live</span>{% else %}<span class="status-off">○ Off</span>{% endif %}
           </td>
           <td style="white-space:nowrap">
@@ -231,6 +257,21 @@
   {% endif %}
 
   <script>
+    // Show the day and time the new announcement will turn itself off, and
+    // keep it in step as the hours box is changed.
+    (function(){
+      var box = document.getElementById('hours'), out = document.getElementById('hours-when');
+      if(!box || !out) return;
+      function show(){
+        var h = parseFloat(box.value);
+        if(!(h > 0)){ out.textContent = ''; return; }
+        var d = new Date(Date.now() + h * 3600000);
+        out.textContent = 'Posted now, it would turn itself off on ' + d.toLocaleString('en-US',
+          {weekday:'long', month:'long', day:'numeric', hour:'numeric', minute:'2-digit',
+           timeZone:'America/New_York'}) + ' (Florida time).';
+      }
+      box.addEventListener('input', show); show();
+    })();
     function startEdit(id){
       document.getElementById('text-'+id).style.display='none';
       document.getElementById('edit-'+id).style.display='block';
