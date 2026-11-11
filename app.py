@@ -41,6 +41,7 @@ from flask import (
 
 import sheets
 import cutout
+import calendar_feed
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-only-insecure-key")
@@ -650,6 +651,34 @@ def past_seasons():
     return render_template("pages/past-seasons.html",
                            page_title="Past Seasons", section_eyebrow="Organized League",
                            seasons=seasons, chosen=chosen)
+
+
+@app.route("/league/calendar/<division>/<team_slug>.ics")
+def league_team_calendar(division, team_slug):
+    """One team's league games as a calendar file. Players either subscribe to this
+    address (their calendar re-checks it by itself, so changes follow) or download
+    it once. It only ever holds what the public Schedule page already shows."""
+    from flask import Response
+    division = division.upper()
+    if division not in ("RED", "WHITE", "BLUE"):
+        abort(404)
+    try:
+        games = sheets.league_season()["schedule"]
+    except Exception:
+        games = []
+    team = calendar_feed.find_team(games, division, team_slug.lower())
+    if not team:
+        abort(404)
+    text = calendar_feed.team_calendar(
+        games, division, team,
+        schedule_url=sheets.CANCEL_WEBSITE_URL + "/league/schedules")
+    resp = Response(text, mimetype="text/calendar")
+    resp.headers["Content-Disposition"] = (
+        '%s; filename="jssa-%s.ics"'
+        % ("attachment" if request.args.get("download") else "inline",
+           calendar_feed.slug(team)))
+    resp.headers["Cache-Control"] = "public, max-age=900"
+    return resp
 
 
 @app.route("/league/<section>")
