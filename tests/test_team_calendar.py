@@ -64,5 +64,7 @@ check("every game has its own ID", len(set(uids(a))) == 4)
 html = c.get("/league/schedules").get_data(as_text=True)
 check("the Schedule page has the calendar button and all three choices",
       all(x in html for x in ('id="calopen"', 'id="cal-google"', 'id="cal-apple"', 'id="cal-file"')))
+check("...and the calendar address to copy, with how to paste it into Google",
+      all(x in html for x in ('id="cal-url"', 'id="cal-copy"', 'From URL')))
 
 print("\n%d failure(s)" % len(fails)); sys.exit(1 if fails else 0)
