@@ -70,6 +70,75 @@
 {% set picker_label = 'schedule' %}
 {% include "_divpicker.html" %}
 {% include "_teampicker.html" %}
+{# "Add to my calendar" — appears once a team is picked. The calendar address is
+   /league/calendar/<DIVISION>/<team-name>.ics (see calendar_feed.py). #}
+<style>
+  .calbox{max-width:760px;margin:-8px auto 26px;text-align:center}
+  .calhint{color:var(--muted);font-size:1.08rem}
+  .calopen{font-family:var(--display);font-weight:800;font-size:1.15rem;line-height:1.25;min-height:58px;
+    padding:12px 22px;border-radius:14px;border:0;cursor:pointer;background:var(--blue);color:#fff}
+  .calopen:focus-visible,.calopt:focus-visible{outline:3px solid var(--navy);outline-offset:3px}
+  .calpanel{margin-top:16px;background:var(--surface,#fff);border-radius:14px;box-shadow:var(--shadow);
+    padding:20px 18px;text-align:left}
+  .calpanel h3{font-family:var(--display);color:var(--navy);font-size:1.25rem;margin:0 0 6px}
+  .calpanel p{font-size:1.08rem;line-height:1.5;margin:0 0 14px;color:var(--text,#3a465f)}
+  .calopts{display:flex;flex-direction:column;gap:12px;margin-bottom:16px}
+  .calopt{display:block;text-decoration:none;border:3px solid var(--navy);border-radius:12px;
+    padding:14px 16px;background:#fff;color:var(--navy)}
+  .calopt:hover{background:var(--blue-tint,#eef2fc)}
+  .calopt b{display:block;font-family:var(--display);font-size:1.18rem}
+  .calopt span{display:block;font-size:1.02rem;margin-top:4px;color:var(--text,#3a465f)}
+  .calpanel .fine{font-size:1.02rem;margin:0;color:var(--muted)}
+</style>
+<div class="calbox" id="calbox" style="display:none">
+  <div class="calhint" id="calhint">&#128197; Want your games in your phone&rsquo;s calendar? Pick your team above.</div>
+  <button type="button" class="calopen" id="calopen" aria-expanded="false" aria-controls="calpanel" style="display:none"></button>
+  <div class="calpanel" id="calpanel" style="display:none">
+    <h3>Which calendar do you use?</h3>
+    <p>Pick one. Your team&rsquo;s league games are added to your calendar, and if a game time or field changes later, your calendar updates by itself.</p>
+    <div class="calopts">
+      <a class="calopt" id="cal-google" href="#" target="_blank" rel="noopener"><b>Google Calendar</b>
+        <span>Most Android phones and Gmail users. Sign in if asked, then tap &ldquo;Add&rdquo;.</span></a>
+      <a class="calopt" id="cal-apple" href="#"><b>iPhone, iPad or Mac (Apple Calendar)</b>
+        <span>Tap here, then tap &ldquo;Subscribe&rdquo;. This also works for Outlook on a computer.</span></a>
+      <a class="calopt" id="cal-file" href="#"><b>Yahoo or another calendar (download a file)</b>
+        <span>Saves a calendar file. Open it and your calendar offers to add the games. This is a one-time copy, so it will not update if the schedule changes.</span></a>
+    </div>
+    <p class="fine"><strong>Good to know:</strong> calendar apps only check for changes about once a day. For same-day news like a rainout, trust the league email and this website, not your calendar.</p>
+  </div>
+</div>
+<script>
+(function(){
+  var box=document.getElementById('calbox'),hint=document.getElementById('calhint'),
+      open=document.getElementById('calopen'),panel=document.getElementById('calpanel');
+  function slug(t){return (t||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');}
+  function show(on){panel.style.display=on?'block':'none';open.setAttribute('aria-expanded',String(on));}
+  open.addEventListener('click',function(){show(panel.style.display==='none');});
+  var last='';
+  function refresh(){
+    var d=document.querySelector('.divpick button.on');
+    var div=d?d.getAttribute('data-pick'):'';
+    var b=document.querySelector('.tp-btn[aria-pressed="true"]');
+    var team=b?(b.getAttribute('data-team')||''):'';
+    // Only a team that actually plays has a calendar.
+    var plays=team&&Array.prototype.some.call(document.querySelectorAll('.gcard[data-div="'+div+'"]'),function(c){
+      return c.getAttribute('data-teams').split('||').some(function(x){return slug(x)===slug(team);});});
+    box.style.display=div?'block':'none';
+    hint.style.display=plays?'none':'block';
+    open.style.display=plays?'inline-block':'none';
+    if(!plays){show(false);last='';return;}
+    if(div+'|'+team!==last){show(false);last=div+'|'+team;}
+    var path='/league/calendar/'+div+'/'+slug(team)+'.ics';
+    open.textContent='📅 Add the '+team+' schedule to my calendar';
+    document.getElementById('cal-apple').href='webcal://'+location.host+path;
+    document.getElementById('cal-google').href='https://calendar.google.com/calendar/render?cid='+
+      encodeURIComponent('webcal://'+location.host+path);
+    document.getElementById('cal-file').href=path+'?download=1';
+  }
+  document.addEventListener('divpicked',refresh);
+  document.addEventListener('teampicked',refresh);
+})();
+</script>
 <div class="topbtns">
   <a class="btn minibtn" style="background:var(--blue);color:#fff" href="/league/schedules#completed" data-jump="completed">Game Results ↓</a>
   <a class="btn minibtn" style="background:var(--blue);color:#fff" href="/league/standings">View Standings →</a>

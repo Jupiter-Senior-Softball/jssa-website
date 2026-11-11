@@ -25,6 +25,7 @@ What they cover:
 | `test_cancellation_logging.py` | Every reason an email didn't go out writes a different, readable line to the log |
 | `test_cancellation_wording.py` | The board-editable email wording: today's text unchanged when there's no tab, an unreachable sheet falls back instead of failing, the sheet's wording wins and applies to the next cancellation, the page can tell which of the two is in use, and the optional reason/location/games pieces vanish cleanly |
 | `test_sender_url.py` | A wrong sender address is caught before the button is pressed, and a 405 explains itself |
+| `test_team_calendar.py` | The per-team calendar file (times, cancelled games, steady IDs when a game moves) and the "Add to my calendar" button on the Schedule page |
 | `test_roster_button.py` | The "rosters are posted" button hides under a cancellation banner |
 | `test_division_rules.py` | The division rules portal: the portal gate, posting and editing a division's rules, the season rollover, what members see |
 | `test_division_rules_sheet.py` | The rules sheet itself: row indexing, header order, one current season per division, the `##` heading format |
