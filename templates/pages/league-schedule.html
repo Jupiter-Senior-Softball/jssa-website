@@ -93,6 +93,18 @@
   .calopt:hover{background:var(--blue-tint,#eef2fc)}
   .calopt b{display:block;font-family:var(--display);font-size:1.18rem}
   .calopt span{display:block;font-size:1.02rem;margin-top:4px;color:var(--text,#3a465f)}
+  .calcopy{border-top:2px solid var(--line,#e6eaf2);padding-top:16px;margin-bottom:16px}
+  .calcopy b{display:block;font-family:var(--display);font-size:1.18rem;color:var(--navy)}
+  .calcopy .why{display:block;font-size:1.02rem;margin:4px 0 10px;color:var(--text,#3a465f)}
+  .calurl{width:100%;box-sizing:border-box;font-size:1rem;padding:12px;border:2px solid var(--navy);
+    border-radius:10px;background:#f3f6fb;color:var(--navy);font-family:ui-monospace,Menlo,Consolas,monospace}
+  .calcopybtn{margin-top:10px;font-family:var(--display);font-weight:800;font-size:1.1rem;min-height:52px;
+    padding:10px 22px;border-radius:12px;border:0;cursor:pointer;background:var(--navy);color:#fff}
+  .calcopybtn:focus-visible,.calurl:focus-visible{outline:3px solid var(--blue);outline-offset:3px}
+  .calcopied{display:block;margin-top:10px;font-weight:700;font-size:1.08rem;color:#17713a}
+  .calcopy details{margin-top:12px;font-size:1.05rem;color:var(--text,#3a465f)}
+  .calcopy summary{cursor:pointer;font-weight:700;color:var(--blue);padding:8px 0;min-height:44px}
+  .calcopy ol{margin:6px 0 0 22px;line-height:1.6}
   .calpanel .fine{font-size:1.02rem;margin:0;color:var(--muted)}
 </style>
 <div class="calbox" id="calbox" style="display:none">
@@ -109,6 +121,21 @@
         <span>Tap here, then tap &ldquo;Subscribe&rdquo;. This also works for Outlook on a computer.</span></a>
       <a class="calopt" id="cal-file" href="#"><b>Yahoo or another calendar (download a file)</b>
         <span>Saves a calendar file. Open it and your calendar offers to add the games. This is a one-time copy, so it will not update if the schedule changes.</span></a>
+    </div>
+    <div class="calcopy">
+      <b>Or copy the calendar address</b>
+      <span class="why">For adding it yourself, for example to a second Google account or on a computer.</span>
+      <input class="calurl" id="cal-url" type="text" readonly aria-label="Calendar address for this team">
+      <button type="button" class="calcopybtn" id="cal-copy">Copy address</button><span class="calcopied" id="cal-copied" role="status"></span>
+      <details>
+        <summary>How to paste it into Google Calendar</summary>
+        <ol>
+          <li>On a computer, open <strong>calendar.google.com</strong> and check you are signed in to the account you want.</li>
+          <li>On the left, next to <strong>Other calendars</strong>, click the <strong>+</strong>.</li>
+          <li>Choose <strong>From URL</strong>.</li>
+          <li>Paste the address and click <strong>Add calendar</strong>.</li>
+        </ol>
+      </details>
     </div>
     <p class="fine"><strong>Good to know:</strong> calendar apps only check for changes about once a day. For same-day news like a rainout, trust the league email and this website, not your calendar.</p>
   </div>
@@ -140,7 +167,18 @@
     document.getElementById('cal-google').href='https://calendar.google.com/calendar/render?cid='+
       encodeURIComponent('webcal://'+location.host+path);
     document.getElementById('cal-file').href=path+'?download=1';
+    document.getElementById('cal-url').value=location.origin+path;
+    document.getElementById('cal-copied').textContent='';
   }
+  var urlbox=document.getElementById('cal-url'),copied=document.getElementById('cal-copied');
+  urlbox.addEventListener('focus',function(){urlbox.select();});
+  document.getElementById('cal-copy').addEventListener('click',function(){
+    function done(ok){copied.textContent=ok?'\u2713 Copied! Now paste it into your calendar.':'Press and hold the address above, then choose Copy.';}
+    function old(){urlbox.focus();urlbox.select();try{urlbox.setSelectionRange(0,9999);}catch(e){}
+      var ok=false;try{ok=document.execCommand('copy');}catch(e){}done(ok);}
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(urlbox.value).then(function(){done(true);},old);}
+    else old();
+  });
   document.addEventListener('divpicked',refresh);
   document.addEventListener('teampicked',refresh);
 })();
