@@ -1669,64 +1669,11 @@ def admin_board_delete(mid):
 @app.route("/admin/sponsors")
 @login_required
 def admin_sponsors():
-    configured = sheets.is_configured()
-    items, error = [], None
-    if configured:
-        try:
-            items = sheets.list_sponsors()
-        except Exception as e:
-            error = str(e)
-    editing = None
-    edit_id = request.args.get("edit")
-    if edit_id:
-        for s in items:
-            if str(s.get("id")) == str(edit_id):
-                editing = s
-                break
+    """Sponsors are managed in one place: the 'Sponsor Form Responses' tab of
+    the Website Control Sheet. This page just points there."""
     return render_template("admin/manage-sponsors.html",
-                           configured=configured, items=items,
-                           error=error, editing=editing)
-
-
-@app.route("/admin/sponsors/add", methods=["POST"])
-@login_required
-def admin_sponsor_add():
-    try:
-        sheets.add_sponsor(request.form)
-    except Exception:
-        pass
-    return redirect(url_for("admin_sponsors"))
-
-
-@app.route("/admin/sponsors/<sid>/update", methods=["POST"])
-@login_required
-def admin_sponsor_update(sid):
-    try:
-        sheets.update_sponsor(sid, request.form)
-    except Exception:
-        pass
-    return redirect(url_for("admin_sponsors"))
-
-
-@app.route("/admin/sponsors/<sid>/toggle", methods=["POST"])
-@login_required
-def admin_sponsor_toggle(sid):
-    active = request.form.get("active") == "1"
-    try:
-        sheets.set_sponsor_active(sid, active)
-    except Exception:
-        pass
-    return redirect(url_for("admin_sponsors"))
-
-
-@app.route("/admin/sponsors/<sid>/delete", methods=["POST"])
-@login_required
-def admin_sponsor_delete(sid):
-    try:
-        sheets.delete_sponsor(sid)
-    except Exception:
-        pass
-    return redirect(url_for("admin_sponsors"))
+                           sheet_url=sheets.sponsor_sheet_url(),
+                           tab_name=sheets.SPONSOR_FORM_TAB)
 
 
 # ----------------------------------------------------------------------------
