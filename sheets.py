@@ -4095,69 +4095,18 @@ def _admin_sponsors():
         return _sponsor_cache["data"] or []
 
 
-def list_sponsors():
-    if not is_configured():
-        return []
-    ws = _sponsor_worksheet()
-    out = [{k: rec.get(k, "") for k in SPONSOR_HEADERS}
-           for rec in ws.get_all_records(expected_headers=SPONSOR_HEADERS)]
-    out.sort(key=lambda r: _to_int(r.get("order")))
-    return out
-
-
-def add_sponsor(fields):
-    ws = _sponsor_worksheet()
-    records = ws.get_all_records(expected_headers=SPONSOR_HEADERS)
-    order = fields.get("order")
-    order = _to_int(order) if str(order or "").strip() else _next_order(records)
-    ws.append_row([
-        uuid.uuid4().hex[:8],
-        (fields.get("name") or "").strip(),
-        (fields.get("tagline") or "").strip(),
-        (fields.get("website") or "").strip(),
-        (fields.get("logo") or "").strip(),
-        (fields.get("phone") or "").strip(),
-        order, "TRUE",
-    ], value_input_option="USER_ENTERED")
-    _sponsor_invalidate()
-
-
-def update_sponsor(sponsor_id, fields):
-    ws = _sponsor_worksheet()
-    for i, rec in enumerate(ws.get_all_records(expected_headers=SPONSOR_HEADERS)):
-        if str(rec.get("id")) == str(sponsor_id):
-            vals = {
-                "name": (fields.get("name") or "").strip(),
-                "tagline": (fields.get("tagline") or "").strip(),
-                "website": (fields.get("website") or "").strip(),
-                "logo": (fields.get("logo") or "").strip(),
-                "phone": (fields.get("phone") or "").strip(),
-            }
-            if str(fields.get("order") or "").strip():
-                vals["order"] = _to_int(fields.get("order"))
-            for k, v in vals.items():
-                ws.update_cell(i + 2, SPONSOR_HEADERS.index(k) + 1, v)
-            break
-    _sponsor_invalidate()
-
-
-def set_sponsor_active(sponsor_id, active):
-    ws = _sponsor_worksheet()
-    col = SPONSOR_HEADERS.index("active") + 1
-    for i, rec in enumerate(ws.get_all_records(expected_headers=SPONSOR_HEADERS)):
-        if str(rec.get("id")) == str(sponsor_id):
-            ws.update_cell(i + 2, col, "TRUE" if active else "FALSE")
-            break
-    _sponsor_invalidate()
-
-
-def delete_sponsor(sponsor_id):
-    ws = _sponsor_worksheet()
-    for i, rec in enumerate(ws.get_all_records(expected_headers=SPONSOR_HEADERS)):
-        if str(rec.get("id")) == str(sponsor_id):
-            ws.delete_rows(i + 2)
-            break
-    _sponsor_invalidate()
+def sponsor_sheet_url():
+    """Link that opens the 'Sponsor Form Responses' tab of the control sheet —
+    the one place sponsors are managed. Falls back to the spreadsheet itself
+    if the tab can't be looked up (the board member just clicks the tab)."""
+    base = "https://docs.google.com/spreadsheets/d/%s/edit" % CONTROL_SHEET_ID
+    try:
+        if CONTROL_SHEET_ID and _SA_JSON:
+            ws = _control_sheet(readonly=True).worksheet(SPONSOR_FORM_TAB)
+            return "%s#gid=%s" % (base, ws.id)
+    except Exception:
+        pass
+    return base
 
 
 # ---------------------------------------------------------------------------
