@@ -1459,8 +1459,36 @@ def list_bb_posts():
     records = ws.get_all_records(expected_headers=BB_HEADERS)
     records = _bb_with_pickup_post(ws, records)
     out = [{k: rec.get(k, "") for k in BB_HEADERS} for rec in records]
-    out.sort(key=lambda r: _to_int(r.get("order")))
+    # Same order the homepage uses: highest 'order' number at the top.
+    out.sort(key=lambda r: _to_int(r.get("order")), reverse=True)
     return out
+
+
+def move_bb_post(post_id, direction):
+    """Move a post one place up or down the list (direction "up" or "down").
+    The posts are then renumbered top to bottom so no two share a number;
+    only rows whose number actually changes are written. Returns True if the
+    post moved."""
+    ws = _bb_worksheet()
+    records = ws.get_all_records(expected_headers=BB_HEADERS)
+    # (sheet row number, record), in the order the homepage shows them.
+    rows = sorted(((i + 2, rec) for i, rec in enumerate(records)),
+                  key=lambda x: _to_int(x[1].get("order")), reverse=True)
+    pos = next((n for n, (_, rec) in enumerate(rows)
+                if str(rec.get("id")) == str(post_id)), None)
+    if pos is None:
+        return False
+    swap = pos - 1 if direction == "up" else pos + 1
+    if swap < 0 or swap >= len(rows):
+        return False
+    rows[pos], rows[swap] = rows[swap], rows[pos]
+    col = BB_HEADERS.index("order") + 1
+    for n, (rownum, rec) in enumerate(rows):
+        new_order = len(rows) - n
+        if str(rec.get("order")).strip() != str(new_order):
+            ws.update_cell(rownum, col, new_order)
+    _bb_invalidate()
+    return True
 
 
 def _bb_next_order(records):

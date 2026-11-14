@@ -1411,6 +1411,17 @@ def admin_bb_toggle(bid):
     return redirect(url_for("admin_blackboard"))
 
 
+@app.route("/admin/blackboard/<bid>/move", methods=["POST"])
+@login_required
+def admin_bb_move(bid):
+    direction = "up" if request.form.get("direction") == "up" else "down"
+    try:
+        sheets.move_bb_post(bid, direction)
+    except Exception:
+        pass
+    return redirect(url_for("admin_blackboard") + "#posts")
+
+
 @app.route("/admin/blackboard/<bid>/delete", methods=["POST"])
 @login_required
 def admin_bb_delete(bid):
