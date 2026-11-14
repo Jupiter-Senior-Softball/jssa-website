@@ -27,6 +27,7 @@ What they cover:
 | `test_sender_url.py` | A wrong sender address is caught before the button is pressed, and a 405 explains itself |
 | `test_team_calendar.py` | The per-team calendar file (times, cancelled games, steady IDs when a game moves) and the "Add to my calendar" button on the Schedule page |
 | `test_pickup_blackboard_post.py` | The pickup-games sign-up card is a Blackboard post: added once, turns off and on, can be edited, can't be deleted, and the homepage has no built-in copy |
+| `test_blackboard_order.py` | Blackboard posts are reordered with Move up / Move down, and the admin list is in the same order as the homepage |
 | `test_roster_button.py` | The "rosters are posted" button hides under a cancellation banner |
 | `test_division_rules.py` | The division rules portal: the portal gate, posting and editing a division's rules, the season rollover, what members see |
 | `test_division_rules_sheet.py` | The rules sheet itself: row indexing, header order, one current season per division, the `##` heading format |

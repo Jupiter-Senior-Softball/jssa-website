@@ -31,6 +31,11 @@
   .mini.edit{background:#eef3ff;border-color:#cfe0ff;color:var(--blue)}
   .mini.del{color:#b3151b;border-color:#f0c9cb}
   .inline{display:inline}
+  .place{white-space:nowrap}
+  .place-num{font-family:var(--display);font-weight:700;font-size:1.3rem;color:var(--navy)}
+  .moves{margin-top:10px}
+  .mini.move{font-size:.95rem;padding:10px 14px}
+  .mini.move:hover{background:#eef3ff;border-color:#cfe0ff}
   .adminbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px}
   .adminbar a{font-weight:600}
 </style>
@@ -104,16 +109,18 @@
     </form>
   </div>
 
-  <h2>Current posts</h2>
+  <h2 id="posts">Current posts</h2>
   {% if error %}
     <div class="note">Couldn't load posts: {{ error }}</div>
   {% elif posts %}
     <table class="posts">
-      <thead><tr><th>Order</th><th>Post</th><th>Photo</th><th>Status</th><th></th></tr></thead>
+      <thead><tr><th>Place</th><th>Post</th><th>Photo</th><th>Status</th><th></th></tr></thead>
       <tbody>
         {% for p in posts %}
         <tr>
-          <td>{{ p.order }}</td>
+          <td class="place">
+            <div class="place-num">{{ loop.index }}</div>
+          </td>
           <td>
             <div class="post-title">{{ p.title }}</div>
             {% if p.when %}<div class="post-when">{{ p.when }}</div>{% endif %}
@@ -135,12 +142,26 @@
               <button class="mini del" type="submit">Delete</button>
             </form>
             {% endif %}
+            <div class="moves">
+            {% if not loop.first %}
+            <form class="inline" method="post" action="{{ url_for('admin_bb_move', bid=p.id) }}">
+              <input type="hidden" name="direction" value="up">
+              <button class="mini move" type="submit" aria-label="Move {{ p.title }} up">&#9650; Move up</button>
+            </form>
+            {% endif %}
+            {% if not loop.last %}
+            <form class="inline" method="post" action="{{ url_for('admin_bb_move', bid=p.id) }}">
+              <input type="hidden" name="direction" value="down">
+              <button class="mini move" type="submit" aria-label="Move {{ p.title }} down">&#9660; Move down</button>
+            </form>
+            {% endif %}
+            </div>
           </td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
-    <p class="hint" style="margin-top:14px">Posts show top-to-bottom by the <strong>Order</strong> number (lowest first). The first one is shown a little larger as the featured card.</p>
+    <p class="hint" style="margin-top:14px;font-size:1rem">This list is in the same order as the homepage, top to bottom. Use <strong>Move up</strong> and <strong>Move down</strong> to change it. The post in place 1 gets the red stripe as the featured card. A new post starts at the top. Posts that are turned off keep their place but don't show.</p>
   {% else %}
     <p style="color:var(--muted)">No posts yet. Use the form above to post your first.</p>
   {% endif %}
