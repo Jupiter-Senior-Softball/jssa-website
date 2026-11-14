@@ -43,7 +43,7 @@
 {% if not configured %}
   <div class="note">
     <p style="margin-bottom:8px"><strong>Almost there — the content sheet isn't connected yet.</strong></p>
-    <p>Once the <code>GOOGLE_SERVICE_ACCOUNT_JSON</code> and <code>SHEET_ID</code> settings are in place, this page lets you post Blackboard cards. Until then, the homepage shows its built-in cards.</p>
+    <p>Once the <code>GOOGLE_SERVICE_ACCOUNT_JSON</code> and <code>SHEET_ID</code> settings are in place, this page lets you post Blackboard cards.</p>
   </div>
 {% else %}
 
@@ -117,6 +117,7 @@
           <td>
             <div class="post-title">{{ p.title }}</div>
             {% if p.when %}<div class="post-when">{{ p.when }}</div>{% endif %}
+            {% if p.id|string == pickup_post_id %}<div class="post-when"><strong>Pickup season over?</strong> Press <strong>Turn off</strong> to hide this card, and <strong>Turn on</strong> when games start again. It can't be deleted.</div>{% endif %}
           </td>
           <td>{{ 'Yes (' ~ p.side ~ ')' if p.image else '—' }}</td>
           <td>
@@ -129,9 +130,11 @@
               <input type="hidden" name="active" value="{{ 0 if is_on else 1 }}">
               <button class="mini {{ 'off' if is_on else 'on' }}" type="submit">{{ 'Turn off' if is_on else 'Turn on' }}</button>
             </form>
+            {% if p.id|string != pickup_post_id %}
             <form class="inline" method="post" action="{{ url_for('admin_bb_delete', bid=p.id) }}" onsubmit="return confirm('Delete this post?');">
               <button class="mini del" type="submit">Delete</button>
             </form>
+            {% endif %}
           </td>
         </tr>
         {% endfor %}
@@ -139,7 +142,7 @@
     </table>
     <p class="hint" style="margin-top:14px">Posts show top-to-bottom by the <strong>Order</strong> number (lowest first). The first one is shown a little larger as the featured card.</p>
   {% else %}
-    <p style="color:var(--muted)">No posts yet. Until you add one, the homepage shows its built-in cards. Use the form above to post your first.</p>
+    <p style="color:var(--muted)">No posts yet. Use the form above to post your first.</p>
   {% endif %}
 
 {% endif %}

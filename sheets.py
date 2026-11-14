@@ -1300,14 +1300,51 @@ def pickup_next_game():
 # ----------------------------------------------------------------------------
 # Lives on a "Blackboard" tab in the same JSSA Website Content sheet, auto-created
 # if missing. Each row is one post. Edit the sheet -> the homepage updates; no
-# code change or redeploy. If the tab is empty or the API hiccups, the homepage
-# falls back to its built-in cards, so it never looks broken.
+# code change or redeploy. With no posts switched on, the homepage simply leaves
+# the Blackboard section out.
 
 BLACKBOARD_TAB = "Blackboard"
 BB_HEADERS = ["id", "when", "title", "body", "image",
               "link_url", "link_text", "sign", "side", "active", "order"]
 
 _bb_cache = {"data": None, "ts": 0.0}
+
+# The pickup-games sign-up card used to be built into the homepage. It is now an
+# ordinary Blackboard post so the board can switch it off for the off-season and
+# back on later. The first time the site reads the Blackboard tab and finds no
+# row with this id, it adds this one (switched on, at the bottom of the list).
+# After that the sheet row is the only copy: edits and on/off happen in /admin.
+PICKUP_POST_ID = "pickup-games"
+PICKUP_POST = {
+    "id": PICKUP_POST_ID,
+    "when": "Pickup Games · Mon · Wed · Fri",
+    "title": "Sign up for the legendary pickup games",
+    "body": ("Sign up for the JSSA's Monday, Wednesday, and Friday pickup games. "
+             "The deadline is 3 PM the day before each game day."),
+    "image": "/static/pickup-games-signup.jpg",
+    "link_url": ("https://script.google.com/macros/s/AKfycbzLLz9E-qjJwXbgAkaGjhH0PT_"
+                 "3oa13uzrl9T5dT1omGCL6Ocw1lYELg8xFBM7zuapN7g/exec"),
+    "link_text": "Sign up now",
+    "sign": "",
+    "side": "right",
+    "active": "TRUE",
+    "order": 0,
+}
+
+
+def _bb_with_pickup_post(ws, records):
+    """Make sure the pickup-games post has a row; returns the records with it.
+    If the row can't be written right now the post is still returned, so the
+    homepage keeps showing it, and the next read tries again."""
+    if any(str(r.get("id")).strip() == PICKUP_POST_ID for r in records):
+        return records
+    try:
+        ws.append_row([PICKUP_POST[h] for h in BB_HEADERS],
+                      value_input_option="USER_ENTERED")
+    except Exception:
+        pass
+    return list(records) + [dict(PICKUP_POST)]
+
 
 _DRIVE_RE = re.compile(r"(?:/d/|[?&]id=)([A-Za-z0-9_-]{25,})")
 
@@ -1372,7 +1409,14 @@ def blackboard_posts():
         if is_configured():
             ws = _bb_worksheet()
             rows = ws.get_all_records(expected_headers=BB_HEADERS)
+            rows = _bb_with_pickup_post(ws, rows)
+            seen_pickup = False
             for r in rows:
+                if str(r.get("id")).strip() == PICKUP_POST_ID:
+                    # Only the first row counts (the one the admin switch flips).
+                    if seen_pickup:
+                        continue
+                    seen_pickup = True
                 if not _is_true(r.get("active")):
                     continue
                 title = str(r.get("title") or "").strip()
@@ -1413,6 +1457,7 @@ def list_bb_posts():
         return []
     ws = _bb_worksheet()
     records = ws.get_all_records(expected_headers=BB_HEADERS)
+    records = _bb_with_pickup_post(ws, records)
     out = [{k: rec.get(k, "") for k in BB_HEADERS} for rec in records]
     out.sort(key=lambda r: _to_int(r.get("order")))
     return out
@@ -1488,6 +1533,10 @@ def set_bb_active(post_id, active):
 
 
 def delete_bb_post(post_id):
+    if str(post_id) == PICKUP_POST_ID:
+        # Deleting it would only make the site add it back, switched on.
+        # It gets turned off instead.
+        return set_bb_active(post_id, False)
     ws = _bb_worksheet()
     records = ws.get_all_records(expected_headers=BB_HEADERS)
     for i, rec in enumerate(records):
