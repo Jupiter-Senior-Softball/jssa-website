@@ -1376,7 +1376,8 @@ def admin_blackboard():
                 break
     return render_template("admin/blackboard.html",
                            configured=configured, posts=posts,
-                           error=error, editing=editing)
+                           error=error, editing=editing,
+                           pickup_post_id=sheets.PICKUP_POST_ID)
 
 
 @app.route("/admin/blackboard/add", methods=["POST"])
