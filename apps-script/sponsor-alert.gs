@@ -1,45 +1,42 @@
 /**
- * JSSA — New Sponsor Alert
+ * JSSA — New Patron Alert
  * ---------------------------------------------------------------------------
  * Emails the league the moment someone submits the "JSSA Advertising Patron
- * Registration" form, and sends a daily reminder about any sponsor who has
+ * Registration" form, and sends a daily reminder about any patron who has
  * applied but has not been approved yet.
  *
  * WHY: the form only drops a new row into the "Patron Form Responses" tab of
  * the "JSSA Website Control Sheet _ LIVE". Nothing told anyone a row had been
- * added, so a new sponsor could sit there unnoticed.
+ * added, so a new patron could sit there unnoticed.
  *
- * This is an ADD-ON. It does not touch the Sponsor ID / Approved / Active
+ * This is an ADD-ON. It does not touch the Patron ID / Approved / Active
  * columns or any existing script.
+ *
+ * NOTE ON NAMES: the league says "patron", not "sponsor". A few function
+ * names below still say "Sponsor" (onSponsorFormSubmit, installSponsorAlerts
+ * and so on). Nobody sees those, and the alerts that are already switched on
+ * are tied to those exact names — renaming them would silently turn the
+ * alerts off. Leave them as they are.
  *
  * HOW TO SET UP (one time, ~5 minutes — see apps-script/README.md too):
  *   1. Open the Control Sheet -> Extensions -> Apps Script.
- *   2. Click  +  next to "Files" -> Script -> name it  SponsorAlert.
+ *   2. Click  +  next to "Files" -> Script -> name it  PatronAlert.
  *      Paste ALL of this file and Save.
- *   3. Edit ALERT_EMAILS below (add the board members who should be told).
- *   4. Pick  testAlert  in the function dropdown and click Run. Approve the
+ *   3. Pick  testAlert  in the function dropdown and click Run. Approve the
  *      permissions. You should get a sample email within a minute.
- *   5. Pick  installSponsorAlerts  and click Run once. That turns on both the
+ *   4. Pick  installSponsorAlerts  and click Run once. That turns on both the
  *      instant alert and the daily reminder.
  *   To turn it all off: run  removeSponsorAlerts.
  */
 
-// Who gets the alerts. Add more addresses inside the brackets, in quotes,
-// separated by commas.
-var ALERT_EMAILS = ['cosentinoteam@gmail.com'];
+// Who gets the alerts: the shared league inbox (reaches the commissioner and
+// Tom). To add someone later, add another address inside the brackets, in
+// quotes, separated by commas.
+var ALERT_EMAILS = ['jssagames@gmail.com'];
 
 // The tab the patron form writes to. The new name is tried first, then the
-// old one, so this works before and after the tab is renamed.
-var SPONSOR_TABS = ['Patron Form Responses', 'Sponsor Form Responses'];
-
-function sponsorSheet_() {
-  var ss = SpreadsheetApp.getActive();
-  for (var i = 0; i < SPONSOR_TABS.length; i++) {
-    var sh = ss.getSheetByName(SPONSOR_TABS[i]);
-    if (sh) return sh;
-  }
-  return null;
-}
+// old one, so this works both before and after the tab is renamed.
+var PATRON_TABS = ['Patron Form Responses', 'Sponsor Form Responses'];
 
 // Remind about unapproved applications once they are this many days old.
 var REMIND_AFTER_DAYS = 1;
@@ -52,7 +49,7 @@ var REMINDER_HOUR = 8;
 function onSponsorFormSubmit(e) {
   try {
     var sheet = e && e.range && e.range.getSheet();
-    if (!sheet || SPONSOR_TABS.indexOf(sheet.getName()) === -1) return;   // some other form
+    if (!sheet || PATRON_TABS.indexOf(sheet.getName()) === -1) return;   // some other form
 
     fixSponsorTimestamps();            // keep the Timestamp column a real date
     var row = e.range.getRow();
@@ -60,7 +57,7 @@ function onSponsorFormSubmit(e) {
     var link = sheetLink_(sheet, row);
 
     var lines = [
-      'A new sponsor application just came in.',
+      'A new patron application just came in.',
       '',
       'Business / person: ' + info.business,
       'Contact person:    ' + info.contact,
@@ -70,27 +67,29 @@ function onSponsorFormSubmit(e) {
       'Patron level:      ' + info.level,
       'Payment method:    ' + info.payment,
       'Referred by:       ' + info.referral,
-      'Sponsor ID:        ' + (info.id || '(not assigned yet)'),
+      'Patron ID:         ' + (info.id || '(not assigned yet)'),
       '',
       'WHAT TO DO NEXT',
       '1. Open the row:  ' + link,
       '2. Confirm payment was received.',
       '3. In the yellow columns, set Approved, Active, Paid, the expiration',
-      '   date and Website Enable. The sponsor then shows on the site.',
+      '   date and Website Enable. The patron then shows on the site.',
       '',
+      // This is the title of the how-to document in Google Drive. If that
+      // document is renamed, change the title here to match.
       'Full steps: "2 How to Add, Remove and Manage Sponsors" in Google Drive.'
     ];
     MailApp.sendEmail({
       to: ALERT_EMAILS.join(','),
-      subject: 'NEW JSSA SPONSOR APPLICATION: ' + info.business,
+      subject: 'NEW JSSA PATRON APPLICATION: ' + info.business,
       body: lines.join('\n'),
       name: 'JSSA Website'
     });
   } catch (err) {
     // Never let an alert problem break the form. Tell the admin instead.
     try {
-      MailApp.sendEmail(ALERT_EMAILS[0], 'JSSA sponsor alert had a problem',
-        'The new-sponsor alert hit an error:\n\n' + err +
+      MailApp.sendEmail(ALERT_EMAILS[0], 'JSSA patron alert had a problem',
+        'The new-patron alert hit an error:\n\n' + err +
         '\n\nCheck the "Patron Form Responses" tab for a new row.');
     } catch (ignore) {}
   }
@@ -99,7 +98,7 @@ function onSponsorFormSubmit(e) {
 
 /** Daily: lists applications that are still waiting for approval. */
 function remindPendingSponsors() {
-  var sheet = sponsorSheet_();
+  var sheet = patronSheet_();
   if (!sheet) return;
   var values = sheet.getDataRange().getValues();
   if (values.length < 2) return;
@@ -123,8 +122,8 @@ function remindPendingSponsors() {
 
   MailApp.sendEmail({
     to: ALERT_EMAILS.join(','),
-    subject: 'JSSA sponsors waiting for approval (' + pending.length + ')',
-    body: 'These sponsor applications have not been approved yet:\n\n' +
+    subject: 'JSSA patrons waiting for approval (' + pending.length + ')',
+    body: 'These patron applications have not been approved yet:\n\n' +
           pending.join('\n') +
           '\n\nOpen each row, confirm payment, and set Approved / Active / ' +
           'Website Enable. You will keep getting this reminder daily until ' +
@@ -136,14 +135,14 @@ function remindPendingSponsors() {
 
 /** Sends a sample alert so you can see it works. */
 function testAlert() {
-  var sheet = sponsorSheet_();
+  var sheet = patronSheet_();
   var row = sheet ? lastSponsorRow_(sheet) : 2;
   var info = sheet ? readRow_(sheet, row) : {};
   MailApp.sendEmail({
     to: ALERT_EMAILS.join(','),
-    subject: 'TEST - JSSA sponsor alert',
+    subject: 'TEST - JSSA patron alert',
     body: 'This is only a test. When a real application arrives you will ' +
-          'get an email like this with the sponsor details.\n\n' +
+          'get an email like this with the patron details.\n\n' +
           'Most recent row in the tab: ' + (info.business || '(none)') +
           '\n' + (sheet ? sheetLink_(sheet, row) : ''),
     name: 'JSSA Website'
@@ -182,7 +181,7 @@ function removeSponsorAlerts() {
  * every new application. Safe to run any number of times.
  */
 function fixSponsorTimestamps() {
-  var sheet = sponsorSheet_();
+  var sheet = patronSheet_();
   if (!sheet) return;
   var last = sheet.getMaxRows();
   if (last < 2) return;
@@ -204,6 +203,17 @@ function fixSponsorTimestamps() {
 // helpers
 // ---------------------------------------------------------------------------
 
+/** The patron form tab, under its new name or (if not renamed yet) its old
+ *  one. null if neither exists. */
+function patronSheet_() {
+  var ss = SpreadsheetApp.getActive();
+  for (var i = 0; i < PATRON_TABS.length; i++) {
+    var sheet = ss.getSheetByName(PATRON_TABS[i]);
+    if (sheet) return sheet;
+  }
+  return null;
+}
+
 /** Finds each column by the START of its header, so small wording changes
  *  in the form (or the sheet truncating a long header) don't break it. */
 function headerIndex_(headers) {
@@ -214,6 +224,9 @@ function headerIndex_(headers) {
     }
     return -1;
   }
+  // The ID column works whether its header says "Patron ID" or "Sponsor ID".
+  var id = find('patron id');
+  if (id < 0) id = find('sponsor id');
   return {
     timestamp: find('timestamp'),
     business: find('business or individual'),
@@ -224,7 +237,7 @@ function headerIndex_(headers) {
     website: find('website url'),
     level: find('patron su'),
     payment: find('payment m'),
-    id: find('sponsor id'),
+    id: id,
     approved: find('approved')
   };
 }
