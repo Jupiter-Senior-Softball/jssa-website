@@ -652,13 +652,14 @@
 {% endif %}
 
 <!-- ============ SPONSORS ============ -->
-<section class="block sponsors" id="sponsors">
+<a id="sponsors" aria-hidden="true"></a><!-- old link name, kept so saved links still work -->
+<section class="block sponsors" id="patrons">
   <div class="wrap">
-    <div class="sec-eyebrow">Sponsor Spotlight</div>
+    <div class="sec-eyebrow">Patron Spotlight</div>
     <h2 class="sec-title">Proudly supported by our community</h2>
     <p class="sec-sub">These local businesses keep the JSSA swinging. Please support the folks who support us.</p>
     <div class="spotlight" id="spotlight">
-      <span class="tag">Sponsor Spotlight</span>
+      <span class="tag">Patron Spotlight</span>
       <div class="logo"><img id="spotImg" alt="" onerror="this.style.display='none';document.getElementById('spotFb').style.display='block'"><span class="fallback" id="spotFb" style="display:none"></span></div>
       <div class="info">
         <h3 id="spotName"></h3>
@@ -669,7 +670,7 @@
     <div class="spot-dots" id="spotDots"></div>
     <div class="logo-grid" id="logoGrid"></div>
     <div class="sponsor-cta">
-      <a class="btn btn-navy" href="https://docs.google.com/forms/d/e/1FAIpQLSe135Vaq_8gub20Th7p31d8OOtMgCzV_BA8ZtJDdGa_3mycYg/viewform">Become a sponsor</a>
+      <a class="btn btn-navy" href="https://docs.google.com/forms/d/e/1FAIpQLSe135Vaq_8gub20Th7p31d8OOtMgCzV_BA8ZtJDdGa_3mycYg/viewform">Become a patron</a>
     </div>
   </div>
 </section>
@@ -758,7 +759,7 @@
         <h4>Quick Links</h4>
         <ul>
           <li><a href="#getin">Registration</a></li>
-          <li><a href="#sponsors">Sponsors</a></li>
+          <li><a href="#patrons">Patrons</a></li>
           <li><a href="#resources">Documents</a></li>
           <li><a href="/playing-rules">Playing Rules</a></li>
           <li><a href="#people">About</a></li>
@@ -836,7 +837,7 @@
     grid.appendChild(cell);
   });
   var feat=sponsors.filter(function(s){return s.l||s.fid;}),dotsWrap=document.getElementById('spotDots'),idx=0;
-  feat.forEach(function(_,i){var d=document.createElement('button');d.setAttribute('aria-label','Sponsor '+(i+1));
+  feat.forEach(function(_,i){var d=document.createElement('button');d.setAttribute('aria-label','Patron '+(i+1));
     d.addEventListener('click',function(){idx=i;render();reset();});dotsWrap.appendChild(d);});
   function render(){var s=feat[idx],img=document.getElementById('spotImg'),fb=document.getElementById('spotFb');
     fb.textContent=s.n;wireLogo(img,fb,logoCandidates(s));

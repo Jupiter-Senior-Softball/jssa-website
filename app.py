@@ -1683,7 +1683,7 @@ def admin_board_delete(mid):
 def admin_sponsors():
     """Sponsors are managed in one place: the 'Sponsor Form Responses' tab of
     the Website Control Sheet. This page just points there."""
-    return render_template("admin/manage-sponsors.html",
+    return render_template("admin/manage-sponsors.html", page_title="Patrons",
                            sheet_url=sheets.sponsor_sheet_url(),
                            tab_name=sheets.SPONSOR_FORM_TAB)
 
