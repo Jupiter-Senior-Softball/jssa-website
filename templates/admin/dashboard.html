@@ -133,11 +133,6 @@
     <a class="mtile" href="{{ url_for('admin_sponsors') }}"><span class="ic">&#129309;</span> Patrons</a>
   </div>
 
-  <div class="manage-sub">League Documents</div>
-  <div class="manage-grid">
-    <a class="mtile" href="{{ url_for('admin_rules') }}"><span class="ic">&#128220;</span> Division Playing Rules</a>
-  </div>
-
   <div class="manage-sub">Communications</div>
   <div class="manage-grid">
     <a class="mtile" href="{{ url_for('admin_cancel') }}"
@@ -146,14 +141,15 @@
     <a class="mtile" href="{{ url_for('admin_email_usage') }}"><span class="ic">&#128202;</span> Email Send Counter</a>
   </div>
 
-  {# The two season buttons live in the "Fall and Winter League Management"
+  {# The season buttons live in the "Fall and Winter League Management"
      section. That section is built from the board's "Board Portal Links" sheet
      tab, so they are drawn first inside it when it exists. If the sheet has no
      such section (or the sheet can't be read), the section is drawn here with
-     just these two buttons so they never disappear. #}
+     just these buttons so they never disappear. #}
   {% macro season_tiles() %}
     <a class="mtile" href="{{ url_for('admin_schedule') }}"><span class="ic">&#128197;</span> Edit Schedule &amp; Umpires</a>
     <a class="mtile" href="{{ url_for('admin_archive') }}"><span class="ic">&#128451;&#65039;</span> Save / Manage Past Seasons</a>
+    <a class="mtile" href="{{ url_for('admin_rules') }}"><span class="ic">&#128220;</span> Division Playing Rules</a>
   {% endmacro %}
   {% set season_heading = "fall and winter league management" %}
   {% set found = namespace(season=false) %}
