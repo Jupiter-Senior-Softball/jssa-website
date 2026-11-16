@@ -1,6 +1,6 @@
 {% extends "page_base.html" %}
 {% block eyebrow %}Admin{% endblock %}
-{% block sub %}<p class="sub">Sponsors are managed in one place: the <strong>{{ tab_name }}</strong> tab of the Website Control Sheet.</p>{% endblock %}
+{% block sub %}<p class="sub">Patrons are managed in one place: the <strong>{{ tab_name }}</strong> tab of the Website Control Sheet.</p>{% endblock %}
 {% block body %}
 <style>
   html{font-size:112.5%}  /* larger, easier-to-read text site-wide */
@@ -18,7 +18,7 @@
 </div>
 
 <div class="formcard">
-  <h2>Open the sponsor list</h2>
+  <h2>Open the patron list</h2>
   <p><a class="btn btn-navy bigbtn" href="{{ sheet_url }}" target="_blank" rel="noopener">Open &ldquo;{{ tab_name }}&rdquo; in Google Sheets &rarr;</a></p>
   <p style="color:var(--muted)">Opens in a new tab. If it lands on a different tab, click <strong>{{ tab_name }}</strong> at the bottom of the sheet.</p>
 </div>
@@ -26,10 +26,10 @@
 <div class="formcard">
   <h2>How it works</h2>
   <ul>
-    <li><strong>Show or hide a sponsor:</strong> check or uncheck the <strong>Website Enabled</strong> box on their row. That box is the only thing that decides who appears on the homepage.</li>
+    <li><strong>Show or hide a patron:</strong> check or uncheck the <strong>Website Enabled</strong> box on their row. That box is the only thing that decides who appears on the homepage.</li>
     <li><strong>Change the order:</strong> put numbers in the <strong>Sort Order</strong> column. Lowest number shows first.</li>
-    <li><strong>Change the name, tagline, website, phone or logo:</strong> edit that sponsor&rsquo;s row.</li>
-    <li><strong>Expiration Date, Approved, Active and Paid</strong> are for the board&rsquo;s records only. They do not hide a sponsor.</li>
+    <li><strong>Change the name, tagline, website, phone or logo:</strong> edit that patron&rsquo;s row.</li>
+    <li><strong>Expiration Date, Approved, Active and Paid</strong> are for the board&rsquo;s records only. They do not hide a patron.</li>
   </ul>
   <p style="color:var(--muted)">Changes show on the homepage within a few minutes.</p>
 </div>
