@@ -50,7 +50,10 @@ check("the buttons still go to the right pages", "/admin/schedule" in fw and "/a
 check("each season button appears exactly once on the page", all(html.count(b) == 1 for b in SEASON_BUTTONS), [html.count(b) for b in SEASON_BUTTONS])
 check("the season buttons are NOT in any other section", all(b not in v for k, v in sec.items() if k != "Fall and Winter League Management" for b in SEASON_BUTTONS))
 check("the sheet's buttons still open in a new tab", 'target="_blank"' in fw)
-check("other sections are unchanged", "JSSA Pickup Game Manager" in sec.get("Pickup Game Management", "") and "Division Playing Rules" in sec.get("League Documents", ""))
+check("other sections are unchanged", "JSSA Pickup Game Manager" in sec.get("Pickup Game Management", ""))
+check("the 'League Documents' section is gone", "League Documents" not in sec and "League Documents" not in html, list(sec))
+check("Division Playing Rules moved into Fall and Winter League Management, once",
+      "Division Playing Rules" in fw and "/admin/rules" in fw and html.count("Division Playing Rules") == 1)
 
 # ---- the sheet section name is typed by people: case / spacing don't matter -
 code, html = page([{"section": "  FALL and winter league management ", "links": [{"name": "X", "url": "https://example.com"}]}])
