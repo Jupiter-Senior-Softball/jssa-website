@@ -1681,11 +1681,12 @@ def admin_board_delete(mid):
 @app.route("/admin/sponsors")
 @login_required
 def admin_sponsors():
-    """Sponsors are managed in one place: the 'Sponsor Form Responses' tab of
-    the Website Control Sheet. This page just points there."""
+    """Sponsors are managed in one place: the 'Patron Form Responses' tab of
+    the Website Control Sheet (still called 'Sponsor Form Responses' until it
+    is renamed). This page just points there."""
+    sheet_url, tab_name = sheets.sponsor_sheet_link()
     return render_template("admin/manage-sponsors.html", page_title="Patrons",
-                           sheet_url=sheets.sponsor_sheet_url(),
-                           tab_name=sheets.SPONSOR_FORM_TAB)
+                           sheet_url=sheet_url, tab_name=tab_name)
 
 
 # ----------------------------------------------------------------------------

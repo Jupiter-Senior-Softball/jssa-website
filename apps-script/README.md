@@ -232,7 +232,7 @@ The emails can't be unsent. Everything else is reversible:
 **File:** [`sponsor-alert.gs`](./sponsor-alert.gs)
 
 The sponsor form ("JSSA Advertising Patron Registration") writes new
-applications to the **Sponsor Form Responses** tab of the Control Sheet. This
+applications to the **Patron Form Responses** tab (formerly *Sponsor Form Responses*) of the Control Sheet. This
 script emails the league the moment a row arrives, and sends a daily reminder
 until each application is approved.
 

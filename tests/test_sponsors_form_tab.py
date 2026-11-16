@@ -73,9 +73,14 @@ class _WS:
     def get_all_values(self): return rows
 class _SH:
     def worksheet(self, n):
-        assert n == "Sponsor Form Responses"; return _WS()
+        if n != TAB: raise KeyError(n)
+        return _WS()
+TAB = "Sponsor Form Responses"   # not renamed yet
 sheets.CONTROL_SHEET_ID = "x"; sheets._SA_JSON = "{}"
 sheets._control_sheet = lambda readonly=True: _SH()
+sheets._sponsor_cache.update(data=None, ts=0.0)
+assert [s["n"] for s in sheets.sponsors()][0] == "Pinned First"
+TAB = "Patron Form Responses"    # after the rename
 sheets._sponsor_cache.update(data=None, ts=0.0)
 assert [s["n"] for s in sheets.sponsors()][0] == "Pinned First"
 

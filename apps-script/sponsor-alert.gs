@@ -5,7 +5,7 @@
  * Registration" form, and sends a daily reminder about any sponsor who has
  * applied but has not been approved yet.
  *
- * WHY: the form only drops a new row into the "Sponsor Form Responses" tab of
+ * WHY: the form only drops a new row into the "Patron Form Responses" tab of
  * the "JSSA Website Control Sheet _ LIVE". Nothing told anyone a row had been
  * added, so a new sponsor could sit there unnoticed.
  *
@@ -28,8 +28,18 @@
 // separated by commas.
 var ALERT_EMAILS = ['cosentinoteam@gmail.com'];
 
-// The tab the sponsor form writes to.
-var SPONSOR_TAB = 'Sponsor Form Responses';
+// The tab the patron form writes to. The new name is tried first, then the
+// old one, so this works before and after the tab is renamed.
+var SPONSOR_TABS = ['Patron Form Responses', 'Sponsor Form Responses'];
+
+function sponsorSheet_() {
+  var ss = SpreadsheetApp.getActive();
+  for (var i = 0; i < SPONSOR_TABS.length; i++) {
+    var sh = ss.getSheetByName(SPONSOR_TABS[i]);
+    if (sh) return sh;
+  }
+  return null;
+}
 
 // Remind about unapproved applications once they are this many days old.
 var REMIND_AFTER_DAYS = 1;
@@ -42,7 +52,7 @@ var REMINDER_HOUR = 8;
 function onSponsorFormSubmit(e) {
   try {
     var sheet = e && e.range && e.range.getSheet();
-    if (!sheet || sheet.getName() !== SPONSOR_TAB) return;   // some other form
+    if (!sheet || SPONSOR_TABS.indexOf(sheet.getName()) === -1) return;   // some other form
 
     fixSponsorTimestamps();            // keep the Timestamp column a real date
     var row = e.range.getRow();
@@ -81,7 +91,7 @@ function onSponsorFormSubmit(e) {
     try {
       MailApp.sendEmail(ALERT_EMAILS[0], 'JSSA sponsor alert had a problem',
         'The new-sponsor alert hit an error:\n\n' + err +
-        '\n\nCheck the "Sponsor Form Responses" tab for a new row.');
+        '\n\nCheck the "Patron Form Responses" tab for a new row.');
     } catch (ignore) {}
   }
 }
@@ -89,7 +99,7 @@ function onSponsorFormSubmit(e) {
 
 /** Daily: lists applications that are still waiting for approval. */
 function remindPendingSponsors() {
-  var sheet = SpreadsheetApp.getActive().getSheetByName(SPONSOR_TAB);
+  var sheet = sponsorSheet_();
   if (!sheet) return;
   var values = sheet.getDataRange().getValues();
   if (values.length < 2) return;
@@ -126,7 +136,7 @@ function remindPendingSponsors() {
 
 /** Sends a sample alert so you can see it works. */
 function testAlert() {
-  var sheet = SpreadsheetApp.getActive().getSheetByName(SPONSOR_TAB);
+  var sheet = sponsorSheet_();
   var row = sheet ? lastSponsorRow_(sheet) : 2;
   var info = sheet ? readRow_(sheet, row) : {};
   MailApp.sendEmail({
@@ -161,7 +171,7 @@ function removeSponsorAlerts() {
 
 
 /**
- * Fixes the Timestamp column (column A) of the Sponsor Form Responses tab.
+ * Fixes the Timestamp column (column A) of the Patron Form Responses tab.
  *
  * PROBLEM: some rows show a raw number like 46304.68456 instead of a date.
  * That number IS the date (46304.68456 = Oct 9, 2026 4:25 PM) but it was saved
@@ -172,7 +182,7 @@ function removeSponsorAlerts() {
  * every new application. Safe to run any number of times.
  */
 function fixSponsorTimestamps() {
-  var sheet = SpreadsheetApp.getActive().getSheetByName(SPONSOR_TAB);
+  var sheet = sponsorSheet_();
   if (!sheet) return;
   var last = sheet.getMaxRows();
   if (last < 2) return;

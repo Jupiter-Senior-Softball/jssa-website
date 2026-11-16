@@ -4022,7 +4022,21 @@ def survey_results():
         return _survey_cache["data"] or _empty_survey(True)
 
 
-SPONSOR_FORM_TAB = "Sponsor Form Responses"
+# The tab is being renamed from "Sponsor ..." to "Patron ...". The site looks
+# for the new name first and falls back to the old one, so it keeps working
+# before and after the tab is renamed in Google Sheets.
+SPONSOR_FORM_TAB = "Patron Form Responses"
+SPONSOR_FORM_TAB_OLD = "Sponsor Form Responses"
+
+
+def _sponsor_form_ws():
+    """The patron form tab, under its new name or (if not renamed yet) its
+    old one. Raises if neither can be opened."""
+    sh = _control_sheet(readonly=True)
+    try:
+        return sh.worksheet(SPONSOR_FORM_TAB), SPONSOR_FORM_TAB
+    except Exception:
+        return sh.worksheet(SPONSOR_FORM_TAB_OLD), SPONSOR_FORM_TAB_OLD
 
 
 def _sponsor_web_url(raw):
@@ -4127,7 +4141,7 @@ def sponsors():
             return _sponsor_cache["data"]
     try:
         if CONTROL_SHEET_ID and _SA_JSON:
-            rows = _control_sheet(readonly=True).worksheet(SPONSOR_FORM_TAB).get_all_values()
+            rows = _sponsor_form_ws()[0].get_all_values()
             out = _form_sponsors(rows)
             with _lock:
                 _sponsor_cache["data"] = out
@@ -4172,18 +4186,23 @@ def _admin_sponsors():
         return _sponsor_cache["data"] or []
 
 
-def sponsor_sheet_url():
-    """Link that opens the 'Sponsor Form Responses' tab of the control sheet —
-    the one place sponsors are managed. Falls back to the spreadsheet itself
-    if the tab can't be looked up (the board member just clicks the tab)."""
+def sponsor_sheet_link():
+    """(url, tab name) for the patron form tab of the control sheet - the one
+    place patrons are managed. The name is whichever one the tab has right now
+    (new 'Patron ...' or old 'Sponsor ...'). Falls back to the spreadsheet
+    itself if the tab can't be looked up (the board member just clicks the tab)."""
     base = "https://docs.google.com/spreadsheets/d/%s/edit" % CONTROL_SHEET_ID
     try:
         if CONTROL_SHEET_ID and _SA_JSON:
-            ws = _control_sheet(readonly=True).worksheet(SPONSOR_FORM_TAB)
-            return "%s#gid=%s" % (base, ws.id)
+            ws, name = _sponsor_form_ws()
+            return "%s#gid=%s" % (base, ws.id), name
     except Exception:
         pass
-    return base
+    return base, SPONSOR_FORM_TAB
+
+
+def sponsor_sheet_url():
+    return sponsor_sheet_link()[0]
 
 
 # ---------------------------------------------------------------------------
