@@ -36,7 +36,7 @@ assert len(plan["recipients"]) == 55
 
 def practice(remaining):
     """Simulate the updated sender script's practice-mode reply."""
-    def fake(url, subject, body, recipients, test_to=""):
+    def fake(url, subject, body, recipients, test_to="", cc=""):
         assert test_to, "practice must pass a test address"
         n = len(recipients)
         warning = ""

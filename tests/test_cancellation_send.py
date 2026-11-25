@@ -33,7 +33,7 @@ sheets.cancellation_settings = lambda: {
 sheets._sender_remaining = lambda url: 100
 
 calls = []
-def fake_post(url, subject, body, recipients, test_to=""):
+def fake_post(url, subject, body, recipients, test_to="", cc=""):
     calls.append({"url": url, "n": len(recipients)})
     return {"ok": True, "sent": len(recipients)}
 sheets._post_to_sender = fake_post

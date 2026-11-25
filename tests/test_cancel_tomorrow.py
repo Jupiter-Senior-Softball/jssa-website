@@ -115,7 +115,7 @@ check("and comes down at 1 PM tomorrow, after the games would have finished",
 sent = {}
 
 
-def fake_post(url, subject, body, recipients, test_to=""):
+def fake_post(url, subject, body, recipients, test_to="", cc=""):
     sent["subject"] = subject
     sent["recipients"] = list(recipients)
     return {"ok": True, "sent": len(recipients)}

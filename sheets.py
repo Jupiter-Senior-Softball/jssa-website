@@ -4469,7 +4469,15 @@ CANCEL_SETTINGS_SEED = [
      "Yes = send every email to the test address below instead of to players. "
      "Use this the first time."],
     ["Test address", "", "Where test-mode emails go."],
+    ["Always CC", "jssagames@gmail.com",
+     "Every cancellation email is also copied (CC) to this address. Leave it "
+     "blank for no copy. One address only. Needs the updated sender script "
+     "installed in both Gmail accounts (see apps-script/README.md)."],
 ]
+
+# Used when the settings tab has no "Always CC" row (a tab made before this
+# setting existed). Adding the row, even blank, takes over from this.
+DEFAULT_CANCEL_CC = "jssagames@gmail.com"
 
 CANCEL_LOG_TAB = "Cancellation Log"
 CANCEL_LOG_HEADERS = ["Date", "Sent at", "Sent by", "Games", "Location",
@@ -4629,6 +4637,11 @@ def _control_tab_rows(tab, headers, seed):
         return [headers] + seed
 
 
+def _looks_like_one_email(value):
+    """True for a single, plain address: no spaces, commas or semicolons."""
+    return bool(re.match(r"^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$", str(value or "")))
+
+
 def cancellation_settings():
     """The Cancellation Settings tab as a dict. Fails safe to sensible values
     so the button still posts a banner even if the tab is missing."""
@@ -4639,7 +4652,8 @@ def cancellation_settings():
             return c["data"]
 
     out = {"sender_url": "", "overflow_url": "", "cap": 100,
-           "emails_enabled": True, "test_mode": False, "test_address": ""}
+           "emails_enabled": True, "test_mode": False, "test_address": "",
+           "cc": DEFAULT_CANCEL_CC}
     try:
         if CONTROL_SHEET_ID and _SA_JSON:
             rows = _control_tab_rows(CANCEL_SETTINGS_TAB,
@@ -4660,6 +4674,14 @@ def cancellation_settings():
                 out["overflow_problem"] = out["overflow_url"]
                 out["overflow_url"] = ""
             out["test_address"] = vals.get("test address", "")
+            if "always cc" in vals:
+                cc = vals["always cc"]
+                if cc and not _looks_like_one_email(cc):
+                    # Not one real-looking address (two addresses, a typo...).
+                    # Better no copy than a message that fails to send.
+                    out["cc_problem"] = cc
+                    cc = ""
+                out["cc"] = cc
             out["emails_enabled"] = _is_true(vals.get("emails enabled", "Yes"))
             out["test_mode"] = _is_true(vals.get("test mode", "No"))
             try:
@@ -4688,15 +4710,19 @@ _CAPACITY_TTL = 60
 _capacity_cache = {}
 
 
-def _sends_needed(people):
-    """Daily sends used to email this many people (one extra per message)."""
-    return people + -(-people // SENDER_BATCH_SIZE) if people > 0 else 0
+def _sends_needed(people, cc_extra=0):
+    """Daily sends used to email this many people. Each message costs one extra
+    for the sender's own copy, and `cc_extra` more when a CC address is added
+    (the sender skips the CC when it is the sending account itself)."""
+    if people <= 0:
+        return 0
+    return people + -(-people // SENDER_BATCH_SIZE) * (1 + cc_extra)
 
 
-def _people_that_fit(remaining):
+def _people_that_fit(remaining, cc_extra=0):
     """The most people one account can email with `remaining` sends left."""
     n = max(0, min(int(remaining), SENDER_MAX_PER_CALL))
-    while n > 0 and _sends_needed(n) > remaining:
+    while n > 0 and _sends_needed(n, cc_extra) > remaining:
         n -= 1
     return n
 
@@ -4781,22 +4807,35 @@ def _effective_overflow(settings):
     return backup, ""
 
 
-def sender_capacity(url, cap, fresh=False):
+def _cc_extra(url, cc):
+    """1 if a CC to `cc` costs this account an extra send per message, else 0.
+    The sender script does not CC an address to itself (it is already the
+    "To"), so the main account (jssagames@) pays nothing; the backup pays one.
+    If we cannot tell which account this is, assume the CC is sent."""
+    if not cc:
+        return 0
+    return 0 if _sender_account(url).strip().lower() == str(cc).strip().lower() else 1
+
+
+def sender_capacity(url, cap, fresh=False, cc=""):
     """How many people this sender account can email right now. Asks the account
     how much of its daily limit is left; if it cannot be asked, assumes a
-    full day's 'Email cap'."""
+    full day's 'Email cap'. `cc` is the always-CC address, which costs the
+    backup account one extra send per message."""
     if not url:
         return 0
     now = time.time()
+    key = (url, cc or "")
     if not fresh:
         with _lock:
-            hit = _capacity_cache.get(url)
+            hit = _capacity_cache.get(key)
             if hit and now - hit[1] < _CAPACITY_TTL:
                 return hit[0]
     remaining = _sender_remaining(url)
-    fit = _people_that_fit(cap if remaining is None else remaining)
+    fit = _people_that_fit(cap if remaining is None else remaining,
+                           _cc_extra(url, cc))
     with _lock:
-        _capacity_cache[url] = (fit, now)
+        _capacity_cache[key] = (fit, now)
     return fit
 
 
@@ -5013,10 +5052,11 @@ def todays_cancellation_plan(day=None):
     # How many people the sender account(s) can actually reach right now. With
     # no sender set up yet, show the usual one-account picture.
     backup_url, same_account = _effective_overflow(settings)
-    cap = (sender_capacity(settings["sender_url"], settings["cap"])
+    cc = settings.get("cc", "")
+    cap = (sender_capacity(settings["sender_url"], settings["cap"], cc=cc)
            if settings["sender_url"] else _people_that_fit(settings["cap"]))
     if backup_url:
-        cap += sender_capacity(backup_url, settings["cap"])
+        cap += sender_capacity(backup_url, settings["cap"], cc=cc)
     recipients, over_cap = reachable[:cap], reachable[cap:]
 
     settings = dict(settings,
@@ -5089,14 +5129,18 @@ def _cancellation_message(plan, reason, location):
     return subject, body
 
 
-def _post_to_sender(url, subject, body, recipients, test_to=""):
+def _post_to_sender(url, subject, body, recipients, test_to="", cc=""):
     """Hand one batch to a league account's sender script. Returns a result
-    dict — never raises, so a mail problem can't stop the banner going up."""
+    dict — never raises, so a mail problem can't stop the banner going up.
+    `cc` is sent only when set; an older sender script simply ignores it."""
     import urllib.request
-    payload = json.dumps({
+    message = {
         "subject": subject, "body": body,
         "recipients": recipients, "test_to": test_to,
-    }).encode("utf-8")
+    }
+    if cc:
+        message["cc"] = cc
+    payload = json.dumps(message).encode("utf-8")
     try:
         req = urllib.request.Request(
             url, data=payload,
@@ -5246,20 +5290,26 @@ def send_cancellation(reason, location, sent_by, plan=None, banner_only=False,
         # main account only as far as it can really go today; the rest go to
         # the backup account. Anyone neither can take is named afterwards.
         everyone = addresses + [p["email"] for p in plan["over_cap"]]
+        cc = settings.get("cc", "")
+        cc_kw = {"cc": cc} if cc else {}     # only passed when there is one
+        if settings.get("cc_problem"):
+            notes.append('The "Always CC" address in the settings tab is not '
+                         'a single valid email address, so no copy was sent.')
         main_room = sender_capacity(settings["sender_url"], settings["cap"],
-                                    fresh=True)
+                                    fresh=True, cc=cc)
         backup_url, same_account = _effective_overflow(settings)
         if same_account:
             notes.append("The backup sender address points to the SAME Gmail "
                          "account (%s) as the main sender, so it added no "
                          "extra sends. Point the \"Overflow sender URL\" "
                          "at your other account." % same_account)
-        backup_room = (sender_capacity(backup_url, settings["cap"], fresh=True)
+        backup_room = (sender_capacity(backup_url, settings["cap"], fresh=True,
+                                       cc=cc)
                        if backup_url else 0)
         first, overflow = everyone[:main_room], everyone[main_room:]
 
         res = _post_to_sender(settings["sender_url"], subject, body,
-                              first, test_to)
+                              first, test_to, **cc_kw)
         emailed += int(res.get("sent") or 0)
 
         # Which of the main account's people did NOT get the email? When the
@@ -5291,7 +5341,7 @@ def send_cancellation(reason, location, sent_by, plan=None, banner_only=False,
         backup_sent = 0
         if backup_url and backup_list:
             res2 = _post_to_sender(backup_url, subject, body,
-                                   backup_list, test_to)
+                                   backup_list, test_to, **cc_kw)
             backup_sent = int(res2.get("sent") or 0)
             emailed += backup_sent
             if not res2.get("ok"):
