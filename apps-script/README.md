@@ -168,6 +168,26 @@ time the page is opened, pre-filled:
 | **Email cap** | `100` |
 | **Test mode** | `Yes` while testing, then `No` |
 | **Test address** | your own email, for testing |
+| **Always CC** | `jssagames@gmail.com` — every cancellation email is also copied to this address. Blank = no copy. One address only. |
+
+#### The "Always CC" copy
+
+Every real cancellation email is CC'd to the **Always CC** address (the players
+themselves are still on BCC, so nobody sees anyone else's address).
+
+- The message is sent *from* a league Gmail account and addressed *to* that same
+  account. When the sending account **is** the CC address (`jssagames@`), it
+  already gets its own copy, so no second copy is added. When the **backup**
+  account (`jssaadmin@`) sends, the CC adds `jssagames@` to the message.
+- Each CC costs the backup account one extra send per message against Gmail's
+  ~100-a-day limit. The website allows for this when it works out how many
+  people each account can take.
+- Practice runs never CC anyone; the test email just says it would.
+- The CC needs the **updated** sender script in **both** accounts. Paste the new
+  `game-cancellation-sender.gs` over the old one (keep your `SECRET`), then
+  **Deploy → Manage deployments → ✏️ → Version: New version → Deploy**. The web
+  address stays the same. Until an account has the new script it simply sends
+  without the CC.
 
 ### 3. Try it safely — the practice run
 

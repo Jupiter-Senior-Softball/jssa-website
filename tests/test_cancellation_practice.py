@@ -30,7 +30,7 @@ PRACTICE = {"sender_url": "https://games.test/exec?key=k", "overflow_url": "",
 LIVE = dict(PRACTICE, test_mode=False, test_address="")
 
 posts, banners, marked, log = [], [], [], []
-def fake_post(url, subject, body, recipients, test_to=""):
+def fake_post(url, subject, body, recipients, test_to="", cc=""):
     posts.append({"n": len(recipients), "test_to": test_to})
     # mirrors the real sender: in practice mode it reports 0 players emailed
     return {"ok": True, "sent": 0 if test_to else len(recipients)}

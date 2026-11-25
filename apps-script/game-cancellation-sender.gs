@@ -12,7 +12,11 @@
  * the SAME secret in both.
  *
  * The website never sends mail itself and never holds a mail password. It just
- * hands this script a finished message and a list of addresses.
+ * hands this script a finished message and a list of addresses. It may also
+ * hand over one "cc" address (the "Always CC" row in the Cancellation Settings
+ * tab), which is copied on every real message. The CC is skipped when it is the
+ * account's own address (that account is already the "To"), and is never sent
+ * on a practice run.
  *
  * HOW TO INSTALL (do this signed in as the account, for each of the two):
  *   1. Go to  https://script.google.com  and click  New project.
@@ -67,6 +71,16 @@ function doPost(e) {
     var testTo = String(body.test_to || '').trim();
     var list = body.recipients || [];
 
+    // Optional always-CC address. Only a single plain address is accepted;
+    // anything else is ignored rather than risking a message that won't send.
+    var cc = String(body.cc || '').trim();
+    if (!/^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/.test(cc)) cc = '';
+    var self = Session.getEffectiveUser().getEmail();
+    var ccApplies = cc !== '' && cc.toLowerCase() !== String(self).toLowerCase();
+    // Gmail counts every recipient. Each message costs one send for the copy
+    // this account keeps for itself, plus one more for the CC when it is used.
+    var perMessage = 1 + (ccApplies ? 1 : 0);
+
     if (!subject || !text) {
       return _json({ ok: false, sent: 0, error: 'missing subject or body' });
     }
@@ -103,9 +117,10 @@ function doPost(e) {
     // Only the recipient list is swapped for the single test address.
     if (testTo) {
       var warning = '';
-      if (remaining < realCount + Math.ceil(realCount / BATCH_SIZE)) {
+      var needed = realCount + Math.ceil(realCount / BATCH_SIZE) * perMessage;
+      if (remaining < needed) {
         warning = 'The REAL send would be blocked right now: it needs ' +
-                  (realCount + Math.ceil(realCount / BATCH_SIZE)) +
+                  needed +
                   ' sends but only ' + remaining +
                   ' are left today on ' + Session.getEffectiveUser().getEmail() +
                   '. Set up the backup account, or wait until tomorrow.';
@@ -121,6 +136,7 @@ function doPost(e) {
               ', from this account, in ' + testBatches + ' message' +
               (testBatches === 1 ? '' : 's') + ' of up to ' + BATCH_SIZE +
               ' (Gmail refuses more than 50 on one message).\n' +
+              (ccApplies ? 'A real send would also CC ' + cc + ' on each message.\n' : '') +
               (warning ? '\n*** ' + warning + ' ***\n' : '') +
               '\n----------------------------------------\n\n' + text
       });
@@ -134,12 +150,14 @@ function doPost(e) {
       });
     }
 
-    // Each message also costs one recipient for the copy sent to this account.
+    // Each message also costs one recipient for the copy sent to this account
+    // (and one for the CC address, when there is one).
     var batches = Math.ceil(realCount / BATCH_SIZE);
-    if (remaining < realCount + batches) {
+    var needed = realCount + batches * perMessage;
+    if (remaining < needed) {
       return _json({
         ok: false, sent: 0, remaining: remaining,
-        error: 'daily email limit too low — needed ' + (realCount + batches) +
+        error: 'daily email limit too low — needed ' + needed +
                ', only ' + remaining + ' left on this account'
       });
     }
@@ -155,12 +173,14 @@ function doPost(e) {
     for (var start = 0; start < to.length; start += BATCH_SIZE) {
       var batch = to.slice(start, start + BATCH_SIZE);
       try {
-        MailApp.sendEmail({
-          to: Session.getEffectiveUser().getEmail(),
+        var message = {
+          to: self,
           bcc: batch.join(','),
           subject: subject,
           body: text
-        });
+        };
+        if (ccApplies) message.cc = cc;
+        MailApp.sendEmail(message);
         sent += batch.length;
       } catch (err) {
         missed = missed.concat(batch);

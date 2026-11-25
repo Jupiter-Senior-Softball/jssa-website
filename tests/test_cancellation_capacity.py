@@ -56,7 +56,7 @@ assert sheets._people_that_fit(1500) == 150     # never more than one call allow
 
 # ---- 1. fresh day: 100-send main account takes 97, backup takes 33 ---------
 sent = {}
-def ok_post(url, subject, body, rec, test_to=""):
+def ok_post(url, subject, body, rec, test_to="", cc=""):
     sent[url] = list(rec); return {"ok": True, "sent": len(rec), "missed": []}
 res = run({MAIN: 100, BACKUP: 100}, ok_post)
 assert len(sent[MAIN]) == 97 and len(sent[BACKUP]) == 33, {k: len(v) for k, v in sent.items()}
@@ -72,7 +72,7 @@ print("main half used   : main 39 + backup 91 = 130, nobody missed")
 
 # ---- 3. main account refuses everything: backup picks those people up ------
 sent.clear()
-def main_dead(url, subject, body, rec, test_to=""):
+def main_dead(url, subject, body, rec, test_to="", cc=""):
     if url == MAIN:
         return {"ok": False, "sent": 0, "error": "daily email limit too low"}
     sent[url] = list(rec); return {"ok": True, "sent": len(rec), "missed": []}
@@ -85,6 +85,9 @@ print("main refuses     : backup takes over 97, the 33 it cannot hold are named"
 
 # ---- 4. the backup row holds an email address, not a web address ------------
 # Uses the REAL settings reader, fed the values exactly as they sit in the sheet.
+# The main sender is jssagames@, which is also the default CC, so the CC costs it
+# nothing extra.
+ACCOUNTS[MAIN] = "jssagames@gmail.com"
 sent.clear()
 sheets.cancellation_settings = REAL_SETTINGS
 sheets.CONTROL_SHEET_ID, sheets._SA_JSON = "x", "x"
@@ -122,7 +125,7 @@ print("\nCAPACITY CHECKS PASSED")
 # "backup" call was refused with "0 left".
 ACCOUNTS.update({MAIN: "jssaadmin@gmail.com", BACKUP: "jssaadmin@gmail.com"})
 sent = {}
-def post_same(url, subject, body, rec, test_to=""):
+def post_same(url, subject, body, rec, test_to="", cc=""):
     sent[url] = list(rec)
     return {"ok": True, "sent": len(rec), "missed": []}
 res = run({MAIN: 100, BACKUP: 100}, post_same)
@@ -143,7 +146,7 @@ assert "backup: jssaadmin@gmail.com" in res["note"], res["note"]
 print("two accounts     : 97 + 33, both named in the log")
 
 # ---- a refused backup send must NOT be reported as "went out" ---------------
-def backup_refuses(url, subject, body, rec, test_to=""):
+def backup_refuses(url, subject, body, rec, test_to="", cc=""):
     if url == BACKUP:
         return {"ok": False, "sent": 0, "error": "daily email limit too low"}
     return {"ok": True, "sent": len(rec), "missed": []}
